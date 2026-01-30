@@ -1,0 +1,146 @@
+ want you to do TWO tasks in order:
+
+TASK A — Frontend UI Upgrade (ONLY UI)
+
+Upgrade my website frontend UI by adding modern 3D-style feature animations and neon UI effects based on my references, but DO NOT change any existing backend logic or features.
+
+STRICT RULES (Must Follow)
+	1.	Do NOT change backend/payment/wallet/webhook/auth logic or database schema.
+	2.	Do NOT remove or modify any existing features.
+	3.	Only update frontend UI/UX, animations, and styling.
+	4.	Keep all existing routes, API calls, and functionality working exactly the same.
+	5.	Do NOT change API response formats or request payloads.
+
+References to Follow
+	•	Neon animated navbar underline effect (windlight style) like my screenshots.
+	•	Neon animated login UI with glowing ring effect like my screenshots.
+	•	Admin dashboard / DB style inspiration:
+https://www.facebook.com/share/v/1DEDbz5JX8/?mibextid=wwXIfr
+
+What to Implement (Frontend Only)
+
+1) Homepage Feature Section (3D Animation)
+
+Create a “Features” section with realistic database/tech-style 3D visuals:
+	•	3D-looking cards (depth, shadows, gradients)
+	•	Hover parallax tilt effect
+	•	Floating/glow particles (lightweight)
+	•	Animated icons (database, wallet, security, payments, analytics)
+	•	Smooth fade-in on scroll
+
+2) Navbar Animation
+	•	Add windlight/neon underline animation on hover + active menu item
+	•	Smooth transition and glow effect
+	•	Must work on mobile and desktop
+
+3) Login Page UI Upgrade
+	•	Add animated neon ring glow behind the login form
+	•	Keep login functionality unchanged
+	•	Improve input styling + button gradient + focus states
+
+4) Admin / Dashboard UI Look (Only UI)
+	•	Update admin/dashboard styling to look modern like DB/admin panels
+	•	Add clean sidebar + cards + tables styling
+	•	Do NOT change admin data logic or APIs
+
+Performance Requirements
+	•	Animations must be smooth and lightweight (no lag)
+	•	Prefer CSS + Framer Motion (if React)
+	•	Use Three.js ONLY if needed (avoid heavy 3D)
+
+Code Quality Requirements
+	•	Use reusable components
+	•	Keep code clean (no messy inline CSS)
+	•	Fully responsive (mobile/tablet/desktop)
+
+⸻
+
+TASK B — Publish Security Hardening (NO FEATURE CHANGE)
+
+Before publishing this website, audit the entire project and hide/secure everything that must not be public. Implement ALL items below automatically and commit the changes.
+
+1) Hide Secrets & Keys (Mandatory)
+	•	Remove ALL secrets from codebase (API keys, webhook secrets, DB URLs, tokens)
+	•	Move them into .env
+	•	Create .env.example with placeholder values
+	•	Ensure .env is in .gitignore
+	•	Scan project for: sk_, secret, token, apikey, private, bearer, HMAC, DB_URL, MONGO_URI, SUPABASE, STRIPE, FLUZ
+	•	If any secret is hardcoded, replace it with process.env.X
+
+2) Lock Down Backend Security
+	•	Add security middleware:
+	•	helmet
+	•	cors (restrict origins to production domain)
+	•	express-rate-limit
+	•	Disable stack traces in production
+	•	Add centralized error handler (no sensitive error messages to client)
+
+3) Disable Debug/Dev Endpoints
+	•	Find and remove or protect:
+	•	/test
+	•	/debug
+	•	/health (keep but minimal)
+	•	/seed
+	•	/dev
+	•	/admin (must be protected)
+	•	Any endpoint returning internal config must be removed
+
+4) Protect Admin + Internal Pages
+	•	Require authentication for:
+	•	admin routes
+	•	wallet/ledger endpoints
+	•	transaction history endpoints
+	•	Add role-based access control (admin only)
+
+5) Webhook Protection
+	•	Ensure webhook endpoint:
+	•	verifies signature (HMAC-SHA256)
+	•	is idempotent (no double credit)
+	•	logs only safe metadata (never secrets)
+	•	rejects invalid webhook requests
+
+6) Frontend Hide Internal Screens
+	•	Remove/hide:
+	•	dev panels
+	•	debug logs
+	•	test buttons
+	•	console prints in production
+	•	Ensure production build has no sensitive config exposed
+
+7) Production Config Hardening
+	•	Ensure production uses:
+	•	NODE_ENV=production
+	•	HTTPS only
+	•	secure cookies (httpOnly, secure, sameSite)
+	•	Turn off verbose logging in production
+
+8) Database Safety
+	•	Ensure no public access to:
+	•	wallet ledger tables
+	•	user data
+	•	Add server-side validation for all inputs
+	•	Add unique constraints for idempotency
+
+9) Final “Publish Checklist”
+	•	Confirm build passes
+	•	Confirm app runs with ONLY .env variables
+	•	Confirm no secrets appear in logs or frontend bundle
+	•	Provide a summary report:
+	•	what was hidden
+	•	what was secured
+	•	what was removed
+	•	what env vars are required
+
+⸻
+
+Final Output Required
+
+After finishing, provide:
+	1.	List of files changed (Frontend + Backend)
+	2.	Preview summary of homepage + login + admin UI
+	3.	Confirmation that backend features/payment/wallet/webhook logic were NOT changed
+	4.	.env.example created and secrets removed successfully
+
+Do everything automatically without asking me questions. Apply best practices for production deployment. Proceed with both tasks: UI upgrade + security hardening. Don’t change backend features.”
+
+When it finishes, send me the output screenshot/log — I’ll verify everything is correct before you publish.

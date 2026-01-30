@@ -1,0 +1,166 @@
+You are the OWNER and final production engineer of this Replit CardXC project.
+Do a complete “LIFETIME FIX AUDIT + REGRESSION RESTORE ONLY” review using the full Replit Agent chat history, checkpoints, logs, and current codebase.
+
+STRICT RULES (Must Follow):
+
+Keep ONLY the fixes already done in this project lifetime by Replit Agent.
+
+Do NOT add new features.
+
+Do NOT redesign UI.
+
+Do NOT change business logic.
+
+Do NOT refactor unnecessarily.
+
+Only restore missing fixes and permanently repair regressions.
+
+PHASE 1 — LIFETIME ADMIN DB AUDIT (CRITICAL)
+
+Identify every admin-related DB table/column used in this project (users, roles, permissions, admin_sessions, transactions, audit_logs, etc).
+
+Verify DB schema matches current code exactly (no missing columns, wrong types, wrong constraints, wrong joins).
+
+Fix any schema mismatch with MINIMAL safe changes (no breaking migrations).
+
+PHASE 2 — SUPER_ADMIN ENFORCEMENT (MANDATORY)
+
+Ensure siyamhasan4@gmail.com ALWAYS exists in the database and ALWAYS has role SUPER_ADMIN.
+
+Ensure role never downgrades on restart or seed.
+
+Ensure non-admin users are blocked from admin routes/APIs with 403.
+
+PHASE 3 — ADMIN LOGIN + ADMIN FLOW END-TO-END (UI → API → DB)
+
+Fix admin login flow completely:
+
+/admin-login UI works
+
+login request works (correct method/body)
+
+session persists after refresh
+
+/admin-dashboard loads real DB data
+
+Fix all admin features end-to-end:
+
+admin user list loads
+
+user edit/disable/delete works
+
+transaction review works
+
+audit/security logs load (if present)
+
+For every failing admin API request fix:
+
+incorrect SQL/query
+
+missing validation
+
+wrong status codes
+
+wrong response shape expected by frontend
+
+PHASE 4 — USER AUTH + PASSWORD RESET (NO ERRORS)
+
+Verify and fix USER auth: register/login/session/logout + protected routes.
+
+Verify and fix PASSWORD RESET full flow end-to-end:
+
+reset request token generation
+
+token storage + expiry
+
+reset confirm validation
+
+password hashing + save
+
+login works after reset
+
+correct errors for invalid/expired token
+
+PHASE 5 — PREVIEW + ROUTING (NO “INVALID REQUEST”)
+
+Ensure Replit Preview NEVER shows “Invalid request” or blank preview.
+
+Dev ports must remain exactly:
+
+Vite: 0.0.0.0:5000
+
+Express: 0.0.0.0:3001
+
+Proxy: /api/* → http://localhost:3001
+
+Ensure Preview webview binds to port 5000. Fix workflow if needed.
+
+Ensure / always returns frontend HTML.
+
+Ensure SPA refresh works on:
+/signin, /signup, /payments, /cards, /savings, /rewards, /admin-login, /admin-dashboard
+
+Ensure only /api/* returns JSON and unknown /api/* returns JSON 404.
+
+PHASE 6 — API QUALITY + ERROR HANDLING (MINIMAL BUT PRODUCTION SAFE)
+
+Confirm JSON parsing middleware is enabled.
+
+Confirm CORS/cookies/tokens work correctly for Replit domains.
+
+Ensure correct status codes: 200/201/400/401/403/404/500.
+
+Ensure /api/health returns exactly { "status": "ok" }.
+
+PHASE 7 — FULL FEATURE VERIFICATION (NO BREAKING CHANGES)
+
+Verify these USER features work end-to-end without crashes:
+Payments, Card Controls, Savings, Rewards, AI Chat (streaming + history).
+
+Verify ADMIN features work end-to-end without crashes.
+
+REQUIRED DEBUGGING (NO GUESSING)
+
+Check browser console errors on admin pages.
+
+Check network failed requests (400/401/403/500) and fix them.
+
+Check server logs + DB errors.
+
+Run curl tests inside Replit for proof:
+
+GET /api/health
+
+POST /api/auth/login
+
+GET /api/auth/session
+
+GET /api/admin/users (must require SUPER_ADMIN)
+
+Unknown /api/* returns JSON 404
+
+OUTPUT REQUIREMENTS (STRICT)
+
+Propose all fixes using Replit action tags only.
+
+If workflow must change, use <proposed_workflow_configuration>.
+
+If deployment must change, use <proposed_deployment_configuration>.
+
+Provide:
+
+List of admin DB errors found + exact fixes
+
+List of regressions restored
+
+Final Admin test checklist (login → dashboard → users → transactions)
+
+Final User test checklist (login → reset → features)
+
+Confirm siyamhasan4@gmail.com SUPER_ADMIN works after fix
+
+Stop only when everything works in Preview and Live with zero critical errors.
+
+DEVELOPER MODE
+
+ChatGPT can make mistakes. Check important info.

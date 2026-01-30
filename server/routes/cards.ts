@@ -1,0 +1,359 @@
+import { Router, Response } from 'express';
+import { body, validationResult } from 'express-validator';
+import { query, queryOne, transaction } from '../db/pool';
+import { AppError, asyncHandler } from '../middleware/errorHandler';
+import { authenticate, AuthenticatedRequest } from '../middleware/auth';
+import { sensitiveOpLimiter } from '../middleware/rateLimit';
+import { createAuditLog } from '../services/auditService';
+import { v4 as uuidv4 } from 'uuid';
+
+const router = Router();
+router.use(authenticate);
+
+router.get('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const cards = await query(`
+    SELECT vc.id, vc.card_name, vc.last_four, vc.card_type, vc.balance_cents, 
+           vc.spending_limit_cents, vc.status, vc.is_single_use, vc.created_at,
+           cc.frozen, cc.merchant_blocklist, cc.category_limits
+    FROM virtual_cards vc
+    LEFT JOIN card_controls cc ON cc.card_id = vc.id
+    WHERE vc.user_id = $1
+    ORDER BY vc.created_at DESC
+  `, [req.user!.id]);
+
+  res.json({ success: true, data: { cards } });
+}));
+
+router.post('/',
+  sensitiveOpLimiter,
+  body('cardName').trim().notEmpty().isLength({ max: 50 }),
+  body('cardType').optional().isIn(['VISA', 'MASTERCARD']),
+  body('spendingLimit').optional().isFloat({ min: 0 }),
+  body('isSingleUse').optional().isBoolean(),
+  body('currency').optional().isIn(['USD', 'EUR', 'GBP', 'NGN']),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(errors.array()[0].msg, 400, 'VALIDATION_ERROR');
+    }
+
+    const { cardName, cardType = 'VISA', spendingLimit, isSingleUse = false, currency = 'USD' } = req.body;
+    const spendingLimitCents = spendingLimit ? Math.round(spendingLimit * 100) : null;
+    const lastFour = Math.floor(1000 + Math.random() * 9000).toString();
+
+    const cardId = await transaction(async (client) => {
+      const cardResult = await client.query(`
+        INSERT INTO virtual_cards (user_id, card_name, last_four, card_type, spending_limit_cents, is_single_use, currency)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id
+      `, [req.user!.id, cardName, lastFour, cardType, spendingLimitCents, isSingleUse, currency]);
+
+      const cardId = cardResult.rows[0].id;
+
+      await client.query(`
+        INSERT INTO card_controls (card_id, frozen, merchant_blocklist, category_limits)
+        VALUES ($1, FALSE, '[]', '{}')
+      `, [cardId]);
+
+      return cardId;
+    });
+
+    await createAuditLog({
+      userId: req.user!.id,
+      action: 'CARD_CREATED',
+      entityType: 'virtual_card',
+      entityId: cardId,
+      newValues: { cardName, cardType, isSingleUse },
+    });
+
+    const card = await queryOne(`
+      SELECT id, card_name, last_four, card_type, balance_cents, spending_limit_cents, status, is_single_use, created_at
+      FROM virtual_cards WHERE id = $1
+    `, [cardId]);
+
+    res.status(201).json({ success: true, data: { card } });
+  })
+);
+
+router.post('/:id/freeze', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const id = req.params.id as string;
+
+  const card = await queryOne(`
+    SELECT id FROM virtual_cards WHERE id = $1 AND user_id = $2
+  `, [id, req.user!.id]);
+
+  if (!card) {
+    throw new AppError('Card not found', 404, 'NOT_FOUND');
+  }
+
+  await query(`UPDATE card_controls SET frozen = TRUE WHERE card_id = $1`, [id]);
+  await query(`UPDATE virtual_cards SET status = 'frozen', updated_at = NOW() WHERE id = $1`, [id]);
+
+  await createAuditLog({
+    userId: req.user!.id,
+    action: 'CARD_FROZEN',
+    entityType: 'virtual_card',
+    entityId: id,
+  });
+
+  res.json({ success: true, message: 'Card frozen' });
+}));
+
+router.post('/:id/unfreeze', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const id = req.params.id as string;
+
+  const card = await queryOne(`
+    SELECT id FROM virtual_cards WHERE id = $1 AND user_id = $2
+  `, [id, req.user!.id]);
+
+  if (!card) {
+    throw new AppError('Card not found', 404, 'NOT_FOUND');
+  }
+
+  await query(`UPDATE card_controls SET frozen = FALSE WHERE card_id = $1`, [id]);
+  await query(`UPDATE virtual_cards SET status = 'active', updated_at = NOW() WHERE id = $1`, [id]);
+
+  await createAuditLog({
+    userId: req.user!.id,
+    action: 'CARD_UNFROZEN',
+    entityType: 'virtual_card',
+    entityId: id,
+  });
+
+  res.json({ success: true, message: 'Card unfrozen' });
+}));
+
+router.post('/:id/spending-limit',
+  body('limit').isFloat({ min: 0 }),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const id = req.params.id as string;
+    const { limit } = req.body;
+    const limitCents = Math.round(limit * 100);
+
+    const card = await queryOne(`
+      SELECT id FROM virtual_cards WHERE id = $1 AND user_id = $2
+    `, [id, req.user!.id]);
+
+    if (!card) {
+      throw new AppError('Card not found', 404, 'NOT_FOUND');
+    }
+
+    await query(`
+      UPDATE virtual_cards SET spending_limit_cents = $1, updated_at = NOW() WHERE id = $2
+    `, [limitCents, id]);
+
+    await createAuditLog({
+      userId: req.user!.id,
+      action: 'CARD_LIMIT_UPDATED',
+      entityType: 'virtual_card',
+      entityId: id,
+      newValues: { spendingLimitCents: limitCents },
+    });
+
+    res.json({ success: true, message: 'Spending limit updated' });
+  })
+);
+
+router.post('/:id/block-merchant',
+  body('merchant').trim().notEmpty(),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const id = req.params.id as string;
+    const { merchant } = req.body;
+
+    const card = await queryOne(`
+      SELECT vc.id, cc.merchant_blocklist
+      FROM virtual_cards vc
+      LEFT JOIN card_controls cc ON cc.card_id = vc.id
+      WHERE vc.id = $1 AND vc.user_id = $2
+    `, [id, req.user!.id]);
+
+    if (!card) {
+      throw new AppError('Card not found', 404, 'NOT_FOUND');
+    }
+
+    const blocklist = JSON.parse(card.merchant_blocklist || '[]');
+    if (!blocklist.includes(merchant)) {
+      blocklist.push(merchant);
+    }
+
+    await query(`
+      UPDATE card_controls SET merchant_blocklist = $1 WHERE card_id = $2
+    `, [JSON.stringify(blocklist), id]);
+
+    await createAuditLog({
+      userId: req.user!.id,
+      action: 'MERCHANT_BLOCKED',
+      entityType: 'virtual_card',
+      entityId: id,
+      newValues: { merchant },
+    });
+
+    res.json({ success: true, message: 'Merchant blocked', blocklist });
+  })
+);
+
+router.post('/:id/unblock-merchant',
+  body('merchant').trim().notEmpty(),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const id = req.params.id as string;
+    const { merchant } = req.body;
+
+    const card = await queryOne(`
+      SELECT vc.id, cc.merchant_blocklist
+      FROM virtual_cards vc
+      LEFT JOIN card_controls cc ON cc.card_id = vc.id
+      WHERE vc.id = $1 AND vc.user_id = $2
+    `, [id, req.user!.id]);
+
+    if (!card) {
+      throw new AppError('Card not found', 404, 'NOT_FOUND');
+    }
+
+    let blocklist = JSON.parse(card.merchant_blocklist || '[]');
+    blocklist = blocklist.filter((m: string) => m !== merchant);
+
+    await query(`
+      UPDATE card_controls SET merchant_blocklist = $1 WHERE card_id = $2
+    `, [JSON.stringify(blocklist), id]);
+
+    res.json({ success: true, message: 'Merchant unblocked', blocklist });
+  })
+);
+
+router.post('/:id/category-limit',
+  body('category').isIn(['shopping', 'food', 'transport', 'entertainment', 'utilities', 'travel', 'other']),
+  body('limit').isFloat({ min: 0 }),
+  body('period').isIn(['daily', 'weekly', 'monthly']),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const id = req.params.id as string;
+    const { category, limit, period } = req.body;
+    const limitCents = Math.round(limit * 100);
+
+    const card = await queryOne(`
+      SELECT vc.id, cc.category_limits
+      FROM virtual_cards vc
+      LEFT JOIN card_controls cc ON cc.card_id = vc.id
+      WHERE vc.id = $1 AND vc.user_id = $2
+    `, [id, req.user!.id]);
+
+    if (!card) {
+      throw new AppError('Card not found', 404, 'NOT_FOUND');
+    }
+
+    const limits = JSON.parse(card.category_limits || '{}');
+    limits[category] = { limitCents, period, spentCents: 0 };
+
+    await query(`
+      UPDATE card_controls SET category_limits = $1 WHERE card_id = $2
+    `, [JSON.stringify(limits), id]);
+
+    await createAuditLog({
+      userId: req.user!.id,
+      action: 'CATEGORY_LIMIT_SET',
+      entityType: 'virtual_card',
+      entityId: id,
+      newValues: { category, limitCents, period },
+    });
+
+    res.json({ success: true, message: 'Category limit set', categoryLimits: limits });
+  })
+);
+
+router.get('/:id/transactions', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const id = req.params.id as string;
+
+  const card = await queryOne(`
+    SELECT id FROM virtual_cards WHERE id = $1 AND user_id = $2
+  `, [id, req.user!.id]);
+
+  if (!card) {
+    throw new AppError('Card not found', 404, 'NOT_FOUND');
+  }
+
+  const transactions = await query(`
+    SELECT id, amount_cents, currency, merchant, category, status, created_at
+    FROM card_transactions
+    WHERE card_id = $1
+    ORDER BY created_at DESC
+    LIMIT 100
+  `, [id]);
+
+  res.json({ success: true, data: { transactions } });
+}));
+
+router.post('/:id/top-up',
+  sensitiveOpLimiter,
+  body('amount').isFloat({ min: 1 }),
+  body('currency').isIn(['USD', 'EUR', 'GBP', 'NGN']),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const id = req.params.id as string;
+    const { amount, currency } = req.body;
+    const amountCents = Math.round(amount * 100);
+
+    const card = await queryOne<any>(`
+      SELECT id, currency FROM virtual_cards WHERE id = $1 AND user_id = $2
+    `, [id, req.user!.id]);
+
+    if (!card) {
+      throw new AppError('Card not found', 404, 'NOT_FOUND');
+    }
+
+    const wallet = await queryOne<any>(`
+      SELECT balance_cents FROM wallets WHERE user_id = $1 AND currency = $2
+    `, [req.user!.id, currency]);
+
+    if (!wallet || Number(wallet.balance_cents) < amountCents) {
+      throw new AppError('Insufficient wallet balance', 400, 'INSUFFICIENT_BALANCE');
+    }
+
+    await transaction(async (client) => {
+      await client.query(`
+        UPDATE wallets SET balance_cents = balance_cents - $1 WHERE user_id = $2 AND currency = $3
+      `, [amountCents, req.user!.id, currency]);
+
+      await client.query(`
+        UPDATE virtual_cards SET balance_cents = balance_cents + $1, updated_at = NOW() WHERE id = $2
+      `, [amountCents, id]);
+
+      await client.query(`
+        INSERT INTO transactions (user_id, type, status, amount_cents, currency, description)
+        VALUES ($1, 'transfer_out', 'SUCCESS', $2, $3, 'Card top-up')
+      `, [req.user!.id, amountCents, currency]);
+    });
+
+    await createAuditLog({
+      userId: req.user!.id,
+      action: 'CARD_TOP_UP',
+      entityType: 'virtual_card',
+      entityId: id,
+      newValues: { amountCents, currency },
+    });
+
+    res.json({ success: true, message: 'Card topped up successfully' });
+  })
+);
+
+router.delete('/:id', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const id = req.params.id as string;
+
+  const card = await queryOne(`
+    SELECT id FROM virtual_cards WHERE id = $1 AND user_id = $2
+  `, [id, req.user!.id]);
+
+  if (!card) {
+    throw new AppError('Card not found', 404, 'NOT_FOUND');
+  }
+
+  await query(`UPDATE virtual_cards SET status = 'cancelled', updated_at = NOW() WHERE id = $1`, [id]);
+
+  await createAuditLog({
+    userId: req.user!.id,
+    action: 'CARD_CANCELLED',
+    entityType: 'virtual_card',
+    entityId: id,
+  });
+
+  res.json({ success: true, message: 'Card cancelled' });
+}));
+
+export { router as cardsRouter };

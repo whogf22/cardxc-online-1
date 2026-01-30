@@ -1,0 +1,65 @@
+You are a Principal Frontend Engineer + UI/UX Expert + Full-Stack FinTech Engineer.
+My requirement: This web app must look perfect and work perfectly on Mobile + Desktop with no UI break, no overlap, and no errors, while keeping all existing features unchanged.
+
+IMPORTANT: Do not ask me questions. I am not available. Fix everything automatically.
+
+FIGMA DESIGN REFERENCE (MATCH CLOSELY):
+https://www.figma.com/file/ikE2HGMsdg82npyj4FW0ur?type=design
+
+STRICT RULES
+	1.	Do NOT remove any feature or backend logic.
+	2.	Do NOT delete any existing flows (user/admin/ledger).
+	3.	Only improve UI/UX + responsiveness + fix bugs/errors.
+	4.	If any error occurs due to changes, fix it immediately.
+
+TASK — FULL RESPONSIVE FIX (WHOLE WEBSITE)
+
+Audit and fix UI for ALL pages including User + Admin:
+	•	Navbar / Sidebar / Tabs (must not overlap on mobile)
+	•	Dashboard cards, tables, forms, modals
+	•	Buttons, inputs, spacing, typography
+	•	Mobile menu behavior
+	•	Layout alignment and consistent padding/margins
+
+RESPONSIVE REQUIREMENTS (MUST PASS)
+
+Make UI perfect for these breakpoints:
+	•	Mobile: 320px, 360px, 375px, 414px
+	•	Tablet: 768px
+	•	Desktop: 1024px, 1280px, 1440px
+
+Ensure:
+	•	No horizontal overflow (no unwanted x-scroll)
+	•	No text overlap
+	•	No icon overlap
+	•	No clipped buttons
+	•	Tables become responsive (scrollable or card view)
+	•	Forms remain usable on mobile
+	•	Modals fit screen properly
+	•	Consistent spacing and fonts as per Figma
+
+IMPLEMENTATION RULES
+	•	Replace fixed widths with responsive flex/grid
+	•	Use max-width, min-width, and fluid layouts
+	•	Add proper media queries or responsive utility classes
+	•	Add safe overflow-x: auto only where needed (tables/tabs)
+	•	Fix z-index issues for header/menu/modals
+	•	Add loading/empty/error states where missing
+
+QUALITY GATE (ZERO ERRORS)
+
+After changes ensure:
+	•	Frontend has zero console errors
+	•	App builds successfully
+	•	All pages render correctly on mobile + desktop
+	•	All existing features still work the same
+
+FINAL OUTPUT
+
+Provide:
+	1.	What UI issues were found
+	2.	What was fixed
+	3.	Files changed
+	4.	How to verify mobile + desktop view
+
+Start now. Fix full website responsiveness and match Figma. Do not ask questions.

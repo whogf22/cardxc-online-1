@@ -1,0 +1,78 @@
+You are the Replit Agent for this CardXC project.
+
+STRICT REQUIREMENT:
+There must be ONLY ONE privileged role: SUPER_ADMIN.
+There must be NO "admin" role, no "admin" DB, no separate admin database.
+If any separate admin/super-admin database or table exists, merge/fix it into ONE database and ONE SUPER_ADMIN system.
+
+DO NOT:
+- redesign UI
+- remove features
+- refactor unnecessarily
+- change business logic
+- add new features
+
+ONLY:
+- restore lifetime fixes
+- fix broken flows
+- fix DB/schema/auth issues
+- ensure production + preview stability
+
+MUST DO (END TO END):
+
+A) DATABASE AUDIT + FIX (SUPER_ADMIN ONLY)
+1. Scan entire codebase and list all tables/columns used for privileged access:
+   users, roles, permissions, sessions, admin_sessions, audit_logs, transactions, etc.
+2. If multiple role systems exist (admin + super_admin), remove/disable admin role usage and keep ONLY SUPER_ADMIN.
+3. Ensure schema matches queries:
+   - fix missing columns
+   - wrong column types
+   - broken joins
+   - wrong constraints
+   - failing migrations
+4. Ensure siyamhasan4@gmail.com is ALWAYS SUPER_ADMIN:
+   - persist after restart/redeploy
+   - never downgrade
+   - auto-bootstrap on server start if missing
+
+B) SUPER_ADMIN LOGIN FLOW FIX (UI → API → DB)
+1. /admin-login page must work as SUPER_ADMIN login page (do not rename UI).
+2. Login API must work and return correct status codes + response shape.
+3. Session must persist after refresh in Preview and Live.
+4. SUPER_ADMIN dashboard must load real data from DB without crashing.
+
+C) SUPER_ADMIN PANEL (NO ADMIN WORD)
+Panel must work end-to-end:
+- user list loads
+- user edit/disable/delete works (if exists)
+- transaction review loads (if exists)
+- audit/security logs load (if exists)
+- system health/status loads
+All these must work from UI → API → DB.
+
+D) SECURITY (BLOCK NORMAL USERS)
+- Any non-SUPER_ADMIN must be blocked from all privileged routes/APIs with 403.
+- Ensure protected endpoints validate session correctly.
+- Ensure no endpoint leaks privileged data.
+
+E) PREVIEW + ROUTING + LIVE STABILITY (NO INVALID REQUEST / NO BLANK PREVIEW)
+1. Preview must show frontend properly.
+2. / must always return frontend HTML.
+3. SPA refresh must work for /signin, /signup, /payments, /admin-login, /admin-dashboard.
+4. /api/* must return JSON only.
+5. Unknown /api/* must return JSON 404.
+6. Add/ensure /api/health returns EXACTLY: { "status": "ok" }
+
+F) REQUIRED DEBUGGING (NO GUESSING)
+- Check browser console errors for /admin-dashboard crash
+- Check failed network requests (400/401/403/500)
+- Check server logs
+- Check DB errors
+- Run curl tests for /api/health, /api/auth/session, privileged endpoints
+
+OUTPUT REQUIREMENTS:
+- Use Replit action tags only for edits
+- Provide list of all issues found + exact fixes
+- Provide final checklist to test:
+  SUPER_ADMIN login → dashboard → users → transactions → logs
+- Confirm SUPER_ADMIN (siyamhasan4@gmail.com) works permanently

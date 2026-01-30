@@ -1,0 +1,95 @@
+Do a full “Lifetime Regression Restore + Production Fix + SUPER_ADMIN Only Enforcement” audit for this CardXC project using the current codebase and ALL previous Replit Agent fixes already done in this repl.
+
+STRICT RULES:
+
+Do NOT redesign UI.
+
+Do NOT add new features unless it was already planned in earlier chat history and partially implemented.
+
+Do NOT refactor unnecessarily.
+
+Only restore missing previous fixes + fix current bugs permanently with minimal code changes.
+
+This project must have ONLY ONE role: SUPER_ADMIN. There must be NO ADMIN role anywhere in DB or code.
+
+siyamhasan4@gmail.com must ALWAYS be SUPER_ADMIN forever and never downgrade.
+
+MUST FIX FIRST (Critical):
+
+Replit Preview must ALWAYS work: no “Invalid request”, no blank preview.
+
+Dev ports must remain: Vite 5000, Express 3001
+
+Vite must proxy /api/* → http://localhost:3001
+
+Replit Run button must open Preview on port 5000
+
+Fix Logout fully (User + SUPER_ADMIN):
+
+Frontend logout must call /api/auth/logout (fallback to /api/auth/signout)
+
+Backend must clear auth cookies correctly (same cookie name/options/path/domain)
+
+Session must be removed immediately and after refresh user stays logged out
+
+Fix Email Delivery (Signup/Signin mail not going to Gmail inbox):
+
+Investigate SMTP error 535 5.7.8 authentication failed in logs
+
+Ensure SMTP config supports both 587 STARTTLS and 465 SSL
+
+Add a /api/health/email test endpoint for SUPER_ADMIN only to verify SMTP sending
+
+Ensure welcome/reset emails are sent successfully and do not silently fail
+
+Improve email deliverability headers (from name, reply-to, proper subject)
+
+Fix Google Login fully (Signin/Signup):
+
+Implement end-to-end Google OAuth using GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET from Replit Secrets
+
+Add correct redirect URI handling for Replit domain + cardxc.online
+
+After Google login: create user if not exists, start session, redirect to dashboard
+
+SUPER_ADMIN email (siyamhasan4@gmail.com) must auto-enforce role SUPER_ADMIN on login
+
+SUPER_ADMIN Panel / Admin DB Audit (No Admin role):
+
+Perform full DB schema vs code verification for all SUPER_ADMIN related features
+
+Verify SUPER_ADMIN can load dashboard data, users list, transactions, audit logs
+
+Fix any failing endpoints (400/401/403/500) with correct status codes and response shapes
+
+Non-authenticated users must get 401, normal users must get 403 for SUPER_ADMIN endpoints
+
+REQUIRED DEBUGGING (No guessing):
+
+Check browser console errors for /admin-dashboard and login pages
+
+Check Network tab failures (status codes)
+
+Check server logs + DB errors
+
+Run curl tests for:
+
+/api/health
+
+/api/auth/session
+
+/api/auth/signin
+
+/api/auth/logout
+
+/api/super-admin/* endpoints
+
+OUTPUT REQUIRED:
+
+List every bug found + exact fix applied (file names + short diff summary)
+
+Final verification table: Preview OK, SPA refresh OK, /api/health OK, Logout OK, SMTP OK, Google Login OK, SUPER_ADMIN role OK
+
+Final SUPER_ADMIN test checklist: login → dashboard → users → transactions → logout
+
+Confirm production build works: npm run build then npm run start serves dist/ + API on PORT

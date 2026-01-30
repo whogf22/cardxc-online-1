@@ -1,0 +1,193 @@
+You are Replit Assistant. Do a complete end-to-end production-grade audit of this CardXC project and fix every issue related to:
+
+Admin login flow
+
+User login flow
+
+Password reset flow
+
+Admin DB role flow
+
+User DB flow
+
+All feature pages (Payments, Cards, Savings, Rewards, AI Chat)
+
+Preview + Production stability
+
+You MUST review the full Replit Agent chat history, checkpoints, and all previously applied fixes, then re-apply any missing fixes that were reverted.
+
+1) ADMIN ACCOUNT REQUIREMENT (MANDATORY)
+
+Ensure this account always exists and always has SUPER_ADMIN role:
+
+Email: siyamhasan4@gmail.com
+
+Password: baby69@D
+
+Role: SUPER_ADMIN
+
+Implementation rules:
+
+Do NOT hardcode the password in frontend.
+
+Store password hashed using bcrypt.
+
+Ensure bootstrapping/upsert runs safely at server startup:
+
+If user exists → ensure role is SUPER_ADMIN
+
+If missing → create it with SUPER_ADMIN role
+
+Ensure it works in BOTH dev database and production database.
+
+2) AUTH FLOWS (MUST FIX)
+USER AUTH
+
+Register → works
+
+Login → works
+
+Session persistence → works after refresh
+
+Logout → works
+
+Protected user routes require login
+
+ADMIN AUTH
+
+Admin login page (/admin-login) loads correctly
+
+Admin login works for SUPER_ADMIN
+
+Admin session persists after refresh
+
+Admin dashboard loads (/admin-dashboard)
+
+Normal users must be blocked from admin routes (403)
+
+3) PASSWORD RESET FLOW (MUST FIX FULLY)
+
+Audit and fix full reset flow:
+
+Request password reset (email input)
+
+Generate reset token properly
+
+Store token safely (hashed recommended)
+
+Token expiry works
+
+Reset password endpoint verifies token + expiry
+
+New password gets hashed and saved
+
+User can login with new password immediately
+
+Correct error messages for invalid/expired tokens
+
+4) FRONTEND + BACKEND INTEGRATION (MUST VERIFY)
+
+Ensure frontend API calls hit correct base URL in:
+
+Preview/dev
+
+Production/live
+
+Ensure /api/* returns JSON only
+
+Ensure SPA routes return HTML fallback properly
+
+Ensure page refresh works on:
+/signin /signup /payments /cards /savings /rewards /admin-login /admin-dashboard
+
+5) ALL FEATURE FLOWS (MUST TEST END-TO-END)
+USER FEATURES
+
+Payments flow API + UI works
+
+Card Controls API + UI works
+
+Savings flow API + UI works
+
+Rewards flow API + UI works
+
+AI CHAT
+
+Streaming works without errors
+
+Chat history loads properly
+
+No UI crash / console errors
+
+Backend OpenAI integration uses Replit Secrets (no hardcoded key)
+
+ADMIN FEATURES
+
+User management works
+
+Transaction review works
+
+Audit/security logs work (if present)
+
+6) REQUIRED DEBUGGING (DO NOT SKIP)
+
+Check server logs
+
+Check browser console errors
+
+Verify express.json middleware is enabled
+
+Verify CORS settings work for *.replit.dev and *.replit.app
+
+Verify cookies SameSite/Secure config is correct for Replit
+
+Run curl tests inside Replit for:
+
+GET /api/health
+
+POST /api/auth/login
+
+GET /api/auth/session
+
+GET /api/admin/users (must require SUPER_ADMIN)
+
+Fix status codes:
+200/201 success, 400 validation, 401 unauthenticated, 403 forbidden, 404 not found
+
+7) OUTPUT REQUIREMENTS
+
+Apply fixes with minimal changes
+
+Do not remove any existing feature
+
+Propose ALL required edits using Replit action tags only
+
+If packages are missing, install only if required
+
+After fixing, provide:
+
+Full bug list found
+
+What was fixed (file-by-file)
+
+Final test checklist (user + admin)
+
+Deployment config (Autoscale)
+
+Confirm SUPER_ADMIN login works:
+siyamhasan4@gmail.com
+ : baby69@D
+
+Also provide screenshots (or clear proof via logs/curl output) that:
+
+Admin login works
+
+Admin dashboard loads
+
+User login works
+
+Password reset works
+
+/ loads correctly in Preview and Production
+
+Stop only when everything is stable and working.

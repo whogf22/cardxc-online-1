@@ -1,0 +1,105 @@
+/* CardXC Premium 3D Design System - Version 160.0 */
+
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-dark-bg: #030303;
+  --color-dark-card: #0d0d0d;
+  --color-dark-elevated: #141414;
+  --color-dark-border: #1a1a1a;
+  --color-dark-hover: #1f1f1f;
+  --color-cream: #f7dccc;
+  --color-cream-light: #fdfaf5;
+  --color-cream-dark: #e8b48a;
+  --color-white: #ffffff;
+  --color-muted: #737373;
+  
+  /* 3D Variables */
+  --z-depth-1: perspective(1000px) translateZ(10px);
+  --z-depth-2: perspective(1000px) translateZ(25px);
+  --shadow-3d: 0 20px 40px -10px rgba(0, 0, 0, 0.8), 0 5px 15px -5px rgba(247, 220, 204, 0.1);
+}
+
+@layer base {
+  body {
+    @apply antialiased overflow-x-hidden;
+    font-family: 'Satoshi', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background-color: var(--color-dark-bg);
+    color: var(--color-white);
+  }
+  
+  *:focus-visible {
+    outline: 2px solid var(--color-cream);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .card-3d {
+    @apply relative bg-dark-card rounded-3xl border border-dark-border shadow-3d-depth transition-all duration-500 transform-gpu;
+    transform: perspective(1000px) rotateX(0deg) rotateY(0deg);
+  }
+
+  .card-3d:hover {
+    @apply shadow-3d-float border-cream-300/20;
+    transform: perspective(1000px) rotateX(2deg) rotateY(-1deg) translateY(-8px);
+  }
+
+  .card-3d::before {
+    content: '';
+    @apply absolute inset-0 rounded-3xl bg-gradient-to-br from-white/5 to-transparent pointer-events-none opacity-0 transition-opacity duration-500;
+  }
+
+  .card-3d:hover::before {
+    @apply opacity-100;
+  }
+
+  .glass-3d {
+    @apply bg-dark-card/40 backdrop-blur-2xl rounded-3xl border border-white/10 shadow-3d-depth;
+  }
+
+  .btn-3d {
+    @apply relative px-8 py-4 bg-gradient-to-r from-cream-300 to-cream-400 text-dark-bg font-bold rounded-2xl transition-all duration-300 shadow-glow-sm hover:shadow-3d-float active:shadow-3d-pressed active:scale-95 transform-gpu overflow-hidden;
+  }
+
+  .btn-3d::after {
+    content: '';
+    @apply absolute inset-0 bg-white/20 translate-y-full transition-transform duration-300;
+  }
+
+  .btn-3d:hover::after {
+    @apply translate-y-0;
+  }
+
+  .input-3d {
+    @apply w-full px-5 py-4 bg-dark-elevated border border-dark-border rounded-2xl text-white placeholder:text-neutral-500 focus:border-cream-300/50 focus:ring-4 focus:ring-cream-300/10 shadow-inner transition-all duration-200;
+  }
+
+  .input-dark {
+    @apply w-full px-5 py-4 bg-dark-elevated border border-dark-border rounded-2xl text-white placeholder:text-neutral-500 focus:border-cream-300/50 focus:ring-4 focus:ring-cream-300/10 transition-all duration-200;
+  }
+
+  .depth-text {
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  }
+
+  .stat-card-3d {
+    @apply bg-dark-card rounded-3xl border border-dark-border p-6 shadow-3d-depth hover:shadow-3d-float transition-all duration-500 transform-gpu hover:-translate-y-2;
+    background-image: var(--backgroundImage-3d-mesh);
+  }
+}
+
+@layer utilities {
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+}

@@ -1,0 +1,66 @@
+Finalize CardXC production payment system with strict WHITE-LABEL Fluz checkout, unique transaction display names, auto wallet credit, and fix any SUPER_ADMIN DB errors.
+
+ABSOLUTE RULES:
+- Do NOT redesign UI
+- Do NOT add unnecessary new features
+- Do NOT remove existing features
+- Minimal changes only
+- Keep existing business logic unchanged
+- Only roles: USER and SUPER_ADMIN (NO ADMIN role anywhere)
+- Never show “Fluz” or any third-party/provider name anywhere in UI, API responses, logs returned to frontend, or DB table names visible to UI
+- All provider credentials must stay in Replit Secrets only
+
+WHITE-LABEL REQUIREMENTS:
+- API responses must return ONLY: { success:true, data:{ checkoutUrl } }
+- DB tables must use generic names only (example: card_orders, payment_webhook_logs)
+- No provider-specific fields exposed to frontend
+
+TASK 1 — Card Checkout (Backend Only)
+- Implement POST /api/checkout/card
+  - auth required
+  - validate amount/currency/merchantName
+  - create order in card_orders with status=PENDING
+  - call provider API using secrets (FLUZ_API_KEY, FLUZ_USER_ID, FLUZ_BUSINESS_ACCOUNT_ID, FLUZ_BASE_URL)
+  - return ONLY checkoutUrl (no provider details)
+
+TASK 2 — Webhook Confirm + Auto Wallet Add
+- Implement POST /api/webhooks/payment
+  - verify signature using FLUZ_WEBHOOK_SECRET (if available)
+  - idempotent processing (must prevent duplicate wallet credits)
+  - update card_orders status COMPLETED/FAILED
+  - insert transaction row
+  - auto-credit wallet/ledger ONLY when COMPLETED
+  - log webhook events into payment_webhook_logs
+
+TASK 3 — Unique Transaction Name Per Transaction
+- Ensure every transaction displays a different merchant name in UI:
+  - keep merchant_name original
+  - generate merchant_display_name per transaction:
+    "{merchant_name} • {last4(transaction_id)}"
+  - API returns merchant_display_name
+  - frontend displays merchant_display_name || merchant_name
+
+TASK 4 — SUPER_ADMIN Monitoring + Admin DB Error Fix
+- Fix all SUPER_ADMIN DB errors (schema mismatch, query errors, wrong joins, missing columns)
+- Ensure SUPER_ADMIN can:
+  - view card_orders
+  - view payment_webhook_logs
+  - retry failed orders safely (if already present, keep it)
+- Non-superadmin must get 403 on all superadmin endpoints
+
+REQUIRED DEBUGGING (NO GUESSING):
+- Check browser console + failed network requests
+- Check server logs + DB errors
+- Run API tests for:
+  /api/health -> { "status":"ok" }
+  POST /api/checkout/card
+  POST /api/webhooks/payment
+  transactions list shows unique merchant_display_name
+- Ensure /api/* always returns JSON only
+
+OUTPUT REQUIREMENTS:
+- Use Replit action tags only
+- List exact issues found + exact fixes
+- Provide final checklist:
+  USER: checkout → success → wallet credited → unique merchant name
+  SUPER_ADMIN: orders → logs → no duplicate credits → retry failed

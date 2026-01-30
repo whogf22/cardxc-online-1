@@ -1,0 +1,137 @@
+You are a Principal Full-Stack FinTech Engineer + Security Architect + UI/UX Expert.
+Your job is to fully audit, repair, upgrade, and improve this entire project end-to-end until it is stable and production-ready.
+
+CRITICAL REQUIREMENT
+
+I am not available for questions. Do everything automatically using best engineering judgment.
+If something is missing, implement a sensible default.
+
+DESIGN REFERENCE (FIGMA)
+
+Use this Figma design as the UI/UX source of truth and match it as closely as possible:
+https://www.figma.com/file/ikE2HGMsdg82npyj4FW0ur?type=design
+
+SCOPE (CHECK EVERYTHING)
+
+Audit and fix all layers:
+	•	Frontend (all pages, components, state, routing, forms, UI responsiveness)
+	•	Backend (routes, controllers, services, middleware, auth, validation)
+	•	Database (schema, migrations, indexes, constraints, relations)
+	•	APIs (request/response contracts, error handling, status codes)
+	•	Ledger/Wallet/Transactions (financial correctness + reconciliation)
+	•	Admin panel + user flows
+	•	Security (OWASP + fintech-grade requirements)
+	•	Performance (slow queries, caching, payload size)
+	•	Deployment/build config (env vars, scripts, production readiness)
+
+STEP 1 — FULL REPO INSPECTION
+	1.	Scan the entire repo structure.
+	2.	Identify stack/frameworks used.
+	3.	Detect broken builds, missing env vars, missing configs.
+
+STEP 2 — REPORT ISSUES FIRST
+
+Create a structured issue report grouped by:
+	•	Build/compile errors
+	•	Runtime errors
+	•	API issues
+	•	Database issues
+	•	Ledger/accounting issues
+	•	UI/UX issues
+	•	Security issues
+	•	Performance issues
+	•	Missing features / missing flows
+
+STEP 3 — FIX BACKEND COMPLETELY
+
+Implement/repair the following:
+	•	Central error handler with consistent JSON error format
+	•	Validation on every endpoint (schema-based)
+	•	Correct HTTP status codes
+	•	Secure authentication (JWT/session best practice)
+	•	Authorization: RBAC roles (USER / ADMIN / SUPER_ADMIN)
+	•	Secure password hashing and safe auth flows
+	•	Rate limiting + brute force protection
+	•	Secure CORS + security headers
+	•	Request logging + error logging
+	•	Audit logging for sensitive actions
+
+STEP 4 — FIX LEDGER / FINANCIAL LOGIC COMPLETELY
+
+Ensure fintech-grade correctness:
+	•	Implement double-entry ledger rules
+	•	Ensure sum(debits) == sum(credits) for every transaction
+	•	Store money as integer cents (no floating point)
+	•	Prevent negative balances unless explicitly allowed
+	•	Add transaction atomicity using DB transactions
+	•	Add idempotency keys for transfers/payments to prevent duplicates
+	•	Add reconciliation checks and fix any mismatched balances
+	•	Ensure ledger is concurrency-safe (no race condition double spend)
+
+STEP 5 — FIX APIs END-TO-END
+	•	Fix broken endpoints
+	•	Standardize responses (success + error)
+	•	Fix payload validation
+	•	Fix pagination, filtering, sorting where needed
+	•	Add retry-safe behavior for payment-related calls
+	•	Ensure frontend API integration matches backend contracts
+
+STEP 6 — FIX FRONTEND + UI/UX (MATCH FIGMA)
+	•	Fix all UI bugs and broken pages
+	•	Implement clean loading states, empty states, and error states
+	•	Improve form validation and user feedback
+	•	Ensure mobile responsiveness
+	•	Improve UX flows for fintech actions (deposit, withdraw, transfer, history, KYC if present)
+	•	Match layout/components to Figma as closely as possible
+
+STEP 7 — ADD MISSING FLOWS (AUTO)
+
+If missing, add complete flows for both USER and ADMIN:
+User flow:
+	•	Sign up / login / forgot password
+	•	Dashboard overview
+	•	Wallet balance + transaction history
+	•	Transfer money (with confirmation + receipt)
+	•	Profile/settings
+
+Admin flow:
+	•	Admin login
+	•	Admin dashboard (KPIs, total volume, users, flagged activity)
+	•	User management (view/disable/enable)
+	•	Transaction monitoring + search + filters
+	•	Manual adjustments (protected + audit logged)
+	•	Role management
+
+STEP 8 — DATABASE HARDENING
+	•	Fix schema and relations
+	•	Add indexes for performance
+	•	Add unique constraints for idempotency keys and transaction references
+	•	Prevent orphan records
+	•	Add migrations if needed
+
+STEP 9 — UPGRADE DEPENDENCIES SAFELY
+	•	Upgrade outdated dependencies
+	•	Fix breaking changes
+	•	Remove unused dependencies
+	•	Ensure builds pass after upgrades
+
+STEP 10 — QUALITY GATES (MUST PASS)
+
+After fixes, run and ensure:
+	•	App builds successfully
+	•	Backend starts with no errors
+	•	Frontend runs with no errors
+	•	Core flows work end-to-end
+	•	Ledger transactions are consistent and safe
+	•	No critical security issues remain
+
+FINAL OUTPUT REQUIRED
+
+When finished, output:
+	1.	Summary of everything fixed
+	2.	List of files changed
+	3.	New features added
+	4.	How to run locally and verify
+	5.	Any remaining recommendations
+
+Start now. Fix everything automatically. Do not ask questions.

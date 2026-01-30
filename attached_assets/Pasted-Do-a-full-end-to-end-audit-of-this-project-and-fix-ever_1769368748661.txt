@@ -1,0 +1,152 @@
+Do a full end-to-end audit of this project and fix every issue that prevents the website from running correctly for both users and admins.
+
+Main Goal: The website must open on *.replit.dev without any errors and all features must work end-to-end.
+
+Phase 1 — Find the Root Problem
+
+Identify why opening the main URL shows “Invalid request” and fix it so / loads correctly.
+
+Confirm whether this is a routing issue, missing frontend serving, wrong API call, missing request body, or missing middleware.
+
+Check server logs and browser console errors and fix the root causes (not just symptoms).
+
+Phase 2 — Frontend + Backend Integration
+
+Ensure frontend calls the correct backend base URL and endpoints in both dev + deployment.
+
+Ensure correct HTTP methods are used (GET/POST/etc) and request bodies match backend requirements.
+
+Ensure JSON parsing is enabled (express.json() / equivalent).
+
+Ensure CORS, cookies, tokens, and headers are correct for authentication + protected routes.
+
+Phase 3 — User Feature Flows (Must Work End-to-End)
+
+Validate all user flows work from UI to API to DB:
+
+Payments
+
+Card Controls
+
+Savings
+
+Rewards
+
+Ensure loading states, empty states, and error messages are handled properly on the UI.
+
+Phase 4 — Admin Flows (Must Work End-to-End)
+
+Validate admin flows work correctly:
+
+user management
+
+transaction review
+
+audit logs/security logs (if present)
+
+Ensure admin routes are protected and cannot be accessed by normal users.
+
+Phase 5 — Stability, Error Handling, and Routing
+
+Fix frontend routing so direct refresh works (React Router / Next routing).
+
+Fix backend routing so unknown routes return proper 404 JSON.
+
+Add /api/health endpoint returning { "status": "ok" }.
+
+Add production-safe global error handler middleware and structured logging.
+
+Add missing input validation only where required (do not change business logic).
+
+Phase 6 — Environment & Secrets
+
+Confirm all environment variables are set using Replit Secrets (no hardcoded secrets).
+
+If any secrets are missing, clearly list them and add safe startup checks with readable errors.
+
+Fix Rules
+
+Make minimal changes but fix all critical problems.
+
+Do not remove existing features.
+
+Do not rename endpoints or break existing API contracts.
+
+Ensure deployment works on *.replit.dev and the app opens successfully.
+
+Output Rules
+
+Propose all required file edits using Replit action tags only.
+
+Propose package installs only if required.
+
+After fixes, provide a checklist to test user + admin flows end-to-end.
+
+🚀 2) DEPLOYMENT COMMAND (Replit Production / Republish)
+
+After the above fixes are applied, paste this into Replit Agent:
+
+Prepare this project for production deployment on Replit.
+Requirements:
+
+Ensure the correct production run command is configured (serve the full app, not only API)
+
+Ensure frontend build is generated (if needed) and served correctly in production
+
+Ensure database migrations run safely (if applicable)
+
+Ensure required secrets are documented and validated at startup
+
+Propose a <proposed_deployment_configuration> with correct build_command and run_command
+
+Then instruct me to republish from the Deployments tool
+
+✅ 3) What the Agent MUST Auto-Add (Only what is needed)
+
+These are the must-have upgrades for “website runs perfectly”:
+
+Backend must include:
+
+GET /api/health → { status: "ok" }
+
+GET / → serves frontend OR shows “API running”
+
+404 handler for unknown routes
+
+Global error handler
+
+Correct JSON parsing middleware
+
+Correct CORS setup (if frontend is separate)
+
+Frontend must include:
+
+Correct API base URL for Replit deployment
+
+Proper handling for:
+
+loading
+
+error
+
+empty state
+
+Protected routes for admin pages
+
+Refresh-safe routing (no “Invalid request” on refresh)
+
+✅ What your “Invalid request” usually means (from your screenshot)
+
+In 90% of Replit full-stack projects, it’s one of these:
+
+Backend has no route for /
+
+Frontend is not being served in production
+
+Wrong API call (GET instead of POST)
+
+Missing JSON body parsing
+
+Wrong proxy path (/api mismatch)
+
+The command above forces the Agent to detect which one it is and fix it correctly.

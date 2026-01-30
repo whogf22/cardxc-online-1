@@ -1,0 +1,146 @@
+You are the Replit Assistant. Do a full lifetime end-to-end audit of this CardXC project and fix EVERY bug that prevents Preview, User flow, and Admin flow from working perfectly. You MUST review ALL previous Replit chat history, checkpoints, and past fixes and ensure none of those fixes are missing or reverted.
+
+TOP PRIORITY FIXES (MUST FIX FIRST)
+
+Fix Replit Preview issue: it shows “Invalid request” or blank preview.
+
+Ensure Preview always opens the correct frontend (Vite dev server on port 5000 in dev).
+
+Ensure the Run button always starts the correct workflow and attaches Preview to port 5000.
+
+Ensure no wrong port mapping (Express 3001 must never be used as Preview webview in dev).
+
+Fix Admin database + role flow completely:
+
+Ensure user email "siyamhasan4@gmail.com
+" is ALWAYS an ADMIN (or SUPER_ADMIN) in the database.
+
+Ensure DB seed/bootstrap logic correctly upserts this admin user on every boot (dev + production).
+
+Ensure role is persisted and not overwritten incorrectly.
+
+Ensure admin login works and admin session is valid.
+
+REQUIRED END-TO-END TESTS (DO NOT SKIP)
+Preview + Routing
+
+/ loads frontend correctly
+
+Refresh on /signin, /signup, /payments, /admin-login works (SPA fallback)
+
+Unknown frontend route returns frontend HTML (SPA)
+
+Unknown /api/* route returns JSON 404
+
+API Health
+
+Add or confirm /api/health returns exactly: { "status": "ok" }
+
+Ensure correct status codes everywhere
+
+Authentication
+
+Signup + login works
+
+Session persists (cookie/JWT) correctly on Replit domains
+
+Protected routes block guests
+
+Admin routes block normal users
+
+User flows must work end-to-end
+
+Payments
+
+Card Controls
+
+Savings
+
+Rewards
+
+AI Chat: streaming + history must work from UI without errors
+
+Admin flows must work end-to-end
+
+/admin-login works
+
+/admin-dashboard loads after admin login
+
+Admin can view/manage users
+
+Admin can review transactions
+
+Admin can view audit/security logs (if present)
+
+Non-admin users cannot access admin endpoints
+
+BACKEND FIX REQUIREMENTS
+
+Confirm express.json() enabled
+
+Fix CORS for Replit preview + production domains
+
+Fix cookie settings (SameSite/Secure) so login works on *.replit.dev and *.replit.app
+
+Ensure server serves dist/ in production and SPA fallback works
+
+Add production-safe error handler + logging (minimal changes, no feature removal)
+
+Ensure all endpoints return clean JSON errors (no HTML for API)
+
+FRONTEND FIX REQUIREMENTS
+
+Ensure API base URL logic works in dev + production (no hardcoded localhost in production)
+
+Fix admin UI integration if any endpoint mismatch exists
+
+Fix any broken routing or missing pages
+
+DEPLOYMENT REQUIREMENTS
+
+Confirm Vite build output is dist/
+
+Confirm server serves dist/
+
+Ensure Replit Autoscale deployment config is correct:
+
+build: npm run build
+
+run: npm run start
+
+Ensure production opens successfully on *.replit.app
+
+DEBUGGING INSTRUCTIONS (MANDATORY)
+
+Check browser console errors
+
+Check server logs
+
+Run curl tests inside Replit for:
+
+/api/health
+
+/api/auth/session
+
+/api/admin/users (admin-only)
+
+Verify ports:
+
+Vite dev server: 5000
+
+Express API: 3001
+
+Preview must attach to 5000
+
+OUTPUT REQUIREMENTS
+
+Propose ALL required file edits using Replit action tags only
+
+Propose shell commands only if needed
+
+Provide a final checklist for testing User + Admin
+
+Confirm admin user "siyamhasan4@gmail.com
+" role is fixed and working
+
+Do not stop until Preview works, User flows work, Admin flows work, and production deploy works without errors.

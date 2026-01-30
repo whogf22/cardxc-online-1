@@ -1,0 +1,112 @@
+Do a COMPLETE end-to-end PRODUCTION AUDIT + PERMANENT FIX for CardXC with ZERO regressions.
+
+ABSOLUTE RULES (VERY STRICT):
+- Do NOT redesign UI
+- Do NOT remove any existing features
+- Do NOT refactor unnecessarily
+- Minimal changes only (bugfix + stability only)
+- Keep existing business logic unchanged
+- Only roles allowed: USER and SUPER_ADMIN (NO ADMIN role anywhere)
+- siyamhasan4@gmail.com must ALWAYS remain SUPER_ADMIN forever
+- Website must be WHITE-LABEL: never show “Fluz”, “Runa”, or any third-party/provider name anywhere in UI, DB labels, or API responses
+- Keep all previous lifetime fixes working (preview, SPA routing, JSON-only API, SMTP, logout)
+
+PRIMARY GOALS (MUST WORK):
+
+1) Preview + Live Stability
+- Preview must never show “Invalid request”
+- Dev ports: Vite 5000, Express 3001
+- / loads frontend HTML always
+- SPA refresh works on /signin /signup /admin-login /admin-dashboard /payments
+- /api/* returns JSON only (unknown /api/* returns JSON 404)
+- /api/health returns EXACTLY { "status":"ok" }
+
+2) Auth System
+- signup/login/session/logout must work in dev + production
+- /api/auth/session correct after refresh
+- logout clears cookies with path:'/' and actually logs out
+- SUPER_ADMIN APIs return 403 for normal USERs
+
+3) SUPER_ADMIN Panel (Fix all DB errors permanently)
+- Fix every schema/query mismatch causing 500 errors
+- SUPER_ADMIN dashboard loads real DB data
+- users list loads
+- transactions list loads
+- orders/logs load (if present)
+- remove “pending permissions” bug for SUPER_ADMIN
+
+4) FIX THE CURRENT BLOCKER (IMPORTANT):
+SUPER_ADMIN panel → Add Funds → Adjustment Type has Credit/Debit/Card
+Right now the "Card" option is LOCKED with tooltip like “not configured”.
+I need SUPER_ADMIN to be able to deposit via CARD for ANY USER from this panel.
+Fix it properly end-to-end.
+
+MUST DO FOR THIS:
+- Identify why Card option is disabled (missing env, feature flag, wrong config check, Stripe placeholder, etc.)
+- Replace demo/placeholder check with real backend availability check for our card checkout endpoint.
+- When SUPER_ADMIN selects a user + enters amount + reason + chooses “Card”, it must create a checkout session/order and return a usable checkoutUrl.
+- If provider is not configured, show a clear UI error message, not a disabled feature forever.
+
+5) Payments: White-label Card Checkout + Auto Wallet Add (Backend-only)
+- Integrate provider backend-only (never exposed to UI)
+- Add/confirm POST /api/checkout/card
+  - auth required
+  - validate amount range 100 to 2500
+  - create DB row (generic table name: card_orders) status=PENDING
+  - call provider API using ONLY Secrets:
+    FLUZ_API_KEY, FLUZ_USER_ID, FLUZ_BUSINESS_ACCOUNT_ID, FLUZ_BASE_URL, FLUZ_WEBHOOK_SECRET
+  - return ONLY: { success:true, data:{ checkoutUrl } }
+  - NEVER return provider fields to frontend
+
+- Add/confirm POST /api/webhooks/payment
+  - verify signature if secret exists
+  - log events to payment_webhook_logs
+  - idempotent processing (no double credit)
+  - on COMPLETED: create transaction row + auto-credit user wallet/ledger
+  - on FAILED: mark failed safely
+
+6) Transactions must show different name each time
+- Keep merchant_name original
+- Generate merchant_display_name per transaction:
+  "{merchant_name} • {last4(transaction_id)}"
+- APIs return merchant_display_name
+- Frontend displays merchant_display_name || merchant_name
+
+7) Admin -> SuperAdmin cleanup (NO ADMIN role)
+- Search full codebase + DB schema for "ADMIN" role references.
+- If any DB constraints/seed scripts still mention ADMIN, replace with SUPER_ADMIN.
+- Ensure only USER and SUPER_ADMIN exist in DB enum/constraint.
+- Ensure siyamhasan4@gmail.com is always SUPER_ADMIN and never downgraded.
+
+REQUIRED DEBUGGING (NO GUESSING):
+- Check browser console errors on SUPER_ADMIN pages
+- Check network failed requests (400/401/403/500) and fix them
+- Check server logs and DB errors
+- Run curl tests for:
+  /api/health
+  /api/auth/session
+  /api/auth/logout
+  POST /api/checkout/card
+  POST /api/webhooks/payment (simulate)
+  SUPER_ADMIN endpoints for users/orders/logs
+
+FIX REQUIREMENTS:
+- Add production-safe error handling + validation only where missing
+- Keep all existing endpoints working (no breaking changes)
+- Keep JSON response shape consistent:
+  { success:true, data:... } and { success:false, error:{ code, message } }
+
+OUTPUT REQUIREMENTS:
+- Use Replit action tags only
+- List every bug found + exact fix (file + summary)
+- Provide final test checklist:
+
+USER:
+signup → login → card deposit checkout (100-2500) → success → wallet credited → transactions show unique merchant_display_name → logout
+
+SUPER_ADMIN:
+login → dashboard → users → select user → Add Funds via CARD → checkoutUrl created → payment completes → wallet credited → transactions updated → orders/logs visible → confirm no duplicate credits
+
+Finally:
+- Confirm Preview works and Live deploy works.
+- If anything was previously fixed but missing now, restore ONLY that fix (no new features).

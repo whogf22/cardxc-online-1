@@ -1,0 +1,174 @@
+If not Anything like this Make sure by developing this .Also fixed Backend front end also fixed with admin panel all everything.Card checkout er backend e fluz webhook diye Crypto provider thakbe as like before you do
+
+
+flowchart TD
+
+%% =========================
+%% ENTRY / MAIN NAVIGATION
+%% =========================
+A[User Opens Spent Web App] --> B[Bottom Navigation Tabs]
+B --> H[Home]
+B --> W[Wallet]
+B --> P[Prepaid Card]
+B --> AC[Account]
+
+%% =========================
+%% HOME TAB FLOW
+%% =========================
+H --> H1[Total Asset Card]
+H1 --> H1a[Currency Selector (NGN)]
+H1 --> H1b[Show Balance Toggle]
+H1 --> H1c[Actions: Deposit / Withdraw / Swap]
+
+H --> H2[Quick Actions]
+H2 --> QA1[Giftcards]
+H2 --> QA2[Rates]
+H2 --> QA3[Bills]
+H2 --> QA4[Virtual Card]
+
+H --> H3[Portfolio]
+H3 --> PF1[Asset: USDT (Tether)]
+H3 --> PF2[Other Assets (optional)]
+
+%% Deposit Flow (Home)
+H1c --> D0[Deposit Modal]
+D0 --> D1[Crypto Deposit]
+D0 --> D2[Fiat Deposit]
+D0 --> D3[Card Deposit]
+
+%% Withdraw Flow (Home)
+H1c --> WD0[Withdraw Modal]
+WD0 --> WD1[Withdraw Crypto]
+WD1 --> WD1a[Select Asset: BTC]
+WD1 --> WD1b[Select Asset: USDT]
+WD1b --> WD2[Withdraw To (USDT Form)]
+WD2 --> WD2a[Wallet Address Input]
+WD2 --> WD2b[Network Selector]
+WD2 --> WD2c[Amount Input + Max]
+WD2 --> WD2d[Submit Withdraw]
+
+%% Swap Flow (Home)
+H1c --> SW0[Swap Screen]
+SW0 --> SW1[Select From Asset]
+SW0 --> SW2[Select To Asset]
+SW0 --> SW3[Enter Amount]
+SW0 --> SW4[Confirm Swap]
+
+%% Giftcards Shortcut
+QA1 --> GC0[Gift Cards Page]
+
+%% =========================
+%% WALLET TAB FLOW
+%% =========================
+W --> W1[Wallet Dashboard]
+W1 --> W1a[Deposit Button]
+W1 --> W1b[Withdraw Button]
+
+W1a --> WDPT0[Deposit Crypto]
+WDPT0 --> WDPT1[Select Asset]
+WDPT1 --> WDPTBTC[BTC]
+WDPT1 --> WDPETH[ETH]
+WDPT1 --> WDPTUSDT[USDT]
+WDPT1 --> WDPTBNB[BNB]
+WDPT1 --> WDPTTRX[TRX]
+
+%% USDT Deposit Address Flow
+WDPTUSDT --> USDTADDR0[USDT Deposit Address Screen]
+USDTADDR0 --> USDTADDR1[Network Dropdown: ERC-20 / TRC-20]
+USDTADDR0 --> USDTADDR2[QR Code Display]
+USDTADDR0 --> USDTADDR3[Wallet Address + Copy]
+USDTADDR0 --> USDTADDR4[Minimum Deposit Notice]
+USDTADDR0 --> USDTADDR5[Copy Address Button]
+USDTADDR0 --> USDTADDR6[Share Address Button]
+
+%% Wallet Withdraw Flow
+W1b --> WW0[Withdraw Crypto Screen]
+WW0 --> WW1[Select Asset BTC]
+WW0 --> WW2[Select Asset USDT]
+WW2 --> WD2
+
+%% =========================
+%% ADDRESS BOOK FLOW
+%% =========================
+WD2a --> AB0[Address Book]
+AB0 --> AB1[Saved Addresses Tab]
+AB0 --> AB2[Recently Sent Tab]
+AB0 --> AB3[Filters: All / ERC-20 / TRC-20]
+AB0 --> AB4[Empty State: No saved addresses yet]
+AB0 --> AB5[Add New Address Button]
+AB5 --> AB6[Create New Address Form]
+AB6 --> AB7[Save Address]
+AB7 --> WD2a
+
+%% =========================
+%% PREPAID CARD TAB FLOW
+%% =========================
+P --> PC0[Prepaid Card Screen]
+PC0 --> PC1[Tabs: My Cards / Transaction History]
+
+%% My Cards Flow
+PC1 --> MC0[My Cards]
+MC0 --> MC1[Recently Added Cards Section]
+MC1 --> MC2[Add New Card Tile (+)]
+MC0 --> MC3[All Cards Table]
+MC3 --> MC3a[Provider: Mastercard]
+MC3 --> MC3b[Masked Card Number]
+MC3 --> MC3c[Expiry Date]
+
+%% Add Prepaid Card Flow
+MC2 --> APC0[Add Prepaid Card Form]
+APC0 --> APC1[Name on Card]
+APC0 --> APC2[Card Number]
+APC0 --> APC3[Expiry Month/Year]
+APC0 --> APC4[CVV]
+APC0 --> APC5[Billing Address Field]
+APC0 --> APC6[Enter Address Manually Link]
+APC0 --> APC7[Proceed Button (Disabled until valid)]
+
+APC6 --> BA0[Billing Address Screen]
+BA0 --> BA1[Street Address]
+BA0 --> BA2[City]
+BA0 --> BA3[Postal Code]
+BA0 --> BA4[Country]
+BA0 --> BA5[State]
+BA0 --> BA6[Save Address Button]
+BA6 --> APC5
+APC7 --> MC0
+
+%% Transaction History Flow
+PC1 --> TH0[Transaction History]
+TH0 --> TH1[Transactions Table/List]
+TH1 --> TH2[Row: Provider + Masked Card + Amount + Status]
+TH2 --> THF[Status Badge: FAILED (Red)]
+TH2 --> THC[Status Badge: COMPLETED (Green)]
+
+%% =========================
+%% GIFT CARDS FLOW
+%% =========================
+GC0 --> GC1[Tabs: Sell / Buy]
+GC1 --> GCBUY[Buy]
+GC1 --> GCSELL[Sell]
+
+GCBUY --> GCT0[Buy Subtabs]
+GCT0 --> GCT1[All Cards]
+GCT0 --> GCT2[Top Cards]
+GCT0 --> GCT3[High Rate]
+GCT0 --> GCT4[History]
+
+GCT1 --> GCR1[Card Item: Razer Gold]
+GCT2 --> GCR1
+GCT3 --> GCR1
+GCT4 --> GCH0[Empty State: No transaction history found]
+
+GCSELL --> S0[Sell Flow]
+S0 --> S1[Select Card Type]
+S0 --> S2[Enter Card Details]
+S0 --> S3[Submit Sell Request]
+
+%% =========================
+%% ACCOUNT TAB FLOW (Placeholder)
+%% =========================
+AC --> ACC0[Account Page]
+ACC0 --> ACC1[Profile]
+ACC0 --> ACC2[Settings]
+ACC0 --> ACC3[Logout]

@@ -1,0 +1,74 @@
+Build this EXACT payment + wallet top-up flow. If my project does not match this architecture, refactor it until it does:
+
+Required Flow (must match)
+
+Frontend (React/Flutter)
+→ Backend creates Fluz session
+→ Fluz Drop-in handles card capture + 3DS
+→ Fluz webhook hits backend
+→ Backend writes Wallet Ledger entry
+→ Backend updates wallet balance
+→ Frontend shows success + updated wallet
+
+⸻
+
+Backend Requirements (Node.js + Express preferred)
+	1.	Create endpoint:
+	•	POST /api/topup/create-session
+	•	input: { userId, amount, currency }
+	•	output: { sessionId, dropInUrl OR clientSecret }
+	2.	Implement webhook endpoint:
+	•	POST /api/fluz/webhook
+	•	verify webhook signature
+	•	handle event types: payment.succeeded, payment.failed, payment.pending
+	3.	Wallet Ledger logic (must be idempotent)
+
+	•	Create a wallet_ledger table/collection with:
+	•	id
+	•	userId
+	•	amount
+	•	currency
+	•	type (credit/debit)
+	•	referenceId (Fluz payment/session id)
+	•	status
+	•	createdAt
+	•	Only credit wallet AFTER webhook confirms succeeded
+	•	Prevent duplicates using referenceId unique constraint
+
+	4.	Wallet Balance update
+
+	•	wallets table/collection:
+	•	userId
+	•	balance
+	•	updatedAt
+	•	Update wallet inside a transaction (or atomic update)
+
+⸻
+
+Frontend Requirements
+	1.	Button: “Top up wallet”
+	2.	Call POST /api/topup/create-session
+	3.	Open Fluz Drop-in UI using returned session info
+	4.	After Drop-in finishes, do NOT credit wallet directly
+	5.	Poll backend:
+	•	GET /api/wallet
+	•	until balance updated or transaction status = success
+	6.	Show success screen + updated balance
+
+⸻
+
+Automation Requirements (must be fully automated)
+	•	Webhook processing must automatically:
+	•	verify → ledger insert → balance update
+	•	Frontend must automatically refresh wallet after payment
+	•	Add clear logs for each step
+	•	Provide .env.example with required Fluz keys
+
+⸻
+
+Deliverables
+	•	Working backend endpoints
+	•	Working Drop-in integration
+	•	Working webhook → wallet credit automation
+	•	Minimal UI to test top-up
+	•	README with setup steps + local testing instructions

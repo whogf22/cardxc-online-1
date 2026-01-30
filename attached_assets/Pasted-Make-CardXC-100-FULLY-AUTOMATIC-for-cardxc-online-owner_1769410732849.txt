@@ -1,0 +1,79 @@
+Make CardXC 100% FULLY AUTOMATIC for cardxc.online (owner does nothing manually).
+
+STRICT RULES:
+- Minimal changes only
+- Do NOT redesign UI
+- Do NOT remove any features
+- Do NOT refactor unnecessarily
+- Keep business logic unchanged except automation fixes
+- White-label only (NEVER show provider/third-party names in UI/API responses)
+- Only roles: USER and SUPER_ADMIN (NO ADMIN role anywhere)
+- siyamhasan4@gmail.com must ALWAYS remain SUPER_ADMIN forever
+
+GOAL (FULL AUTO):
+User card deposit -> checkout success -> webhook auto triggers -> wallet auto credits USD + USDT -> dashboard auto shows balances with ZERO manual refresh and ZERO manual actions.
+
+LIVE DOMAIN + WEBHOOK:
+- Production webhook URL must be:
+  https://cardxc.online/api/webhooks/payment
+
+MUST DO:
+
+A) PROVIDER + WEBHOOK STABILITY (PRODUCTION READY)
+1) Confirm Replit Secrets are correct for cardxc.online:
+   - FLUZ_BASE_URL must match environment (staging vs production)
+   - FLUZ_AUTH_BASIC must match same environment
+   - sanitize secrets (trim whitespace/newlines)
+2) Ensure webhook endpoint exists and is stable:
+   POST /api/webhooks/payment
+3) Ensure webhook logging table works:
+   payment_webhook_logs must store events safely
+
+B) AUTO CREDIT PIPELINE (NO MANUAL ACTION)
+1) On webhook COMPLETED:
+   - mark card_orders COMPLETED
+   - create transactions row
+   - credit user wallet USD automatically
+2) Add FULL AUTO USDT credit (internal wallet):
+   - add usdt_balance storage (minimal DB change)
+   - create crypto_ledger_entries table (minimal fields)
+   - usdt_amount = round(usd_amount / USDT_RATE, 6)
+   - default USDT_RATE = 1.0 unless env USDT_RATE exists
+3) Enforce idempotency:
+   - webhook replay must NEVER double-credit USD or USDT
+   - add DB unique constraint on (source_order_id, user_id)
+
+C) FRONTEND AUTO SHOW (NO USER PRESS / NO MANUAL REFRESH)
+1) Wallet/dashboard APIs must return:
+   { usdBalance, usdtBalance }
+2) Frontend must auto-fetch balances on:
+   - dashboard load
+   - wallet load
+   - return from checkout success route
+3) If balance is not instant, add minimal polling:
+   every 3 seconds for 30 seconds after success page
+
+D) SUPER_ADMIN PANEL FIXES (NO DB ERRORS)
+1) Ensure SUPER_ADMIN deposit-for-user is NOT locked/disabled and uses real checkout:
+   POST /api/checkout/card
+2) Fix all SUPER_ADMIN DB/API errors permanently (no 500):
+   users list, transactions, card_orders, webhook logs, crypto ledger
+3) Remove any leftover "ADMIN" references by migrating them to SUPER_ADMIN (DB + code).
+
+E) STABILITY / ZERO REGRESSION
+Must verify:
+- Preview never shows “Invalid request”
+- Dev ports remain Vite 5000 and Express 3001
+- / loads HTML always
+- SPA refresh works (/signin /signup /admin-login /admin-dashboard /payments)
+- /api/* returns JSON only
+- /api/health returns EXACTLY {"status":"ok"}
+- logout clears cookies with path "/"
+
+OUTPUT REQUIREMENTS:
+- Use Replit action tags only
+- List exact files changed
+- Provide final live test checklist:
+  USER: deposit -> success -> wallet shows USD+USDT automatically -> transactions show unique merchant name -> logout
+  SUPER_ADMIN: login -> dashboard -> users -> orders -> webhook logs -> crypto ledger -> confirm no duplicates
+- Confirm cardxc.online works end-to-end in production with full automation.

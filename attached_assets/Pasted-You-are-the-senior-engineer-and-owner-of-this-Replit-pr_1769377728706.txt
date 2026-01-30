@@ -1,0 +1,98 @@
+You are the senior engineer and owner of this Replit project.
+My Preview is still broken (“Invalid request” / blank preview) and Admin/User DB flows are not correct.
+
+PRIMARY GOAL (Fix First)
+
+Fix Replit Preview so it ALWAYS opens the frontend correctly and never shows “Invalid request”.
+
+SECOND GOAL
+
+Fix Admin + User end-to-end DB flows so everything works without errors in both Preview and Production.
+
+PART A — FIX REPLIT PREVIEW (CRITICAL)
+
+Detect what port Replit Preview is trying to open (webview port).
+
+Ensure the Run workflow exposes the correct port for Preview.
+
+Force the project to use a single Preview port:
+
+Vite must run on 0.0.0.0:5000
+
+Express must run on 0.0.0.0:3001
+
+Ensure .replit is configured so the webview always points to port 5000 in dev mode.
+
+If the Preview webview is using the wrong port, fix it by updating .replit / workflow config.
+
+Ensure Vite server.allowedHosts = true, host: "0.0.0.0", port: 5000.
+
+Ensure Vite proxies /api/* → http://localhost:3001.
+
+Confirm that opening / in Preview returns the frontend HTML and not “Invalid request”.
+
+PART B — ADMIN + USER DB FLOW FULL AUDIT (CRITICAL)
+
+Admin Login:
+
+/admin-login UI loads
+
+admin credentials login works
+
+session persists on refresh
+
+non-admin blocked from admin routes (401/403)
+
+Admin Dashboard:
+
+user list loads from DB
+
+edit/delete user works
+
+transactions review works
+
+audit/security logs work if present
+
+User Flow:
+
+/signup creates user in DB
+
+/signin login works
+
+/api/auth/session returns correct user
+
+protected routes work: /payments, /cards, /savings, /rewards
+
+Fix all API errors, schema mismatch, missing fields, and incorrect status codes.
+
+PART C — PRODUCTION DEPLOYMENT SAFETY
+
+Ensure production uses:
+
+npm run build → generates dist/
+
+npm run start → serves dist/ + API
+
+Add /api/health returning { "status": "ok" }
+
+Ensure SPA refresh works for /signin, /admin-login, /admin-dashboard
+
+DEBUGGING REQUIREMENTS
+
+Check console logs + network requests
+
+Fix any missing middleware (express.json, cookies, CORS)
+
+Confirm environment variables are loaded from Replit Secrets only
+
+OUTPUT REQUIREMENTS
+
+Apply minimal changes but fix everything.
+
+Do not remove features.
+
+Use Replit action tags only for file edits.
+
+Provide final test checklist for Admin + User.
+
+Provide exact deploy steps for Autoscale.

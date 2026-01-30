@@ -1,0 +1,58 @@
+export const rates = [
+  {
+    from: 'USD',
+    to: 'EUR',
+    rate: 0.92,
+    icon: 'ri-exchange-dollar-line',
+    color: 'from-blue-500 to-indigo-500',
+    change: '+0.12%',
+    trend: 'up',
+  },
+  {
+    from: 'USD',
+    to: 'GBP',
+    rate: 0.79,
+    icon: 'ri-exchange-dollar-line',
+    color: 'from-purple-500 to-pink-500',
+    change: '-0.05%',
+    trend: 'down',
+  },
+  {
+    from: 'USD',
+    to: 'NGN',
+    rate: 1580.50,
+    icon: 'ri-exchange-dollar-line',
+    color: 'from-emerald-500 to-teal-500',
+    change: '+0.25%',
+    trend: 'up',
+  },
+  {
+    from: 'USD',
+    to: 'CAD',
+    rate: 1.36,
+    icon: 'ri-exchange-dollar-line',
+    color: 'from-red-500 to-orange-500',
+    change: '+0.08%',
+    trend: 'up',
+  },
+  {
+    from: 'USD',
+    to: 'AUD',
+    rate: 1.53,
+    icon: 'ri-exchange-dollar-line',
+    color: 'from-amber-500 to-yellow-500',
+    change: '-0.15%',
+    trend: 'down',
+  },
+  {
+    from: 'USD',
+    to: 'BDT',
+    rate: 119.85,
+    icon: 'ri-exchange-dollar-line',
+    color: 'from-green-500 to-emerald-500',
+    change: '+0.03%',
+    trend: 'up',
+  },
+];
+
+export const popularCurrencies = ['USD', 'EUR', 'GBP', 'NGN', 'CAD', 'AUD', 'BDT'];

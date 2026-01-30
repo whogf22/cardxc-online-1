@@ -1,0 +1,99 @@
+Make my Card Deposit flow exactly like the video reference and screenshots. The entire card deposit UI must work inside my website with the same screens and behavior as shown, and the backend must remain unchanged.
+
+STRICT RULES
+
+Do NOT change backend/payment/wallet/webhook/crypto provider logic or DB schema.
+
+Do NOT remove any existing features.
+
+Only update/fix frontend UI + state handling + routing.
+
+Keep Fluz integration and webhook credit flow exactly as before.
+
+REQUIRED VIDEO-LIKE CARD DEPOSIT FLOW
+
+Deposit screen/modal must show 3 options:
+
+Crypto Deposit
+
+Fiat Deposit
+
+Card Deposit
+
+When user selects Card Deposit, show “Add Prepaid Card” screen inside the app:
+
+Name on Card
+
+Card Number
+
+Expiry Date (MM + YYYY)
+
+CVV
+
+Billing Address
+
+“Enter Address Manually” link
+
+When user clicks “Enter Address Manually”, open Billing Address screen:
+
+Street Address
+
+City
+
+Postal Code
+
+Country
+
+State
+
+Save Address button
+
+Proceed button must be disabled until all required fields are valid.
+
+After Proceed:
+
+Start card deposit payment using the existing Fluz checkout/session flow
+
+Show “Processing” screen inside the app (do not redirect user away)
+
+Display the deposit amount clearly
+
+After successful deposit:
+
+Show “Deposit Successful” screen inside the same modal/page
+
+Show amount + currency + updated wallet balance
+
+STOP polling immediately
+
+DO NOT auto redirect anywhere
+
+DO NOT automatically restart deposit again
+
+Add buttons on success screen:
+
+Back to Wallet
+
+Deposit Again (only on click, reset form + start new session)
+
+BUG FIX (MOST IMPORTANT)
+
+Fix the issue where after success the app redirects/reopens deposit automatically.
+
+Remove any router.push/window.location redirect after success
+
+Fix useEffect loops that recreate sessions
+
+Clear any localStorage flags like pendingDeposit after success
+
+FINAL OUTPUT REQUIRED
+
+Confirm card deposit flow matches video UI and behavior
+
+Confirm no auto redirect after success
+
+List all files changed
+
+Confirm backend/features unchanged
+
+Do everything automatically without asking me questions.

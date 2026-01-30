@@ -1,0 +1,117 @@
+Do a strict end-to-end production fix for CardXC focusing ONLY on:
+(1) Customer logout not working, (2) Signup/Signin emails not arriving.
+
+RULES:
+
+Minimal changes only
+
+Do not redesign UI
+
+Do not remove any features
+
+Keep dev ports: Vite 5000, Express 3001, proxy /api/* → 3001
+
+Keep only SUPER_ADMIN role system (no ADMIN role)
+
+TASK 1: FIX LOGOUT (Frontend + Backend)
+
+Find the frontend logout action/button and confirm which endpoint it calls:
+
+/api/auth/logout OR /api/auth/signout
+
+Ensure backend supports BOTH routes as aliases:
+
+POST /api/auth/logout
+
+POST /api/auth/signout
+
+Implement logout so it fully clears auth in all modes:
+
+Clear httpOnly cookie session using res.clearCookie with correct options:
+sameSite, secure, path, domain (do not break replit.dev / replit.app)
+
+If bearer token exists in localStorage/sessionStorage, remove it in frontend
+
+Ensure frontend requests include cookies:
+
+fetch/axios must use credentials: "include"
+
+Return JSON response:
+
+200 { "ok": true }
+
+401 { "ok": false, "error": "Not authenticated" } (if needed)
+
+Add curl tests:
+
+login → get cookie → logout → session endpoint must return unauthenticated
+
+TASK 2: FIX SIGNUP/SIGNIN EMAIL DELIVERY
+
+Search the codebase for nodemailer usage and email sending on:
+
+signup
+
+login alert (if exists)
+
+password reset
+
+Ensure mailer uses environment variables ONLY (Replit Secrets):
+
+SMTP_HOST
+
+SMTP_PORT
+
+SMTP_USER
+
+SMTP_PASS
+
+MAIL_FROM
+
+Add production-safe mailer config:
+
+Use secure:true for port 465
+
+Use secure:false + requireTLS:true for port 587
+
+Add proper from, subject, text + html
+
+Add clear server logs for email sending:
+
+log success: messageId
+
+log failure: error message (without leaking secrets)
+
+Add a test endpoint ONLY in dev (NODE_ENV !== production):
+
+POST /api/dev/test-email with { "to": "email" }
+
+Sends a test email and returns JSON result
+
+TASK 3: VERIFY
+
+Check browser console + network:
+
+logout request status must be 200
+
+after logout, /api/auth/session must show logged out
+
+Verify email sending works:
+
+trigger signup/password reset and confirm server logs show messageId
+
+Ensure no regression:
+
+/ loads
+
+SPA refresh works
+
+/api/health returns { "status": "ok" }
+
+OUTPUT REQUIREMENTS:
+
+Use Replit action tags only for file edits
+
+List exactly what files changed
+
+Provide final test checklist for logout + email

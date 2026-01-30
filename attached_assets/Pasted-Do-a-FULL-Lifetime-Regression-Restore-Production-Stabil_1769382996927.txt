@@ -1,0 +1,92 @@
+Do a FULL “Lifetime Regression Restore + Production Stability Audit” for this CardXC project using ONLY the existing codebase + previously applied fixes in this repl’s history.
+
+STRICT RULES (NO NEW FEATURES):
+- Do NOT redesign UI.
+- Do NOT refactor unnecessarily.
+- Do NOT change business logic.
+- ONLY restore missing/removed fixes that were already done previously in this project lifetime.
+- Fix only critical bugs, routing, DB schema mismatches, auth/session issues, admin role issues, and preview/live deployment issues.
+
+PRIMARY GOALS (MUST FIX ALL):
+1) Replit Preview must always work:
+   - No “Invalid request”
+   - No blank preview
+   - Preview must open frontend correctly
+   - Dev ports must remain: Vite=5000, Express=3001
+   - /api proxy must work: /api/* → localhost:3001
+
+2) Routing must be correct:
+   - / always serves frontend HTML
+   - SPA refresh works for /signin, /signup, /payments, /cards, /savings, /rewards, /admin-login, /admin-dashboard
+   - /api/* always returns JSON
+   - Unknown /api/* returns JSON 404 (not HTML)
+   - Unknown non-api routes fall back to SPA (frontend)
+
+3) API Health requirement:
+   - Add/ensure /api/health returns exactly: { "status": "ok" }
+
+4) Authentication must be stable:
+   - User login/register works end-to-end
+   - Session persists after refresh (cookies + token if needed)
+   - Logout works (keep /api/auth/logout alias if frontend expects it)
+   - Password reset works (email flow or token flow if implemented)
+
+5) SUPER_ADMIN must ALWAYS work and DB lifetime audit + permanent fix:
+   - Identify ALL admin-related DB tables/columns used in code:
+     users, roles, permissions, admin_sessions, transactions, audit_logs, security_logs, etc (anything referenced).
+   - Verify schema matches code (no missing columns, wrong types, wrong constraints).
+   - Fix schema mismatches permanently using minimal DB migrations or init updates.
+   - Fix admin-only endpoints returning wrong status/shape.
+
+   - Ensure siyamhasan4@gmail.com ALWAYS remains SUPER_ADMIN forever
+   - Must never downgrade due to init/bootstrap logic
+   - Ensure this admin can login using:
+     email: siyamhasan4@gmail.com
+     password: baby69@D
+   - Ensure non-admin users get 403 on admin routes/APIs.
+
+6) Admin UI flow must work end-to-end:
+   - /admin-login loads
+   - login request succeeds
+   - session persists after refresh
+   - /admin-dashboard loads real data from DB
+   - user list loads
+   - edit/disable/delete user works
+   - transactions review loads
+   - audit/security logs load (if present)
+   - Fix every failing admin API request (400/401/403/500) properly
+
+REQUIRED DEBUGGING (NO GUESSING):
+- Check server logs
+- Check browser console errors
+- Check failed network requests
+- Run curl tests for:
+  /api/health
+  /api/auth/session
+  /api/auth/login
+  /api/admin/*
+  /api/transactions/*
+  /api/audit/*
+- Confirm correct HTTP methods + required request bodies
+- Confirm express.json middleware enabled
+- Confirm cookies/CORS/headers correct for Replit domains
+
+DEPLOYMENT MUST WORK:
+- Dev: npm run dev should work (Vite + Express)
+- Production autoscale:
+  build_command: npm run build
+  run_command: npm run start
+- Must serve dist/ correctly in production
+- Must NOT break existing frontend build output
+
+OUTPUT REQUIREMENTS:
+- Use Replit action tags ONLY for every file edit (no plain code blocks)
+- List every admin DB error found + exact fix
+- Provide final test checklist:
+  Admin: login → dashboard → users → transactions → logs
+  User: register → login → payments/cards/savings/rewards → AI chat
+- Confirm Preview works + Live works after fix
+- If anything was previously fixed but missing now, restore ONLY that fix.
+- Do not remove any existing feature.
+
+Start by reproducing the Preview issue and the /admin-dashboard “Oops Something went wrong” error, then fix root causes permanently.

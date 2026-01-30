@@ -1,0 +1,98 @@
+You are the owner/maintainer of this Replit full-stack project.
+Do a complete end-to-end production audit and fix every issue required to make the website fully stable and error-free for both USERS and ADMINS in Replit Preview and in LIVE deployment (*.replit.app).
+
+Phase 1 — Confirm Runtime + Deployment is Correct
+
+Verify the correct build and run commands are used in deployment:
+
+build: npm run build (must generate dist/)
+
+run: npm run start (must serve frontend + API)
+
+Verify the backend serves the frontend from dist/ and SPA fallback routing works for all routes.
+
+Verify / never returns “Invalid request” in preview or production.
+
+Phase 2 — Routing + SPA Refresh Fix
+
+Ensure all these routes load correctly on direct open and browser refresh:
+/, /signin, /signup, /payments, /cards, /savings, /rewards, /admin-login, /admin-dashboard, /admin-operations
+
+Ensure only /api/* returns JSON and non-API routes return frontend HTML.
+
+Phase 3 — API Validation + Error Handling
+
+Verify all /api/* endpoints return correct status codes and JSON errors (no plain text errors).
+
+Add/verify global error handler middleware and consistent error response format.
+
+Ensure unknown /api/* routes return 404 JSON (not HTML).
+
+Ensure /api/health returns { "status": "ok" }.
+
+Phase 4 — Authentication (User + Admin)
+
+Validate login/register flows work end-to-end from UI → API → DB.
+
+Validate protected routes:
+
+User cannot access admin pages
+
+Admin/SUPER_ADMIN can access admin dashboard
+
+Verify token/cookie/session behavior works in production domain.
+
+Phase 5 — Feature Testing (User)
+
+Test user flows end-to-end from UI:
+
+Payments: create transfer/payment link/QR/recurring/bill split
+
+Card Controls: freeze/unfreeze/limits/merchant blocking
+
+Savings: vaults/goals/round-up/budgets/analytics
+
+Rewards: cashback/referral/subscription detection
+Ensure UI shows loading + empty + error states and never crashes.
+
+Phase 6 — Feature Testing (Admin)
+
+Test admin flows end-to-end:
+
+User management
+
+Transaction review
+
+Audit logs (if present)
+
+Fraud/risk flags (if present)
+Ensure admin UI is protected and stable.
+
+Phase 7 — Production Security + Stability
+
+Confirm all secrets are loaded from Replit Secrets only (no hardcoded keys).
+
+Fix any missing env validation (fail fast with clear logs).
+
+Fix PostgreSQL SSL warnings by using a safe SSL mode if needed without breaking DB connectivity.
+
+Ensure rate limiting, helmet, CORS, and input validation are correctly configured for production.
+
+Phase 8 — Final Live Verification
+
+Perform verification using automated checks (curl / internal test requests) for:
+/, /signin, /admin-login, /api/health, invalid /api/unknown
+
+Ensure the app is fully ready for republish with zero runtime errors.
+
+Output Requirements
+
+Propose all required changes using Replit action tags only.
+
+Propose package installs only if required.
+
+Propose <proposed_deployment_configuration> with correct build_command and run_command.
+
+Provide a final checklist for me to confirm the site is 100% working live.
+
+Do not add new features beyond stability fixes; focus on correctness and production readiness.

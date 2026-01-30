@@ -1,0 +1,47 @@
+
+You are a Principal FinTech Security Engineer + Full-Stack Engineer.
+Make this project PRODUCTION-READY and INVESTOR-READY.
+
+IMPORTANT: Do not ask me questions. I am not available. If something is missing, implement sensible secure defaults.
+
+CRITICAL SECURITY FIXES (MANDATORY)
+	1.	REMOVE all demo authentication and mock/localStorage auth services.
+	2.	REMOVE all hardcoded credentials (demo/admin emails + passwords) from UI, backend, docs, seed scripts, and test notes.
+	3.	REMOVE any hardcoded SUPER_ADMIN email (including any Gmail). No “permanent” hardcoded admin rules.
+	4.	Replace with production auth + RBAC using database-backed users and roles.
+
+REQUIRED IMPLEMENTATION
+	•	Implement secure authentication (email+password) with strong hashing (bcrypt/argon2), secure sessions or JWT, token/session rotation where applicable.
+	•	Implement RBAC roles: USER / ADMIN / SUPER_ADMIN stored in DB.
+	•	Create a secure “bootstrap admin” mechanism using environment variables only:
+	•	BOOTSTRAP_SUPER_ADMIN_EMAIL
+	•	BOOTSTRAP_SUPER_ADMIN_PASSWORD
+On first run only, create/upgrade that user to SUPER_ADMIN; then disable bootstrap automatically or make it idempotent and safe.
+	•	Ensure there is NO plaintext password stored anywhere; enforce password policy and rate limiting for auth endpoints.
+	•	Ensure audit logging for admin actions remains intact.
+
+CLEANUP
+	•	Remove any mention of real emails/passwords from replit.md or README. Replace with “Set BOOTSTRAP_* env vars” instructions.
+	•	Search the entire repo for: demo123, admin123, “demo authentication”, “localStorage mock”, the Gmail shown, and any hardcoded credentials; remove/replace securely.
+
+AFTER CHANGES MUST PASS (ZERO ERRORS)
+	•	Frontend builds and runs with no console errors
+	•	Backend runs with no crashes
+	•	Login/signup works end-to-end
+	•	Admin panel is accessible only to ADMIN/SUPER_ADMIN roles
+	•	All existing fintech features remain functional (ledger, wallet, history, admin functions)
+
+OUTPUT
+	•	List files changed
+	•	What security issues were removed
+	•	How to set env vars and run
+
+Start now. Apply all fixes completely. Do not ask questions.
+
+⸻
+
+Immediate note (important)
+
+Those credentials shown in the screenshots are sensitive. Even if they are “test credentials,” treat them as compromised. After applying the changes above, ensure:
+	•	Any deployed environment has new secrets (JWT/session secrets, DB creds, email creds).
+	•	No credentials remain in docs or UI.

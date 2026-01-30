@@ -1,0 +1,142 @@
+You are the Replit Agent for this project.
+Do a strict “REGRESSION RESTORE ONLY” full audit of the current codebase and runtime logs, and permanently fix every issue that breaks Preview, Live, Admin flow, User flow, DB schema, and Auth.
+
+VERY STRICT RULES:
+
+Do NOT add new features.
+
+Do NOT redesign UI.
+
+Do NOT change business logic.
+
+Do NOT refactor unnecessarily.
+
+Only restore previously working fixes from this project lifetime and ensure no regressions.
+
+Fix must be minimal but complete.
+
+A) Preview + Routing MUST WORK (No “Invalid request” / blank preview)
+
+Confirm dev ports remain: Vite = 5000, Express = 3001
+
+Preview must open frontend on port 5000 automatically
+
+/ must always serve frontend HTML
+
+SPA refresh must work on: /signin, /signup, /payments, /admin-login, /admin-dashboard
+
+/api/* must return JSON only
+
+Unknown /api/* must return JSON 404
+
+/api/health must return exactly: { "status": "ok" }
+
+B) Admin Crash Bug Fix (Current live bug)
+
+The route /admin-dashboard shows “Oops! Something went wrong”.
+You MUST fix the exact root cause by debugging (no guessing):
+
+Check browser console errors on /admin-dashboard
+
+Check Network tab failed requests (401/403/500)
+
+Check server logs + DB errors for admin endpoints
+
+Identify which API response shape is breaking the frontend (undefined/null mismatch)
+
+Fix the backend response OR frontend expectation with minimal change
+
+Ensure admin-dashboard loads without crash and shows real data
+
+C) Admin DB “Lifetime Audit” (No regressions)
+
+Identify every admin-related DB table/column used in this project:
+users, roles/permissions, admin_sessions, transactions, audit_logs/security_logs, etc.
+Verify schema matches code:
+
+no missing columns
+
+correct types
+
+correct constraints
+
+correct joins
+
+correct indexes if required
+
+Fix any mismatch permanently with minimal DB migrations / schema init changes.
+
+D) SUPER_ADMIN MUST ALWAYS WORK
+
+Enforce that this account always exists and never downgrades:
+
+email: siyamhasan4@gmail.com
+
+role: SUPER_ADMIN
+
+password must work: baby69@D
+
+admin role must persist after restart / redeploy
+
+non-admin users must be blocked from admin routes/APIs with 403
+
+IMPORTANT: do NOT print or expose passwords in logs or API responses.
+Only ensure login works.
+
+E) Fix Admin Login Flow End-to-End
+
+Must work end-to-end:
+
+/admin-login UI works
+
+login API works
+
+session persists after refresh
+
+/admin-dashboard loads after login
+
+logout works
+
+Validate correct cookie/token handling for both Preview + Live domains.
+
+F) Fix User Login + Reset Password Flow
+
+Must work end-to-end:
+
+/signup creates user
+
+/signin works
+
+/api/auth/session returns correct session
+
+password reset endpoints work (if present)
+
+G) Required Debugging Steps (No Guessing)
+
+Run and paste results in logs:
+
+curl /api/health
+
+curl /api/auth/session (before login and after login)
+
+curl admin endpoints with authenticated session
+
+confirm correct status codes and JSON shapes
+
+H) Output Requirements (MANDATORY)
+
+Use Replit action tags only for file edits
+
+List all issues found (admin DB + admin UI crash + auth/session)
+
+List exact fixes applied
+
+Provide final test checklist:
+
+Admin: login → dashboard → users → transactions → logs
+
+User: signup → login → payments/cards/savings/rewards
+
+Confirm Preview works + Live works
+
+Now execute the audit and apply minimal permanent fixes.

@@ -1,0 +1,68 @@
+Implement Fluz as the backend card checkout provider for CardXC with a strict “white-label” requirement.
+
+ABSOLUTE RULES:
+- Do NOT redesign UI
+- Do NOT add unnecessary new features
+- Do NOT remove existing features
+- Minimal changes only
+- Keep existing business logic
+- Only roles: USER and SUPER_ADMIN (NO ADMIN role)
+- Never show “Fluz” or any third-party branding/text anywhere in UI
+- All third-party usage must be backend-only and invisible to users
+
+GOALS:
+1) Card Checkout via Fluz (backend controlled)
+2) Auto wallet credit after successful payment (webhook verified)
+3) Every transaction must show a different merchant display name in the UI
+
+TASK A — Fluz Checkout API (Backend Only)
+1) Add POST /api/checkout/card
+   - auth required
+   - input: amount, currency, merchantName (and optional metadata)
+   - create local DB order row status=PENDING
+   - call Fluz API using Secrets (FLUZ_API_KEY, FLUZ_USER_ID, FLUZ_BUSINESS_ACCOUNT_ID, FLUZ_BASE_URL)
+   - return a generic response to frontend:
+     { success:true, data:{ checkoutUrl } }
+   - DO NOT return Fluz raw fields to UI
+
+2) Frontend should only redirect to checkoutUrl or show “Processing payment…”
+   - No mention of Fluz anywhere
+
+TASK B — Webhook Confirm + Auto Wallet Add
+1) Add POST /api/webhooks/payment
+   - This endpoint receives Fluz webhook events
+   - verify signature using FLUZ_WEBHOOK_SECRET (if provided)
+   - idempotent processing: same payment event must NOT credit wallet twice
+   - update order status: COMPLETED/FAILED
+   - create transaction row in DB
+   - auto-credit user wallet/ledger ONLY when COMPLETED
+   - return 200 OK to webhook
+
+TASK C — Unique Transaction Merchant Name
+1) Keep original merchant_name unchanged in DB.
+2) Add merchant_display_name generation per transaction:
+   - format: "{merchant_name} • {last4(transaction_id)}"
+   - ensure every transaction displays unique even if same merchant
+3) Update transaction list API to return merchant_display_name
+4) Update frontend to display:
+   merchant_display_name || merchant_name
+
+TASK D — SUPER_ADMIN Monitoring (No new UI redesign)
+1) Add SUPER_ADMIN-only endpoints to review:
+   - orders list (PENDING/COMPLETED/FAILED)
+   - webhook logs/errors
+   - manual retry for FAILED orders (if already exists, keep it)
+2) Non-SUPER_ADMIN must receive 403 on these endpoints
+
+SECURITY REQUIREMENTS:
+- All Fluz credentials must be stored in Replit Secrets only
+- Never log API keys
+- Standard JSON errors with correct status codes
+- /api/* must always return JSON only
+
+OUTPUT REQUIREMENTS:
+- Use Replit action tags only
+- List exact files changed and why
+- Provide test checklist:
+  USER: checkout → payment success → wallet credited → unique merchant name shows
+  SUPER_ADMIN: view orders → view logs → confirm no duplicate credits

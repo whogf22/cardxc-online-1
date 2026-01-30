@@ -1,0 +1,70 @@
+You are a Principal Full-Stack FinTech Engineer + Security Architect + UI/UX Expert.
+Fully audit, repair, upgrade, and improve this entire project end-to-end until it is stable and production-ready.
+
+IMPORTANT: I am not available for questions. Do everything automatically using best engineering judgment. If something is missing, implement a sensible default.
+
+FIGMA UI/UX REFERENCE:
+https://www.figma.com/file/ikE2HGMsdg82npyj4FW0ur?type=design
+
+PHASE 1 — ANALYZE
+	1.	Scan full repository structure
+	2.	Detect frontend/backend frameworks
+	3.	Detect build/runtime errors
+	4.	Detect missing env variables/config files
+	5.	Identify broken routes, components, database schema issues
+
+PHASE 2 — FIX EVERYTHING
+
+Backend
+	•	Add global error handler + consistent JSON responses
+	•	Add validation on all endpoints
+	•	Fix all broken API logic
+	•	Implement secure auth + RBAC (USER / ADMIN / SUPER_ADMIN)
+	•	Add rate limit + brute force protection
+	•	Add audit logging for sensitive actions
+
+Ledger / Wallet
+	•	Implement double-entry ledger rules
+	•	Use integer cents (no float)
+	•	Use DB transactions for atomicity
+	•	Add idempotency keys to prevent duplicate transfers
+	•	Prevent race-condition double spend
+	•	Add reconciliation checks
+
+Frontend + UI/UX
+	•	Fix all broken screens/components
+	•	Match UI closely to Figma
+	•	Add loading/error/empty states
+	•	Fix responsiveness and form validation
+
+Database
+	•	Fix relations and schema issues
+	•	Add indexes and constraints
+	•	Add uniqueness for idempotency keys + transaction refs
+
+Upgrade
+	•	Upgrade outdated dependencies safely
+	•	Fix breaking changes
+	•	Remove unused packages
+
+PHASE 3 — ADD MISSING FLOWS (AUTO)
+
+If missing, implement complete flows:
+User: signup/login/forgot password, dashboard, wallet, transaction history, transfer + receipt, profile/settings
+Admin: admin login, dashboard KPIs, user management, transaction monitoring, manual adjustments (audit logged), role management
+
+PHASE 4 — VERIFY
+
+Run build + start backend + start frontend.
+Fix any errors until the app runs with no issues.
+
+FINAL OUTPUT
+
+Provide:
+	1.	Issues found
+	2.	Fixes applied
+	3.	Files changed
+	4.	New features added
+	5.	Steps to run and verify
+
+Start now. Fix everything automatically. Do not ask questions.

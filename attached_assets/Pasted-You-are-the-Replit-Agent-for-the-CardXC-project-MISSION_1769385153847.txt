@@ -1,0 +1,87 @@
+You are the Replit Agent for the CardXC project.
+
+MISSION:
+Do a complete end-to-end production-grade audit and permanently fix all bugs/errors for BOTH user and SUPER_ADMIN flows.
+This must be a “full project stability pass” with ZERO regressions.
+
+VERY STRICT RULES:
+- Do NOT redesign UI
+- Do NOT remove features
+- Do NOT break existing APIs
+- Do NOT refactor unnecessarily
+- Keep all lifetime fixes already done in this project
+- Make only minimal but complete fixes
+
+CORE REQUIREMENTS (MUST PASS):
+
+1) PREVIEW + ROUTING (NO INVALID REQUEST)
+- Preview must load frontend always
+- / must return frontend HTML
+- SPA refresh must work on:
+  /signin /signup /payments /cards /savings /rewards /admin-login /admin-dashboard
+- /api/* must return JSON only
+- unknown /api/* must return JSON 404
+- /api/health must return EXACTLY { "status": "ok" }
+
+2) AUTH (USER + SUPER_ADMIN)
+- Register works
+- Login works
+- Session persists after refresh
+- Logout works
+- Password reset works end-to-end
+- Cookies/tokens work in Preview and Production
+- All protected routes block unauthenticated users
+
+3) SUPER_ADMIN ONLY (NO ADMIN ROLE)
+- There must be only ONE privileged role: SUPER_ADMIN
+- No "admin" role should exist in DB or code logic
+- siyamhasan4@gmail.com must ALWAYS remain SUPER_ADMIN
+- SUPER_ADMIN must access /admin-dashboard and all privileged APIs
+- Normal users must get 403 on privileged endpoints
+
+4) USER FLOWS (END TO END)
+Verify UI → API → DB for:
+- Payments
+- Card Controls
+- Savings
+- Rewards
+- AI chat (streaming + history)
+
+5) SUPER_ADMIN PANEL FLOWS (END TO END)
+Verify UI → API → DB for:
+- User list loads
+- User edit/disable/delete works
+- Transactions review works
+- Ledger explorer works (if exists)
+- Risk monitor works (if exists)
+- KYC management works (if exists)
+- Support tickets works (if exists)
+- Audit/security logs work (if exists)
+
+6) FIX THE “PENDING” ISSUE FOR SUPER_ADMIN
+If SUPER_ADMIN creates any adjustment/add-funds action:
+- it must apply instantly (balance updates)
+- status must become COMPLETED/APPLIED (not PENDING)
+- DB transaction must be atomic and safe
+
+7) REQUIRED DEBUGGING (NO GUESSING)
+- Check browser console errors for all major pages
+- Check network requests for failing endpoints (400/401/403/500)
+- Check server logs
+- Check DB errors and missing columns
+- Run curl tests for health/auth/admin endpoints
+- Confirm correct HTTP methods and JSON parsing middleware
+
+8) HARDENING (SAFE IMPROVEMENTS ONLY)
+- Add consistent API error format { error, message, code }
+- Add input validation where missing (express-validator/zod)
+- Add safe logging for failures (no secrets)
+- Ensure env variables are loaded via Replit Secrets only
+
+OUTPUT REQUIREMENTS:
+- Use Replit action tags only for file edits
+- List ALL bugs found and EXACT fixes applied
+- Provide final test checklist for:
+  User: signup → login → payments/cards/savings/rewards → AI chat
+  SUPER_ADMIN: login → dashboard → users → transactions → logs → adjustments
+- Confirm Preview + Live both working with no regressions

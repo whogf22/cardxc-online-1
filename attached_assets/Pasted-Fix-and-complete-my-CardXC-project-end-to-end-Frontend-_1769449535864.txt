@@ -1,0 +1,196 @@
+Fix and complete my CardXC project end-to-end (Frontend + Backend + Admin Panel) to match my video and references exactly. If anything is missing or not working, refactor and implement it until it works perfectly.
+
+ABSOLUTE STRICT RULES (Must Follow)
+	1.	Do NOT remove any existing features.
+	2.	Do NOT break or change the existing Fluz integration logic, Fluz webhook credit logic, wallet ledger rules, or crypto provider logic.
+	3.	Do NOT change API payload formats in a way that breaks the current frontend.
+	4.	Only improve/fix UI/UX + missing flows + security hardening, while keeping all existing features working.
+
+⸻
+
+PART 1 — CARD DEPOSIT MUST STAY INSIDE MY WEBSITE (NO REDIRECT)
+
+Right now card deposit redirects to a third-party page. I do NOT want redirect.
+
+Required Card Deposit Flow (Video-like)
+	1.	Deposit → Card Deposit opens inside my website (modal/page)
+	2.	User enters amount + currency (NGN default)
+	3.	Show deposit amount clearly before payment:
+	•	“You will deposit: NGN {amount}”
+	•	“Total charged: NGN {amount}”
+	4.	When user clicks “Continue”, render Fluz card capture UI inside my website (embedded Drop-in / iframe / in-app checkout).
+	5.	3DS authentication must also happen inside my website UI (overlay/modal).
+	6.	After payment completion:
+	•	show “Processing…” status
+	•	wait for Fluz webhook confirmation
+	•	update wallet ledger + wallet balance
+	•	show success screen with updated wallet
+	7.	Amount must be visible on every step (before/during/after).
+
+If Fluz embedded checkout is not supported, implement the closest possible “in-app” experience (modal/webview-like) but do NOT use a full page redirect.
+
+⸻
+
+PART 2 — FULL APP UI MUST MATCH THIS FLOWCHART EXACTLY
+
+Implement and fix screens/routes to match this navigation and flows:
+
+Bottom Navigation Tabs
+	•	Home
+	•	Wallet
+	•	Prepaid Card
+	•	Account
+
+Home Tab
+	•	Total Asset Card
+	•	Currency selector (NGN)
+	•	Show balance toggle
+	•	Actions: Deposit / Withdraw / Swap
+	•	Quick Actions:
+	•	Giftcards
+	•	Rates
+	•	Bills
+	•	Virtual Card
+	•	Portfolio:
+	•	USDT (Tether)
+	•	other assets optional
+	•	Deposit modal:
+	•	Crypto deposit
+	•	Fiat deposit
+	•	Card deposit (embedded, no redirect)
+	•	Withdraw modal:
+	•	Withdraw crypto (BTC / USDT)
+	•	USDT withdraw form: address + network + amount + max + submit
+	•	Address Book: saved + recently sent + filters + add new address
+	•	Swap screen:
+	•	from asset → to asset → amount → confirm
+
+Wallet Tab
+	•	Wallet dashboard: deposit + withdraw
+	•	Deposit crypto assets: BTC, ETH, USDT, BNB, TRX
+	•	USDT deposit address screen:
+	•	network dropdown (ERC-20/TRC-20)
+	•	QR code
+	•	address + copy
+	•	minimum deposit notice
+	•	copy + share
+	•	Withdraw crypto uses same withdraw form + address book
+
+Prepaid Card Tab
+
+Tabs:
+	•	My Cards
+	•	Transaction History
+My Cards:
+	•	recently added
+	•	add new card tile (+)
+	•	all cards table: provider + masked number + expiry
+Add card form:
+	•	name, number, expiry, cvv, billing address
+	•	manual address screen
+	•	proceed disabled until valid
+Transaction History:
+	•	provider + masked card + amount + status badge (FAILED red / COMPLETED green)
+
+Gift Cards
+
+Tabs:
+	•	Buy / Sell
+Buy:
+	•	All Cards / Top Cards / High Rate / History
+Sell:
+	•	select card type → enter details → submit sell request
+
+Account Tab
+	•	Profile
+	•	Settings
+	•	Logout
+
+⸻
+
+PART 3 — ADMIN PANEL MUST WORK (DB STYLE LIKE MY REFERENCE)
+
+Use the admin DB/dashboard style like this inspiration:
+https://www.facebook.com/share/v/1DEDbz5JX8/?mibextid=wwXIfr
+
+Admin Panel Requirements
+	•	Admin authentication (SUPER_ADMIN)
+	•	Dashboard pages:
+	•	Users list
+	•	Wallet balances
+	•	Transactions / ledger entries
+	•	Gift card buy/sell requests
+	•	Prepaid card transactions
+	•	Clean sidebar, cards, tables, filters
+	•	UI only improvements, do not change business logic
+
+⸻
+
+PART 4 — MODERN UI + 3D FEATURE ANIMATIONS + NEON EFFECTS
+
+Upgrade frontend visuals to look premium/realistic:
+	•	3D-looking feature cards (depth, shadows, gradients)
+	•	hover parallax tilt
+	•	floating glow particles (lightweight)
+	•	smooth fade-in on scroll
+	•	neon windlight navbar underline animation
+	•	neon ring login background animation
+Must be responsive and fast (no lag).
+
+Prefer CSS + Framer Motion. Use Three.js ONLY if absolutely needed.
+
+⸻
+
+PART 5 — PUBLISH SECURITY HARDENING (HIDE EVERYTHING)
+
+Before publishing, secure the entire project:
+
+Secrets & Keys
+	•	Remove secrets from code, move to .env
+	•	Add .env.example
+	•	Ensure .env in .gitignore
+	•	Replace hardcoded values with process.env.*
+
+Backend Security
+	•	helmet + cors restricted + rate limiting
+	•	no stack traces in production
+	•	centralized safe error handler
+
+Disable Debug Endpoints
+	•	remove/protect: /test /debug /seed /dev
+	•	keep /health minimal
+	•	protect /admin
+
+Protect Internal APIs
+	•	wallet/ledger/transactions require auth
+	•	admin requires role-based access
+
+Webhook Safety
+	•	verify signature (HMAC-SHA256)
+	•	idempotent processing
+	•	safe logging only
+
+Frontend Production Safety
+	•	remove dev panels/logs/test buttons
+	•	no secrets exposed in build
+
+Final Checklist
+	•	confirm build passes
+	•	confirm app runs with only .env
+	•	confirm no secrets in logs/frontend bundle
+	•	provide a summary of what was secured
+
+⸻
+
+FINAL OUTPUT REQUIRED
+
+After completing everything:
+	1.	List all screens/routes implemented
+	2.	List all backend endpoints working
+	3.	Confirm Card Deposit is embedded (NO redirect) and amount is visible
+	4.	Confirm Fluz webhook + crypto provider still work
+	5.	Confirm admin panel works
+	6.	List all files changed
+	7.	Provide testing steps for each tab and payment flow
+
+Do everything automatically without asking me questions.

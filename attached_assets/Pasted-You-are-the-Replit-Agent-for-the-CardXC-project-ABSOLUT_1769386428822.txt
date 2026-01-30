@@ -1,0 +1,151 @@
+You are the Replit Agent for the CardXC project.
+
+ABSOLUTE PROJECT RULE (NON-NEGOTIABLE):
+This project must have ONLY ONE privileged role: SUPER_ADMIN.
+There must be NO "ADMIN" role anywhere (no admin tables, no admin checks, no admin permissions, no admin UI role).
+Only SUPER_ADMIN can access admin dashboard and privileged APIs.
+Normal users are USER only.
+
+MAIN GOAL:
+Do a complete lifetime audit using:
+1) current codebase
+2) full Replit Agent chat history (all previous fixes)
+and permanently fix all bugs/errors without regressions.
+Then improve user flows by adding only safe enhancements that are clearly useful,
+AND ensure SUPER_ADMIN can control/monitor those enhancements from admin panel.
+
+STRICT RULES:
+- Do NOT redesign UI
+- Do NOT remove existing features
+- Do NOT break existing API response shapes
+- Do NOT refactor unnecessarily
+- Minimal changes but fully working
+- Preserve all previous lifetime fixes exactly (Regression Restore Only)
+- All secrets must use Replit Secrets (no hardcoded keys)
+
+========================================================
+PHASE 1 — REGRESSION RESTORE (KEEP OLD FIXES WORKING)
+========================================================
+MUST VERIFY and RESTORE if broken:
+1) Preview works (no “Invalid request”, no blank preview)
+2) Dev ports remain:
+   - Vite = 5000
+   - Express = 3001
+   - Proxy /api/* -> 3001
+3) / loads frontend HTML always
+4) SPA refresh works:
+   /signin /signup /payments /cards /savings /rewards
+   /admin-login /admin-dashboard
+5) /api/* returns JSON only
+6) unknown /api/* returns JSON 404
+7) /api/health returns EXACTLY:
+   { "status": "ok" }
+
+========================================================
+PHASE 2 — AUTH FIX (USER + SUPER_ADMIN)
+========================================================
+Fix all authentication flows end-to-end:
+- /signup works
+- /signin works
+- session persists after refresh (dev + production)
+- logout works
+- password reset works
+
+GOOGLE AUTH (MUST FIX FULLY):
+- Google Sign In works from /signin
+- Google Sign Up works from /signup
+- After Google login, user session persists after refresh
+- Works in Preview (*.replit.dev) + Production (*.replit.app)
+- Correct redirect handling
+- Fix CORS/cookies/token issues properly
+- Use secure cookie settings depending on env (dev vs prod)
+- Ensure frontend handles Google auth errors gracefully
+
+========================================================
+PHASE 3 — ROLE SYSTEM (SUPER_ADMIN ONLY)
+========================================================
+1) Search entire project + DB logic for "ADMIN" usage and remove/disable it.
+2) Enforce only these roles:
+   - SUPER_ADMIN
+   - USER
+3) Ensure:
+   - siyamhasan4@gmail.com ALWAYS stays SUPER_ADMIN forever
+   - role never downgrades by mistake
+4) Ensure SUPER_ADMIN-only access:
+   - /admin-dashboard page
+   - /api/admin/* endpoints (if exists)
+   - all privileged operations
+   - normal users must get 403
+
+========================================================
+PHASE 4 — ADMIN PANEL + DB FIXES (SUPER_ADMIN DASHBOARD)
+========================================================
+Fix ALL admin dashboard flows end-to-end UI → API → DB:
+- SUPER_ADMIN login via /admin-login
+- /admin-dashboard loads real DB data
+- user list loads
+- edit/disable/delete user works
+- transactions review works
+- audit/security logs load (if present)
+- AI chat monitoring/history works (if present)
+
+CRITICAL BUG FIX:
+On SUPER_ADMIN dashboard, any “Add Funds / Credit / Debit / Adjustment”
+must NOT stay PENDING if SUPER_ADMIN has full authority.
+Fix so it becomes COMPLETED/APPLIED instantly and updates user balance.
+Use DB transaction safety and correct status rules.
+
+========================================================
+PHASE 5 — FULL USER FLOW BUG FIX (END TO END)
+========================================================
+Verify and fix end-to-end user flows:
+- Payments
+- Card Controls
+- Savings
+- Rewards
+- AI chat (streaming + history)
+Ensure correct status codes, validation, error messages.
+
+========================================================
+PHASE 6 — ADD ONLY USEFUL USER IMPROVEMENTS (OPTIONAL)
+========================================================
+From lifetime chat history and current UX gaps, add ONLY improvements that:
+- do not change business logic
+- are safe, minimal, and production-ready
+Examples allowed:
+- better error messages
+- loading states
+- retry handling
+- small UI guardrails (no redesign)
+- admin visibility/control for new features
+
+IMPORTANT:
+Any new improvements MUST be controllable/monitorable by SUPER_ADMIN:
+- view logs/records
+- enable/disable feature flags if needed
+- audit trail for changes
+
+========================================================
+REQUIRED DEBUGGING (NO GUESSING)
+========================================================
+- Check browser console errors on user + admin pages
+- Check failed network requests (400/401/403/500)
+- Check server logs
+- Check DB errors
+- Run curl tests for:
+  /api/health
+  /api/auth/session
+  /api/auth/login
+  /api/auth/google (or relevant)
+  /api/admin/users (SUPER_ADMIN only)
+- Confirm JSON parsing middleware, CORS, cookies, headers correct
+
+========================================================
+OUTPUT REQUIREMENTS
+========================================================
+- Use Replit action tags only for edits
+- List all bugs found + exact fixes
+- Provide final test checklist:
+  USER: signup → login → google login → payments/cards/savings/rewards → ai chat
+  SUPER_ADMIN: login → dashboard → users → transactions → adjustments → logs
+- Confirm Preview + Live both working with no regressions

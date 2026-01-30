@@ -1,0 +1,91 @@
+You are the OWNER and final reviewer of this Replit full-stack project.
+Review the FULL chat history, previous fixes, deployment logs, and current codebase state.
+Your goal is to ensure everything that was previously fixed stays fixed, everything that is missing gets added, and the full website works perfectly for both USER and ADMIN in Preview and Live deployment with zero critical issues.
+
+Step 1 — Confirm Previous Fixes Are Still Active (No Regression)
+
+Verify the following previously fixed issues are still correct and not broken again:
+
+/ loads the frontend UI (never “Invalid request”)
+
+SPA refresh works on /signin, /payments, /admin-login and all app routes
+
+Frontend is served from dist/ in production
+
+/api/* returns JSON only
+
+/api/* unknown routes return JSON 404
+
+/api/health returns exactly { "status": "ok" }
+
+Correct Replit deployment config exists: build npm run build, run npm run start
+
+Step 2 — User + Admin Full Feature Verification
+
+Test USER flows end-to-end from UI → API → DB:
+
+Auth (signup/login/logout)
+
+Payments
+
+Card Controls
+
+Savings
+
+Rewards
+
+Test ADMIN flows end-to-end from UI → API → DB:
+
+Admin login
+
+Admin dashboard access control
+
+User management
+
+Transaction review
+
+Audit logs / security logs (if present)
+
+Step 3 — DB & API Correctness
+
+Confirm database connection is stable in deployment (no timeout crashes).
+
+Verify key tables and relationships used by user/admin features are working.
+
+Verify API validation exists where required and errors are returned cleanly.
+
+Step 4 — UI/Design Consistency & Stability
+
+Check every main page loads without console errors.
+
+Ensure loading state + empty state + error state exists for all API-based screens.
+
+Ensure responsive layout works (mobile + desktop).
+
+Step 5 — Security & Production Readiness
+
+Confirm all secrets are loaded only from Replit Secrets (no hardcoded keys).
+
+Confirm CORS, Helmet, rate limits, and auth middleware are correctly configured for Replit domains and do not block real users.
+
+Add startup env validation (fail fast with clear message if any required secret is missing).
+
+Fix Rules
+
+Make minimal changes but fix all issues completely.
+
+Do not remove any existing features.
+
+Do not rename API routes or break contracts.
+
+If something was already fixed before, do not reintroduce the same bug.
+
+Output Rules
+
+Propose all fixes using Replit action tags only.
+
+If anything is missing, add it cleanly with minimal new code.
+
+Provide a final “User + Admin Test Checklist” for live verification.
+
+Ensure the project remains stable after Republish.

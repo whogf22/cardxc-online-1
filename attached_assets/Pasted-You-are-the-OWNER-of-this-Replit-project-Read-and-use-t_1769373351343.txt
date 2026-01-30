@@ -1,0 +1,112 @@
+You are the OWNER of this Replit project.
+Read and use the FULL chat history, previous Agent actions, logs, and all past fixes already done in this workspace.
+Your job is to ensure the complete website (frontend + backend + database + admin panel + user panel + AI chat) is 100% stable, fully working, and LIVE-ready with zero critical issues.
+
+Phase 1 — Verify Current State From History
+
+Review all previous fixes from chat history (routing fixes, dist build serving, deployment configs, CORS/Helmet, DB stability).
+
+Identify any incomplete, partially applied, or conflicting changes from earlier steps.
+
+Confirm the correct server entry file is running and the correct frontend build folder is being served (dist/).
+
+Phase 2 — Frontend Design + UI Consistency
+
+Ensure the UI design is consistent across all pages (layout, sidebar/header, spacing, typography).
+
+Ensure mobile responsiveness works.
+
+Ensure no broken pages, blank screens, missing components, or console errors.
+
+Phase 3 — Routing + Refresh (Must Never Break)
+
+Ensure / loads the frontend UI always (never “Invalid request”).
+
+Ensure SPA refresh works for ALL routes:
+/signin, /signup, /payments, /cards, /savings, /rewards, /admin-login, /admin-dashboard, /admin-operations
+
+Ensure non-API routes return frontend HTML and /api/* returns JSON only.
+
+Phase 4 — API + Backend Stability
+
+Verify all API endpoints are reachable and return correct HTTP status codes and JSON responses.
+
+Add consistent error handling for API failures (no raw errors).
+
+Ensure /api/health returns exactly { "status": "ok" }.
+
+Ensure unknown /api/* routes return JSON 404.
+
+Phase 5 — Authentication + Roles
+
+Verify USER signup/login works end-to-end.
+
+Verify ADMIN login works end-to-end.
+
+Confirm protected routes work correctly:
+
+Normal users cannot access admin routes
+
+Admin/SUPER_ADMIN can access admin dashboard
+
+Confirm token/cookie/session works in production domain.
+
+Phase 6 — Feature Verification (User)
+
+Verify these features work from UI → API → DB without errors:
+
+Payments
+
+Card Controls
+
+Savings
+
+Rewards
+
+Ensure proper loading state, empty state, and error state UI exists everywhere.
+
+Phase 7 — Feature Verification (Admin)
+
+Verify admin features work:
+
+user management
+
+transaction review
+
+audit logs / fraud flags (if present)
+
+Ensure admin UI does not crash and handles API failures gracefully.
+
+Phase 8 — AI Chat Feature (Must Work Live)
+
+Verify AI chat widget works on all pages (floating button).
+
+Verify streaming responses and conversation history work in production.
+
+Confirm OpenAI API key is loaded from Replit Secrets (never hardcoded).
+
+Phase 9 — Production & Deployment Readiness
+
+Confirm Replit deployment config is correct:
+
+build_command: npm run build
+
+run_command: npm run start
+
+Ensure the server serves dist/ correctly and DB connects without runtime errors.
+
+Ensure CORS + Helmet + rate limits are safe and do not break production.
+
+Add startup env validation (clear error if missing secrets).
+
+Output Rules (Strict)
+
+Apply fixes with minimal changes and no breaking refactors.
+
+Propose all file changes using Replit action tags only.
+
+Propose any required package installs only if truly needed.
+
+Provide final “LIVE CHECKLIST” for both User + Admin.
+
+After all fixes, instruct me to click Republish to make everything live.

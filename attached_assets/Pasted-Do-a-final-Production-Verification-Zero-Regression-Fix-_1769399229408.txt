@@ -1,0 +1,56 @@
+Do a final “Production Verification + Zero Regression Fix” for CardXC.
+
+STRICT RULES:
+- Do NOT redesign UI
+- Do NOT add new features
+- Do NOT refactor unnecessarily
+- Keep existing business logic
+- Keep ONLY roles: USER and SUPER_ADMIN (NO ADMIN role anywhere)
+- siyamhasan4@gmail.com must ALWAYS remain SUPER_ADMIN
+
+MUST VERIFY + FIX IF BROKEN:
+
+1) Preview Stability (No invalid request)
+- Vite runs on 0.0.0.0:5000
+- Express runs on 0.0.0.0:3001
+- Vite proxies /api/* -> http://localhost:3001
+- Replit preview opens port 5000
+- / loads frontend HTML always
+- SPA refresh works for /signin /signup /admin-login /admin-dashboard
+- /api/health returns EXACTLY { "status": "ok" }
+- unknown /api/* returns JSON 404 only
+
+2) Logout (User + SUPER_ADMIN)
+- Frontend logout must call POST /api/auth/logout (and backend must also support /api/auth/signout alias)
+- Backend must clear auth cookies with path:"/" (same options as setCookie)
+- After logout, /api/auth/session must return unauthenticated and UI must redirect to /signin
+
+3) SMTP Email Delivery (Hostinger)
+- Ensure nodemailer reads ONLY from Secrets:
+  SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, SMTP_FROM
+- Port 465 => secure=true
+- Port 587 => secure=false + requireTLS=true
+- Add strong diagnostics for 535 auth failure and whitespace detection in SMTP_PASS
+- Ensure SUPER_ADMIN-only endpoints work:
+  GET /api/health/smtp-status
+  POST /api/health/email
+- Ensure welcome email + password reset email use same mailer and errors are logged clearly
+
+4) Google OAuth
+- Ensure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are read from Secrets
+- Confirm redirect URIs ONLY:
+  https://cardxc.online/api/auth/google/callback
+  https://cardxc-online.replit.app/api/auth/google/callback
+- /api/auth/google-status must return available:true only when fully configured
+- Ensure Google signin/signup creates session and persists after refresh
+
+REQUIRED DEBUGGING (NO GUESSING):
+- Check browser console errors + network failed requests
+- Check server logs for auth/email/oauth failures
+- Run curl tests for /api/health, /api/auth/session, /api/auth/logout, /api/health/smtp-status, /api/health/email
+
+OUTPUT REQUIREMENTS:
+- Use Replit action tags only
+- List what was fixed/restored (if anything)
+- Provide final checklist confirming:
+  Preview OK, Logout OK, SMTP OK, Google OAuth OK, SUPER_ADMIN OK

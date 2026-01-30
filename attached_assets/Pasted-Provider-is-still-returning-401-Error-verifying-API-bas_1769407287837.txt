@@ -1,0 +1,53 @@
+Provider is still returning 401 "Error verifying API basic token" even though authHeaderFormat is OK.
+Do a STRICT root-cause audit and fix it permanently (no guessing).
+
+STRICT RULES:
+- Minimal changes only
+- Do NOT redesign UI
+- Do NOT remove features
+- Do NOT refactor unnecessarily
+- Keep white-label: NEVER expose provider name or secrets to frontend
+- Only roles: USER and SUPER_ADMIN (NO ADMIN role)
+
+MUST DO (NO GUESSING):
+1) Verify environment mismatch:
+   - If FLUZ_BASE_URL contains "staging", use staging credentials only
+   - If FLUZ_BASE_URL is production, use production credentials only
+   - Add clear server-side log warnings if mismatch is detected (no token printing)
+
+2) Confirm the Authorization header is EXACTLY:
+   Authorization: Basic <base64(username:password)>
+   and NEVER double-prefixed.
+   Trim whitespace and remove hidden newline characters from secrets.
+
+3) Add a SUPER_ADMIN-only endpoint to test real provider access safely:
+   GET /api/super-admin/payments/provider-live-ping
+   It must call:
+     GET {FLUZ_BASE_URL}/v2/balance?currency=USD
+   Return ONLY:
+     { success:true, data:{ reachable:true } }
+   or on failure:
+     { success:false, error:{ code:"PROVIDER_AUTH_FAILED", message:"Payment service unavailable." } }
+   Do NOT return provider error text to client.
+
+4) If provider ping fails (401):
+   - Confirm code is using FLUZ_AUTH_BASIC and not FLUZ_API_KEY for adapter
+   - If FLUZ_AUTH_BASIC is invalid, return actionable guidance in logs:
+     "Credentials rejected. Check correct environment token (staging vs prod)."
+
+5) Ensure /api/checkout/card uses the same shared provider client used by the ping endpoint.
+   If ping passes but checkout fails, fix request payload:
+   - products.value MUST be array ["1800FL-US"]
+   - include X-Idempotency-Key
+   - validate face_value amount is numeric (100–2500)
+
+6) Keep all previous fixes intact:
+   - /api/health => {"status":"ok"}
+   - SPA refresh works
+   - /api/* returns JSON only
+   - logout clears cookies properly
+   - SUPER_ADMIN only access works
+
+OUTPUT REQUIREMENTS:
+- Use Replit action tags only
+- List

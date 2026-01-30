@@ -1,0 +1,57 @@
+Connect the existing Card Deposit page to the white-label backend card checkout flow (provider = Fluz, but NEVER exposed).
+
+STRICT RULES:
+- Do NOT redesign UI
+- Do NOT remove features
+- Minimal changes only
+- Keep existing business logic
+- Only roles: USER and SUPER_ADMIN (NO ADMIN role)
+- Do NOT show “Fluz” or any third-party/provider text anywhere in UI/API responses
+
+GOAL:
+When a user uses the Card Deposit page and clicks deposit/checkout, it must create a backend checkout session via provider API (Fluz) and complete deposit into the user wallet after payment success.
+
+TASK A — Frontend Deposit Page Integration
+1) Locate the Card Deposit page component (deposit UI).
+2) Ensure the deposit button calls:
+   POST /api/checkout/card
+   body: { amount, currency, merchantName:"Card Deposit" }
+3) Backend must return ONLY:
+   { success:true, data:{ checkoutUrl } }
+4) Frontend must redirect user to checkoutUrl (or open it) without showing provider name.
+
+TASK B — Backend Checkout + Wallet Credit
+1) Ensure POST /api/checkout/card exists and works:
+   - auth required
+   - validate amount > 0
+   - create card_orders row status=PENDING
+   - call provider API using Secrets (FLUZ_API_KEY, FLUZ_USER_ID, FLUZ_BUSINESS_ACCOUNT_ID, FLUZ_BASE_URL)
+   - return checkoutUrl only (no provider details)
+
+2) Ensure webhook POST /api/webhooks/payment exists:
+   - verify signature (FLUZ_WEBHOOK_SECRET if available)
+   - idempotent processing (no duplicate credits)
+   - update order status COMPLETED/FAILED
+   - insert transaction row
+   - auto-credit user wallet/ledger ONLY when COMPLETED
+
+TASK C — Unique Transaction Display Name
+1) Every transaction must show a different merchant name:
+   - keep merchant_name original
+   - generate merchant_display_name:
+     "{merchant_name} • {last4(transaction_id)}"
+2) Frontend must display:
+   merchant_display_name || merchant_name
+
+TASK D — SUPER_ADMIN Monitoring
+1) SUPER_ADMIN can view:
+   - card_orders list
+   - payment_webhook_logs list
+2) Fix any SUPER_ADMIN DB errors found while implementing this.
+
+OUTPUT REQUIREMENTS:
+- Use Replit action tags only
+- List exact files changed
+- Provide test checklist:
+  User: deposit → checkout → success → wallet credited → unique txn name
+  SUPER_ADMIN: orders → webhook logs → no duplicate credits

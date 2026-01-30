@@ -1,0 +1,109 @@
+You are the OWNER and maintainer of this Replit full-stack project.
+Review the entire project, including previous Agent history, logs, and past fixes, and ensure the application is fully stable for both USER and ADMIN roles with zero critical issues in Preview and Live deployment.
+
+Phase 1 — Verify Running Mode & Deployment Correctness
+
+Confirm the app runs correctly in BOTH modes:
+
+Development (Run button / preview)
+
+Production deployment (*.replit.app)
+
+Verify build and run pipeline is correct:
+
+npm run build generates dist/
+
+npm run start runs backend and serves frontend from dist/
+
+Ensure / never shows “Invalid request” in any environment.
+
+Phase 2 — Frontend Routing & SPA Refresh (No 404 / No Blank Pages)
+
+Ensure SPA routing works with refresh for all routes:
+/, /signin, /signup, /payments, /cards, /savings, /rewards, /admin-login, /admin-dashboard, /admin-operations
+
+Ensure non-API routes always return frontend HTML.
+
+Phase 3 — API Stability & Response Standards
+
+Ensure /api/* endpoints return only JSON (never HTML).
+
+Add/verify strict /api/* 404 handler returning JSON.
+
+Add/verify global error handler so API errors return consistent JSON with proper status codes.
+
+Ensure /api/health returns exactly { "status": "ok" }.
+
+Phase 4 — Authentication & Authorization (User/Admin)
+
+Verify user authentication works end-to-end: signup → login → access protected pages.
+
+Verify admin authentication works end-to-end: admin login → admin dashboard access.
+
+Ensure normal users cannot access admin routes or admin APIs.
+
+Ensure tokens/cookies/headers work correctly in production domain.
+
+Phase 5 — User Feature End-to-End Testing
+
+Verify these user flows work from UI → API → DB without crashes:
+
+Payments
+
+Card Controls
+
+Savings
+
+Rewards
+
+Ensure UI has proper loading states, empty states, and error states (no white screen).
+
+Phase 6 — Admin Feature End-to-End Testing
+
+Verify admin flows work end-to-end:
+
+User management
+
+Transaction review
+
+Audit logs / fraud flags (if present)
+
+Ensure admin UI components load and handle API failures gracefully.
+
+Phase 7 — Security + Production Hardening
+
+Confirm Helmet + CORS are configured safely for Replit domains and do not block frontend requests.
+
+Confirm rate limiting is enabled for sensitive operations.
+
+Confirm all environment variables are loaded from Replit Secrets only (no hardcoded secrets).
+
+Add startup validation: if any required env is missing, log clear error and fail fast.
+
+Resolve any PostgreSQL SSL warnings safely without breaking connectivity.
+
+Phase 8 — Final Proof & Stability Checklist
+
+Run real checks using curl/tests to prove these endpoints work:
+
+/ returns HTML
+
+/signin returns HTML
+
+/admin-login returns HTML
+
+/api/health returns { "status": "ok" }
+
+/api/unknown returns JSON 404
+
+Fix every discovered issue with minimal changes and no breaking refactors.
+
+Output Requirements (Strict)
+
+Propose all required file edits using Replit action tags only.
+
+Propose package installs only if required.
+
+Propose <proposed_deployment_configuration> with correct build_command and run_command.
+
+After fixes, provide a final “USER + ADMIN Live Test Checklist” so I can confirm everything works without any issue.

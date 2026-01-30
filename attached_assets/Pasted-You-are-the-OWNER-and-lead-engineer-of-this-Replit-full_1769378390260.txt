@@ -1,0 +1,126 @@
+You are the OWNER and lead engineer of this Replit full-stack project. Do a complete “lifetime audit” by reading the entire Replit Agent chat history, checkpoints, logs, and current codebase. Your mission is to find and fix every bug, error, regression, and missing piece so the website runs perfectly for both USER and ADMIN in Preview (dev) and Production (Autoscale) with zero critical issues.
+
+RULES
+
+Do not guess. Use logs + real requests to prove fixes.
+
+Make minimal changes but fix all critical problems completely.
+
+Do not remove existing features or break API contracts.
+
+All secrets must be from Replit Secrets (no hardcoding).
+
+PHASE 1 — BASELINE DIAGNOSIS (MUST DO FIRST)
+
+Start the app using the current Run workflow and inspect console logs.
+
+Identify actual running ports and confirm Preview binds to the correct port.
+
+Run and record results of:
+
+curl -i http://localhost:5000/
+
+curl -i http://localhost:3001/
+
+curl -i http://localhost:5000/api/health
+
+curl -i http://localhost:3001/api/health
+
+curl -i http://localhost:3001/api/auth/session
+
+Check browser console + network tab errors for both user and admin pages.
+
+PHASE 2 — FIX PREVIEW PERMANENTLY (NO “Invalid request”, NO blank preview)
+
+Ensure Dev architecture is stable:
+
+Vite on 0.0.0.0:5000 (frontend + HMR)
+
+Express on 0.0.0.0:3001 (API)
+
+Vite proxies /api/* → http://localhost:3001
+
+Ensure Replit Preview always opens port 5000 (correct webview) by updating workflow configuration if required.
+
+PHASE 3 — ROUTING + SPA REFRESH (ALL PAGES)
+
+Ensure / serves frontend HTML (never “Invalid request”).
+
+Ensure SPA refresh works for:
+/signin, /signup, /payments, /cards, /savings, /rewards, /admin-login, /admin-dashboard, /admin-operations
+
+Ensure only /api/* returns JSON; non-API routes return frontend HTML.
+
+Unknown /api/* must return JSON 404 (not HTML).
+
+PHASE 4 — API CORRECTNESS + ERROR HANDLING
+
+Confirm express.json() is enabled and request bodies parse correctly.
+
+Ensure consistent API error format + correct HTTP status codes:
+
+400 validation errors, 401 unauth, 403 forbidden, 404 not found, 500 server error
+
+Add production-safe global error handler and structured logging (minimal changes).
+
+Ensure /api/health returns exactly { "status": "ok" }.
+
+PHASE 5 — AUTH + ROLE-BASED ACCESS (USER + ADMIN)
+
+USER: signup → login → session persists after refresh; protected routes enforced.
+
+ADMIN: admin login works; session persists; admin routes/APIs restricted properly.
+
+Ensure normal users cannot access admin pages/APIs; admins can.
+
+Fix cookies/tokens/CORS so auth works on Replit preview + production domains.
+
+PHASE 6 — DATABASE + SCHEMA + SEEDING
+
+Verify DB connectivity in dev + production; fix any timeout/SSL issues safely.
+
+Verify schema matches code; fix any mismatch with minimal safe migrations/updates.
+
+Verify SUPER_ADMIN bootstrap/seed is correct and does not break login.
+
+PHASE 7 — END-TO-END FEATURE TESTING (MUST WORK FROM UI → API → DB)
+
+USER flows: Payments, Card Controls, Savings, Rewards (no crashes; correct data).
+
+ADMIN flows: user management, transaction review, audit/security logs (if present).
+
+Ensure every feature page has loading/empty/error states and never white-screens.
+
+PHASE 8 — AI CHAT (STREAMING + HISTORY)
+
+Verify AI chat widget works on all pages; streaming and history work end-to-end.
+
+Ensure OpenAI key is in Replit Secrets; handle missing key gracefully with clear UI/API error.
+
+PHASE 9 — PRODUCTION (AUTOSCALE) MUST WORK
+
+Ensure npm run build outputs dist/.
+
+Ensure npm run start serves dist/ + API on process.env.PORT and binds 0.0.0.0.
+
+Ensure production SPA fallback works and /api/* behavior is correct.
+
+OUTPUT REQUIREMENTS (STRICT)
+
+Propose all required code changes using Replit action tags only.
+
+Propose workflow changes using <proposed_workflow_configuration> if needed.
+
+Propose deployment configuration using <proposed_deployment_configuration> if needed.
+
+Provide:
+
+A list of every bug/error found (with evidence from logs/curl).
+
+Exact fixes applied (file-by-file).
+
+Final User + Admin test checklist.
+
+Exact steps to Republish/Deploy on Autoscale.
+
+Start with Preview + Admin/User flow fixes first, then confirm everything end-to-end with real tests.

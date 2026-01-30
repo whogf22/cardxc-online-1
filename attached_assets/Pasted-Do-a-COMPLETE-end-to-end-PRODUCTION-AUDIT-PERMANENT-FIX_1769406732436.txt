@@ -1,0 +1,209 @@
+Do a COMPLETE end-to-end PRODUCTION AUDIT + PERMANENT FIX for CardXC with ZERO regressions.
+
+ABSOLUTE RULES (VERY STRICT):
+
+Do NOT redesign UI
+
+Do NOT remove any existing features
+
+Do NOT refactor unnecessarily
+
+Minimal changes only (bugfix + stability only)
+
+Keep existing business logic unchanged
+
+Only roles allowed: USER and SUPER_ADMIN (NO ADMIN role anywhere)
+
+siyamhasan4@gmail.com
+ must ALWAYS remain SUPER_ADMIN forever
+
+Website must be WHITE-LABEL: never show “Fluz”, “Runa”, or any third-party/provider name anywhere in UI or API responses, logs returned to client, or frontend code
+
+PRIMARY GOALS (MUST WORK 100%):
+
+Preview + Live Stability
+
+Preview must never show “Invalid request” or blank preview
+
+Dev ports must remain: Vite 5000, Express 3001
+
+/ loads frontend HTML always
+
+SPA refresh works on /signin /signup /admin-login /admin-dashboard /payments /wallet /cards /savings /rewards
+
+/api/* returns JSON only (unknown /api/* returns JSON 404)
+
+/api/health returns EXACTLY { "status":"ok" }
+
+Auth System (User + SUPER_ADMIN)
+
+signup/login/session/logout must work in dev + production
+
+/api/auth/session must work after refresh
+
+logout must clear cookies with path:'/' and actually log out
+
+SUPER_ADMIN routes/APIs must return 403 for normal USERs
+
+Fix customer logout not working if still broken
+
+SUPER_ADMIN Panel (Fix ALL “admin DB” errors permanently)
+
+Ensure there is only ONE panel = SUPER_ADMIN panel (no ADMIN concept)
+
+Fix every DB schema/query mismatch causing 500 errors
+
+SUPER_ADMIN dashboard must load real DB data
+
+Users list loads
+
+Transactions list loads
+
+Card orders list loads
+
+Webhook logs load
+
+Support tickets/audit logs load if present
+
+Fix “pending permissions” bug for SUPER_ADMIN
+
+Fix SUPER_ADMIN “Add Funds / Card deposit for a user” feature being LOCKED/DISABLED (currently shows “Stripe not configured” or disabled Card option)
+
+Replace demo/placeholder payment method with the configured white-label checkout integration below
+
+Ensure SUPER_ADMIN can deposit for any selected user successfully
+
+Card Deposit / Checkout (White-label provider integration + Auto Wallet Credit)
+
+Implement backend-only provider integration (never exposed to frontend)
+
+Use Fluz API Adapter (Runa compatible) but keep it WHITE-LABEL
+
+Required Replit Secrets:
+FLUZ_BASE_URL (staging or production)
+FLUZ_AUTH_BASIC (Authorization Basic xxx)
+FLUZ_WEBHOOK_SECRET (optional if available)
+
+Add/ensure POST /api/checkout/card:
+
+auth required
+
+validate amount range: 100 to 2500 (inclusive)
+
+sanitize/round to 2 decimals safely
+
+create DB order row (generic table: card_orders) status=PENDING
+
+call provider create order endpoint:
+POST {FLUZ_BASE_URL}/v2/order
+Header: Authorization: {FLUZ_AUTH_BASIC}
+Header: Content-Type: application/json
+Header: X-Idempotency-Key: unique per order
+
+Use async mode by default (no sync header) to avoid timeouts
+
+Return ONLY:
+{ success:true, data:{ checkoutUrl } }
+
+Never return provider response fields to frontend
+
+If provider fails: return { success:false, error:{ code:"CHECKOUT_UNAVAILABLE", message:"Payment service unavailable. Try again." } }
+
+Add/ensure POST /api/webhooks/payment:
+
+verify signature if FLUZ_WEBHOOK_SECRET exists, otherwise allow in dev but secure in production
+
+log all webhook events to payment_webhook_logs
+
+idempotent processing: never double-credit
+
+On COMPLETED:
+
+mark card_orders COMPLETED
+
+create transaction row
+
+credit user wallet/ledger balance correctly
+
+On FAILED:
+
+mark card_orders FAILED with safe error
+
+Transactions: Every transaction must show a DIFFERENT merchant display name
+
+Keep merchant_name original
+
+Add merchant_display_name per transaction:
+"{merchant_name} • {last4(transaction_id)}"
+
+APIs must return merchant_display_name
+
+Frontend must display merchant_display_name || merchant_name
+
+Fix Card Deposit Amount Bug (100 to 2500)
+
+Ensure both frontend + backend accept deposit amounts 100–2500
+
+Frontend messages:
+
+if amount < 100: "Minimum deposit is 100"
+
+if amount > 2500: "Maximum deposit is 2500"
+
+Backend must enforce too with 400 JSON errors
+
+REQUIRED DEBUGGING (NO GUESSING):
+
+Check browser console errors on user pages + super admin pages
+
+Check network failed requests (400/401/403/500) and fix them
+
+Check server logs and DB errors
+
+Run curl tests for:
+GET /api/health
+GET /api/auth/session
+POST /api/auth/logout (and /api/auth/signout alias)
+POST /api/checkout/card
+POST /api/webhooks/payment (simulate payload)
+SUPER_ADMIN endpoints for users/orders/logs
+
+FIX REQUIREMENTS:
+
+Add production-safe error handling + validation only where missing
+
+Keep all existing endpoints working (no breaking changes)
+
+Keep JSON response shape consistent:
+{ success:true, data:... } and { success:false, error:{ code, message } }
+
+DATABASE REQUIREMENTS:
+
+If any DB table/column references “admin”, rename/migrate it to “super_admin” or remove the naming mismatch WITHOUT breaking existing data
+
+Ensure users.role constraint allows only USER and SUPER_ADMIN
+
+Ensure siyamhasan4@gmail.com
+ always forced to SUPER_ADMIN on startup bootstrap and never downgraded
+
+OUTPUT REQUIREMENTS:
+
+Use Replit action tags only for all code changes
+
+List every bug found + exact fix (file + summary)
+
+Provide final test checklist:
+USER: signup → login → card deposit checkout → success → wallet credited → transactions show unique name → logout
+SUPER_ADMIN: login → dashboard → users → deposit to user → transactions → card_orders → webhook logs → confirm no duplicate credits
+
+Confirm Preview + Live open without errors and all routes work
+
+DEPLOYMENT:
+
+Ensure Replit Autoscale deploy works:
+build_command: npm run build
+run_command: npm run start
+
+Ensure Vite build outputs dist/ and Express serves dist/ correctly
+
+Now execute the audit and apply only minimal necessary changes to reach 100% working production state.

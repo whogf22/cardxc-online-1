@@ -1,0 +1,72 @@
+You are a Principal Full-Stack FinTech Engineer + Security Architect.
+I am not available for questions. Do everything automatically using best judgment.
+
+TASK
+
+Perform a complete audit of this entire project and then FIX everything end-to-end until it is stable and production-ready.
+
+CHECK EVERYTHING
+	•	Frontend (all pages/components/state/forms/routing)
+	•	Backend (routes/controllers/services/middleware)
+	•	Database (schema/migrations/indexes/relations)
+	•	APIs (validation, response format, status codes, error handling)
+	•	Ledger/wallet/transactions (fintech correctness)
+	•	Auth + permissions (RBAC)
+	•	UI/UX (responsive, loading states, error states, empty states)
+	•	Security (OWASP + fintech-grade requirements)
+	•	Performance (slow queries, unnecessary re-renders, payload size)
+	•	Deployment/build config (env vars, scripts)
+
+MUST FIX (FINTECH GRADE)
+
+Backend/API:
+	•	Add request validation for every endpoint
+	•	Add centralized error handler with consistent JSON format
+	•	Fix all broken routes and payload mismatches
+	•	Fix auth (secure login/signup/forgot password)
+	•	Add RBAC (USER / ADMIN / SUPER_ADMIN)
+	•	Add rate limiting and brute force protection
+	•	Add audit logs for sensitive actions
+
+Ledger:
+	•	Enforce double-entry accounting
+	•	Ensure sum(debits) == sum(credits) always
+	•	Store money as integer cents (no floats)
+	•	Prevent duplicate transfers with idempotency keys
+	•	Use DB transactions to prevent partial updates
+	•	Prevent race condition double spend
+	•	Fix rounding/currency formatting
+
+Frontend/UI:
+	•	Fix broken screens/components
+	•	Match correct API contracts
+	•	Add loading/error/empty states everywhere
+	•	Improve UX for fintech flows (wallet, transfer, history)
+	•	Fix responsiveness for mobile
+
+Database:
+	•	Fix schema issues
+	•	Add indexes and constraints
+	•	Add unique constraints for transaction reference/idempotency
+
+Upgrades:
+	•	Upgrade outdated dependencies safely
+	•	Fix breaking changes
+	•	Remove unused packages
+
+ADD MISSING FEATURES AUTOMATICALLY
+
+If missing, add complete flows:
+	•	User dashboard + wallet + transaction history + transfer flow
+	•	Admin dashboard + user management + transaction monitoring
+
+OUTPUT REQUIRED
+
+When finished provide:
+	1.	Full list of issues found
+	2.	Full list of fixes applied
+	3.	Files changed
+	4.	How to run the app successfully
+	5.	Verification checklist (what to test)
+
+Start now. Fix everything automatically. Do not ask questions.

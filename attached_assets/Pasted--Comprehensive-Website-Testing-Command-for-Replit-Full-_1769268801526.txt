@@ -1,0 +1,111 @@
+# Comprehensive Website Testing Command for Replit
+
+# Full Stack Website Health Check - Frontend, Backend, Links & Performance
+# Copy and paste this entire block into your Replit Shell
+
+echo "🚀 Starting Full Website Health Check..."
+echo "========================================"
+
+# 1. Install required dependencies
+npm install -g lighthouse broken-link-checker http-server
+
+# 2. Check if server is running (adjust port as needed)
+PORT=3000
+echo "📡 Checking if server is running on port $PORT..."
+if lsof -Pi :$PORT -sTCP:LISTEN -t >/dev/null ; then
+    echo "✅ Server is running on port $PORT"
+else
+    echo "❌ Server is not running. Start your server first!"
+    exit 1
+fi
+
+# 3. Frontend Tests
+echo ""
+echo "🎨 FRONTEND CHECKS"
+echo "===================="
+
+# Check HTML validation
+echo "Checking HTML structure..."
+curl -s http://localhost:$PORT | grep -i "<!DOCTYPE html" && echo "✅ HTML structure found" || echo "⚠️  HTML structure issue"
+
+# Check for common frontend files
+echo "Checking frontend assets..."
+for file in index.html style.css styles.css main.css app.js script.js main.js; do
+    if find . -name "$file" 2>/dev/null | grep -q .; then
+        echo "✅ Found: $file"
+    fi
+done
+
+# Check responsive meta tags
+curl -s http://localhost:$PORT | grep -i "viewport" && echo "✅ Responsive viewport meta tag found" || echo "⚠️  Missing viewport meta tag"
+
+# 4. Backend Tests
+echo ""
+echo "⚙️  BACKEND CHECKS"
+echo "===================="
+
+# Test HTTP response
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$PORT)
+echo "HTTP Response Code: $HTTP_CODE"
+if [ $HTTP_CODE -eq 200 ]; then
+    echo "✅ Backend responding correctly (200 OK)"
+else
+    echo "❌ Backend issue - Response code: $HTTP_CODE"
+fi
+
+# Check response time
+RESPONSE_TIME=$(curl -o /dev/null -s -w '%{time_total}' http://localhost:$PORT)
+echo "⏱️  Response Time: ${RESPONSE_TIME}s"
+
+# Check if API endpoints exist (adjust endpoints as needed)
+echo "Checking common API endpoints..."
+for endpoint in /api /api/health /health /status; do
+    CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$PORT$endpoint)
+    if [ $CODE -eq 200 ]; then
+        echo "✅ $endpoint - Active (200)"
+    fi
+done
+
+# 5. Link Checker
+echo ""
+echo "🔗 LINK VALIDATION"
+echo "===================="
+echo "Checking all links on the website..."
+blc http://localhost:$PORT -ro --filter-level 3 || echo "⚠️  Some broken links found"
+
+# 6. Security Headers Check
+echo ""
+echo "🔒 SECURITY CHECKS"
+echo "===================="
+curl -s -I http://localhost:$PORT | grep -i "content-security-policy\|x-frame-options\|x-content-type-options" && echo "✅ Security headers present" || echo "⚠️  Missing security headers"
+
+# 7. Performance Audit (Lighthouse)
+echo ""
+echo "📊 PERFORMANCE AUDIT"
+echo "===================="
+echo "Running Lighthouse audit..."
+lighthouse http://localhost:$PORT --only-categories=performance,accessibility,best-practices,seo --output=html --output-path=./lighthouse-report.html --chrome-flags="--headless --no-sandbox"
+
+# 8. Database Connection Check (if applicable)
+echo ""
+echo "💾 DATABASE CHECK"
+echo "===================="
+if [ -f ".env" ]; then
+    echo "✅ .env file found"
+    grep -q "DATABASE" .env && echo "✅ Database config found in .env" || echo "⚠️  No database config in .env"
+else
+    echo "⚠️  No .env file found"
+fi
+
+# 9. Final Summary
+echo ""
+echo "✨ HEALTH CHECK COMPLETE"
+echo "===================="
+echo "📄 Detailed Lighthouse report saved to: lighthouse-report.html"
+echo "🌐 Your website is being tested at: http://localhost:$PORT"
+echo ""
+echo "Next steps:"
+echo "1. Review the lighthouse-report.html file"
+echo "2. Fix any broken links reported above"
+echo "3. Check console for any errors"
+echo "4. Test manually in browser: https://${REPL_SLUG}.${REPL_OWNER}.repl.co"

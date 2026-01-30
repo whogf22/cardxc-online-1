@@ -1,0 +1,217 @@
+You are a Principal Full-Stack FinTech Engineer + Security Architect + DevOps Lead.
+Read and follow ALL requirements mentioned in the full chat context and implement them across the entire project.
+
+IMPORTANT: Do not ask me any questions. I am not available.
+Do everything automatically using best engineering judgment.
+Do NOT remove or break any existing features or flows.
+
+MUST IMPLEMENT FROM FULL CHAT (ALL)
+
+Full website audit + fix (frontend + backend + database + API + ledger + UI/UX)
+
+Fix responsive UI for mobile + desktop (no overlap, no broken layout)
+
+Apply Figma design style as closely as possible WITHOUT using Figma MCP import if rate-limited
+
+Remove Supabase completely ONLY IF it is unnecessary; clean project; fix all errors after removal
+
+Ensure siyamhasan4@gmail.com is FOREVER SUPER_ADMIN (cannot be downgraded/removed)
+
+Fix Google Sign-in / Sign-up end-to-end (frontend + backend + redirect/callback + session)
+
+Fix signup/verification emails going to spam and ensure emails send from CardXC brand/domain
+
+Fix all errors automatically (build, runtime, console, API mismatch)
+
+ADD MISSING FINTECH INVESTOR-READY FEATURES (AUTO)
+
+Implement if missing:
+
+Central error handler + consistent API responses
+
+Validation on every endpoint
+
+RBAC roles: USER / ADMIN / SUPER_ADMIN
+
+Rate limiting for auth and sensitive endpoints
+
+Audit logs for admin actions and balance changes
+
+Idempotency keys for payments/transfers
+
+DB transactions for ledger operations
+
+Store money as integer cents (no float)
+
+Prevent double spend race conditions
+
+Reconciliation checks for ledger/balances
+
+Secure secrets handling via env vars
+
+EMAIL DELIVERABILITY (MUST)
+
+Ensure email sending is production-grade:
+
+From: CardXC <no-reply@cardxc.com> (or best available CardXC sender)
+
+Proper headers and templates
+
+Avoid spam-trigger wording
+
+Add SPF/DKIM/DMARC guidance in final output
+
+SECURITY UPGRADES (MANDATORY)
+
+Implement all of the following:
+
+1) 2FA (Optional but Strong)
+
+Add 2FA using TOTP (Google Authenticator compatible)
+
+User can enable/disable from settings
+
+OTP required on login if enabled
+
+Store 2FA secrets securely (encrypted at rest)
+
+2) Device / Session Management
+
+Track sessions per device (IP, user-agent, createdAt, lastUsedAt)
+
+Allow user to view active sessions
+
+Allow user to logout other devices
+
+Rotate tokens/sessions on sensitive actions
+
+3) Account Lock After Failed Logins
+
+Track failed login attempts
+
+Temporary lock after N failed attempts
+
+Unlock after timeout or admin unlock
+
+Rate limit login endpoints
+
+4) Audit Trail Export
+
+Store audit logs for sensitive actions
+
+Admin export to CSV
+
+Filters: date range, user, action type
+
+FINANCE SAFETY (MANDATORY)
+1) Transaction Status System
+
+Implement lifecycle: PENDING → SUCCESS → FAILED (or REVERSED if needed)
+
+Frontend displays status clearly
+
+Backend marks SUCCESS only after ledger commit is complete
+
+2) Retry-Safe Transfers
+
+Add idempotency keys to transfer/payment requests
+
+Prevent duplicates on retry/refresh
+
+Use DB transactions for atomicity
+
+3) Admin Manual Adjustment Approval Flow
+
+Implement maker-checker approvals:
+
+ADMIN creates adjustment request (PENDING)
+
+SUPER_ADMIN approves/rejects
+
+Audit log all actions
+
+MONITORING + LOGGING (MANDATORY)
+1) Error Logging (Sentry-like)
+
+Add error tracking integration for backend + frontend
+
+Capture exceptions and unhandled errors
+
+Tag environment (dev/prod)
+
+2) Request Logs + Metrics
+
+Add request logging middleware
+
+Log route, status, response time, userId (if available)
+
+Add /health endpoint and basic performance metrics
+
+FRAUD DETECTION (MANDATORY)
+
+Implement basic fintech fraud prevention features:
+
+Velocity checks (too many transfers/logins in short time)
+
+Suspicious login alerts (new device, unusual IP/country if available)
+
+Unusual transfer detection (sudden large amount, repeated recipients, rapid attempts)
+
+Auto-flag suspicious events in database
+
+Admin panel view for flagged activity
+
+Optional auto-block rules with safe defaults (do not block legitimate users too aggressively)
+
+FULL AUTOMATION RULE
+
+Automate everything possible inside codebase.
+If any CRITICAL issue requires manual action (DNS records, Google OAuth console settings, SMTP provider verification, production keys), then ONLY at that time stop and show me:
+
+exact step-by-step instructions
+
+exact values to copy/paste
+
+exactly where to paste them (DNS, Google Cloud Console, etc.)
+
+FINAL QUALITY GATE (MUST PASS)
+
+App builds successfully
+
+Frontend has zero console errors
+
+Backend runs with no crashes
+
+Google auth works end-to-end
+
+siyamhasan4@gmail.com always remains SUPER_ADMIN
+
+Emails send correctly and are less likely to go to spam
+
+UI works perfectly on mobile + desktop
+
+Ledger is consistent and safe
+
+Admin approval flow works
+
+Audit export works
+
+Fraud detection flags suspicious activity correctly
+
+FINAL OUTPUT
+
+Provide:
+
+Everything checked from full chat requirements
+
+Issues found
+
+Fixes applied
+
+Files changed
+
+How to run + verify
+
+Only critical manual steps (if absolutely required)
+
+Start now and complete everything. Do not ask questions.

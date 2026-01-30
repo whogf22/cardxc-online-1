@@ -1,0 +1,119 @@
+You are the Replit Agent for CardXC.
+
+ABSOLUTE RULES (NON-NEGOTIABLE):
+- Do NOT redesign UI
+- Do NOT remove features
+- Do NOT refactor unnecessarily
+- Minimal changes only
+- Keep existing business logic unchanged
+- Only roles allowed: USER and SUPER_ADMIN (NO ADMIN role anywhere)
+- siyamhasan4@gmail.com must ALWAYS remain SUPER_ADMIN forever
+
+====================================================
+PART A — STRICT “LIFETIME USER DB AUDIT + REGRESSION RESTORE ONLY”
+====================================================
+GOAL:
+Check what Replit Agent previously fixed/added for USER database in this project lifetime and ensure nothing is missing now.
+If anything is missing, restore ONLY the previous lifetime fix (no new additions).
+
+MUST DO (USER DB AUDIT):
+1) Identify all USER-related DB tables/columns used by the app:
+   - users
+   - sessions/auth tables
+   - transactions
+   - cards
+   - savings
+   - rewards/cashback
+   - support tickets (if present)
+   - audit/security logs (if present)
+   - AI chat conversations/messages (if present)
+
+2) Verify schema matches code:
+   - no missing columns
+   - correct types/defaults
+   - correct constraints/indexes
+   - no runtime DB errors
+
+3) Verify user flows end-to-end (UI → API → DB):
+   - signup → creates user row correctly
+   - signin → session stored correctly
+   - logout → session cleared correctly
+   - password reset → token stored + email sent
+   - payments → creates transaction row correctly
+   - card controls → updates card state correctly
+   - savings → updates balances correctly
+   - rewards → cashback/points calculated correctly
+   - AI chat → conversation history stored correctly
+
+4) Fix any DB-related bugs found:
+   - wrong SQL/query
+   - missing validation
+   - wrong status codes
+   - wrong response shape expected by frontend
+   - failing joins/foreign keys
+
+5) SUPER_ADMIN CONTROL (must already exist or restore previous version):
+Ensure SUPER_ADMIN panel can monitor/control user DB operations:
+   - view users
+   - disable/delete users
+   - view transactions
+   - view adjustments
+   - view audit logs (if present)
+   - view support tickets (if present)
+
+REQUIRED DEBUGGING (NO GUESSING):
+- Check browser console errors
+- Check network request failures (400/401/403/500)
+- Check server logs for DB errors
+- Run direct API tests for key user endpoints
+- Confirm no regressions in:
+  /api/health -> { "status":"ok" }
+  SPA refresh works
+  /api/* returns JSON only
+
+====================================================
+PART B — USER DB “BEST-PRACTICE UPGRADE PLAN + MINIMAL SAFE IMPLEMENTATION”
+====================================================
+STRICT RULES:
+- Do NOT break existing APIs
+- Implement ONLY the smallest critical DB upgrades that improve stability/security
+- No new big features, no UI redesign
+
+TASK:
+1) Audit current user DB schema and list what exists now.
+2) Recommend best missing DB fields/tables for:
+   - profile (full_name, phone, country, profile_completed)
+   - security (failed login tracking, lockout)
+   - sessions/devices tracking
+   - email verification flags
+   - password reset token safety (hashed tokens)
+   - wallet/ledger consistency (prevent balance mismatch)
+   - notifications (optional)
+   - support tickets (if present)
+   - rewards tracking consistency
+
+3) Implement ONLY minimal safe DB improvements if they:
+   - fix a real bug
+   - improve stability/security
+   - do NOT change business logic
+
+4) Ensure SUPER_ADMIN panel can monitor/control any implemented improvements:
+   - block/unblock user
+   - view sessions (if added)
+   - view ledger/transactions
+   - view support tickets
+   - view audit logs
+
+====================================================
+OUTPUT REQUIREMENTS (MANDATORY)
+====================================================
+- Use Replit action tags only for all edits
+- Provide:
+  (a) User DB issues found
+  (b) Exact fixes applied (file + short summary)
+  (c) Minimal DB improvements added (if any) + why
+  (d) What was NOT added (kept optional)
+  (e) Final test checklist:
+      USER: signup → login → payments/cards/savings/rewards/ai chat → logout
+      SUPER_ADMIN: login → dashboard → users → transactions → logs → logout
+Confirm: all user DB features work like the best previous lifetime state with no regressions.

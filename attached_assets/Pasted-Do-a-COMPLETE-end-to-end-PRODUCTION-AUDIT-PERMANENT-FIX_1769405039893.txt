@@ -1,0 +1,114 @@
+Do a COMPLETE end-to-end PRODUCTION AUDIT + PERMANENT FIX for CardXC and ensure ZERO regressions.
+
+ABSOLUTE RULES (VERY STRICT):
+- Do NOT redesign UI
+- Do NOT remove any existing features
+- Do NOT refactor unnecessarily
+- Minimal changes only (bugfix + stability only)
+- Keep existing business logic unchanged
+- Only roles allowed: USER and SUPER_ADMIN (NO ADMIN role anywhere)
+- siyamhasan4@gmail.com must ALWAYS remain SUPER_ADMIN forever
+- Website must be WHITE-LABEL: never show “Fluz”, “Runa”, “Runa Adapter”, or any third-party/provider name anywhere in UI or API responses
+
+TOP PRIORITY: REMOVE ALL “ADMIN” REFERENCES SAFELY (NO ERRORS)
+1) Search the entire codebase + database schema for:
+   - role = "ADMIN"
+   - tables like admin_users, admin_sessions, admin_logs
+   - routes like /api/admin/*
+   - UI pages like admin-dashboard/admin-login
+2) Do NOT delete features. Instead:
+   - Replace “ADMIN” role checks with SUPER_ADMIN checks
+   - Replace “admin” route protection with SUPER_ADMIN protection
+   - Keep endpoint paths the same if frontend expects them (avoid breaking APIs)
+3) If any DB table/column uses admin naming, keep the table but ensure:
+   - only SUPER_ADMIN can access it
+   - schema matches code (no missing columns)
+4) Ensure ONLY these roles exist in DB + code:
+   - USER
+   - SUPER_ADMIN
+   Remove/disable any “ADMIN” enum/type validation if it exists.
+
+PRIMARY GOALS (MUST WORK):
+1) Preview + Live Stability
+- Preview must never show “Invalid request”
+- Dev ports: Vite 5000, Express 3001
+- / loads frontend HTML always
+- SPA refresh works on /signin /signup /admin-login /admin-dashboard /payments
+- /api/* returns JSON only (unknown /api/* returns JSON 404)
+- /api/health returns EXACTLY { "status":"ok" }
+
+2) Auth System (User + SUPER_ADMIN)
+- signup/login/session/logout must work in dev + production
+- /api/auth/session must behave correctly after refresh
+- logout must clear cookies with path:'/' and actually log out
+- SUPER_ADMIN routes/APIs must return 403 for normal USERs
+
+3) SUPER_ADMIN Panel Fix (No “Pending” bug)
+- Fix any “pending permission” UI state for SUPER_ADMIN
+- Ensure SUPER_ADMIN dashboard loads real DB data
+- users list loads
+- transactions list loads
+- audit logs/support tickets load (if present)
+- Fix every DB schema/query mismatch causing 500 errors
+
+4) Card Deposit Must Be LIVE (No Demo)
+- Identify why Card Deposit shows “Demo”
+- Ensure deposit button calls POST /api/checkout/card
+- Return only { success:true, data:{ checkoutUrl } }
+- Redirect/open checkoutUrl
+- Remove demo fallback only when secrets are present (no fake UI)
+
+5) Card Deposit Amount Range Fix (CRITICAL)
+- Allow amount range 100 to 2500 everywhere (both modals/pages)
+- Frontend validation:
+  <100 => "Minimum deposit is 100"
+  >2500 => "Maximum deposit is 2500"
+- Backend validation:
+  reject with 400 JSON error if invalid
+- Prevent floating issues using:
+  Math.round(Number(amount) * 100) / 100
+- Tests:
+  99 rejected
+  100 accepted
+  2500 accepted
+  2501 rejected
+
+6) Payments: White-label Checkout + Auto Wallet Add
+- Integrate provider backend-only using secrets:
+  FLUZ_API_KEY, FLUZ_USER_ID, FLUZ_BUSINESS_ACCOUNT_ID, FLUZ_BASE_URL, FLUZ_WEBHOOK_SECRET
+- Implement/verify:
+  POST /api/checkout/card -> creates card_orders status=PENDING -> returns checkoutUrl only
+  POST /api/webhooks/payment -> verifies signature -> logs -> idempotent -> credits wallet on COMPLETED only
+
+7) Transactions: Every transaction must show DIFFERENT name
+- merchant_display_name = "{merchant_name} • {last4(transaction_id)}"
+- frontend shows merchant_display_name || merchant_name
+
+REQUIRED DEBUGGING (NO GUESSING):
+- Check browser console errors (user + superadmin pages)
+- Check network failures (400/401/403/500)
+- Check server logs + DB errors
+- Run curl tests for:
+  /api/health
+  /api/auth/session
+  /api/auth/logout
+  POST /api/checkout/card
+  POST /api/webhooks/payment (simulate)
+  SUPER_ADMIN endpoints for users/orders/logs
+
+FIX REQUIREMENTS:
+- Add production-safe error handling + validation only where missing
+- Keep all existing endpoints working (no breaking changes)
+- Keep JSON response shape consistent:
+  { success:true, data:... } and { success:false, error:{ code, message } }
+
+OUTPUT REQUIREMENTS:
+- Propose all changes using Replit action tags only
+- List every bug found + exact fix (file + summary)
+- Provide final test checklist:
+  USER: signup → login → deposit (100–2500) → checkout → success → wallet credited → unique transaction name → logout
+  SUPER_ADMIN: login → dashboard → users → transactions → card_orders → webhook logs → confirm no duplicate credits
+- Confirm Preview + Live open without errors
+- Provide deployment configuration:
+  Build: npm run build
+  Run: npm run start
