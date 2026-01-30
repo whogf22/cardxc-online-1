@@ -124,3 +124,33 @@ const user = await db.select().from(users).where(eq(users.id, id));
 - Frontend runs on port 5000
 - Backend API runs on port 3001
 - MCP server runs on port 8080
+
+---
+
+## Profile & Settings Pages
+
+### Routes
+| Route | Purpose |
+|-------|---------|
+| `/profile` | Main profile with settings menu |
+| `/profile/personal` | Name, email, phone, DOB, country, gender |
+| `/profile/payments` | Card details, currency preference |
+| `/profile/security` | Password, PIN, 2FA toggle, login history |
+| `/profile/accessibility` | Voice, zoom, screen reader, font size |
+| `/profile/language` | 6 language options |
+| `/profile/notifications` | Email, message, in-app toggles |
+| `/profile/privacy` | Data sharing, personalization, location |
+
+### Design Guidelines
+- Mobile-first iOS-style design
+- White backgrounds with subtle borders
+- RemixIcon (ri-*) for all icons
+- Consistent back navigation headers
+
+---
+
+## Recent Changes (January 30, 2026)
+- Profile page redesign with settings menu
+- 7 new profile sub-pages
+- White-label security (no third-party branding)
+- Support section with Help center
