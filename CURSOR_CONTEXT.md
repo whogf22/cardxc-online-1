@@ -400,11 +400,38 @@ ssh -i ~/.ssh/replit_key replit@your-repl.replit.dev
 
 ---
 
+## Profile & Settings Pages (January 30, 2026)
+
+### Main Profile Page (`/profile`)
+- User card with avatar, name, PRO MEMBER badge
+- Settings menu with 7 items
+- Support section with Help center and Report a problem
+- Logout button
+
+### Profile Sub-Pages
+| Route | Purpose |
+|-------|---------|
+| `/profile/personal` | Name, email, phone, DOB, country, gender |
+| `/profile/payments` | Card details, currency preference |
+| `/profile/security` | Password, PIN, 2FA toggle, login history |
+| `/profile/accessibility` | Voice, zoom, screen reader, font size |
+| `/profile/language` | 6 language options with selection |
+| `/profile/notifications` | Email, message, in-app toggles |
+| `/profile/privacy` | Data sharing, personalization, location |
+
+### Design Patterns
+- Mobile-first iOS-style design
+- White backgrounds with subtle borders
+- RemixIcon for all icons
+- Consistent back navigation
+
+---
+
 ## Deploy Readiness Status
 
 | Check | Status |
 |-------|--------|
-| Build Pipeline | ✅ Passed (14.61s) |
+| Build Pipeline | ✅ Passed (13.50s) |
 | LSP Diagnostics | ✅ No errors |
 | Security Audit | ✅ No secrets in frontend |
 | Port Configuration | ✅ 5000/3001/8080 |
@@ -415,4 +442,4 @@ ssh -i ~/.ssh/replit_key replit@your-repl.replit.dev
 ---
 
 ## Last Updated
-January 29, 2026
+January 30, 2026
