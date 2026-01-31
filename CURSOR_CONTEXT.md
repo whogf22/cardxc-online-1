@@ -68,7 +68,6 @@ cardxc/
 │   │   ├── wallet/               # Wallet management
 │   │   ├── transactions/         # Transaction history
 │   │   ├── cards/                # Virtual cards
-│   │   ├── profile/              # Profile & settings (7 sub-pages)
 │   │   ├── admin-dashboard/      # Admin panel
 │   │   ├── signin/signup/        # Authentication
 │   │   └── ...                   # 25+ pages
@@ -83,7 +82,6 @@ cardxc/
 │   ├── lib/                      # Utility libraries
 │   │   ├── api.ts                # API client
 │   │   ├── apiClient.ts          # HTTP client wrapper
-│   │   ├── authClient.ts         # Auth client (renamed from supabase.ts)
 │   │   ├── currencyUtils.ts      # Currency formatting
 │   │   ├── inputSanitizer.ts     # XSS protection
 │   │   └── ...                   # 15+ utilities
@@ -144,8 +142,6 @@ cardxc/
 | `NODE_ENV` | production | Environment mode |
 | `VITE_APP_DOMAIN` | https://cardxc.online | App domain |
 | `VITE_ADMIN_DOMAIN` | https://cardxc.online | Admin domain |
-| `AUTH_API_URL` | [configured] | Auth API URL (replaces SUPABASE_URL) |
-| `AUTH_API_KEY` | [configured] | Auth API key (replaces SUPABASE_ANON_KEY) |
 | `SMTP_HOST` | smtp.hostinger.com | Email server |
 | `SMTP_PORT` | 465 | Email port |
 | `SMTP_USER` | admin@cardxc.online | Email user |
@@ -251,7 +247,7 @@ User Action → React Component → API Client (lib/api.ts)
 
 ## Security Features
 
-### Implemented
+### Implemented ✅
 - Password hashing (bcrypt 12 rounds)
 - JWT session management (8h expiry)
 - Rate limiting (auth: 5/15min, API: 100/min, financial: 5/min)
@@ -274,9 +270,14 @@ User Action → React Component → API Client (lib/api.ts)
 ### Running Services
 | Service | Port | Status |
 |---------|------|--------|
-| Frontend (Vite) | 5000 | Running |
-| Backend (Express) | 3001 | Running |
-| MCP Server | 8080 | Running |
+| Frontend (Vite) | 5000 | ✅ Running |
+| Backend (Express) | 3001 | ✅ Running |
+| MCP Server | 8080 | ✅ Running |
+
+### Known Issues / Technical Debt
+1. LSP diagnostics in `server/replit_integrations/` (non-critical, integration files)
+2. Some console warnings about Supabase (legacy code, not in use)
+3. Auth check timeout warnings (network timing, not blocking)
 
 ### Admin Access
 - Email: siyamhasan4@gmail.com
@@ -367,81 +368,35 @@ ssh -i ~/.ssh/replit_key replit@your-repl.replit.dev
 
 ---
 
-## Complete Change History
+---
 
-### January 30, 2026 - White-Label Security Enhancements
+## Fixed Issues (January 29, 2026)
 
-**Branding Removal:**
-- Removed PayPal icon and branding from deposit panel
-- Replaced "Visa, Mastercard, Amex" text with generic "Credit & Debit Cards"
-- Production bundle verified clean: 0 third-party service names exposed
-- All payment processing fully abstracted (Fluz/Stripe backend, no frontend branding)
+### Complete Supabase Migration - ALL FILES FIXED
 
-**Code Refactoring:**
-- Renamed `supabase.ts` to `authClient.ts` with backward compatibility export
-- Updated `env.ts` to remove Supabase variable names (now AUTH_API_URL/AUTH_API_KEY)
+**Wallet & Withdrawals:**
+- `src/pages/wallet/page.tsx` - Replaced with `userApi.getWallets()`, `userApi.getTransactions()`
+- `src/pages/wallet/components/WithdrawModal.tsx` - Replaced with `userApi.requestWithdrawal()`
+- `src/pages/dashboard/components/WithdrawModal.tsx` - Replaced with `userApi.requestWithdrawal()`
 
-**Profile Page Redesign:**
-- Redesigned main Profile page with user card (avatar, name, PRO MEMBER badge)
-- Added 7 settings menu items with icons and navigation
-- Created 6 new sub-pages:
-  - /profile/personal - Personal Information (name, email, phone, DOB, country, gender)
-  - /profile/payments - Payments Information (card details, currency)
-  - /profile/security - Login & Security (password, 2FA, login history)
-  - /profile/accessibility - Accessibility settings (voice, zoom, screen reader, font size)
-  - /profile/language - Language & translation (6 language options)
-  - /profile/privacy - Privacy & sharing settings
-- Added Support section with Help center and Report a problem
-- Mobile-first design with consistent styling
-
-### January 29, 2026 - Complete API Migration
-
-**Supabase to API Migration:**
-All `supabase.from()` calls replaced with proper API calls:
-- Wallet pages: `userApi.getWallets()`, `userApi.getTransactions()`, `userApi.requestWithdrawal()`
-- Admin operations (7 files): `adminApi.getUsers()`, `adminApi.getOverview()`, `adminApi.getLedger()`, etc.
-- Support page: localStorage-based ticket management
-- KYC/Phone verification: `userApi.getProfile()`, `userApi.updateProfile()`
-- Exchange rate service: External API only (removed supabase fallback)
-
-**Files Updated:**
-- `src/pages/wallet/page.tsx` - Replaced with userApi calls
-- `src/pages/wallet/components/WithdrawModal.tsx` - Replaced with userApi.requestWithdrawal()
-- `src/pages/dashboard/components/WithdrawModal.tsx` - Replaced with userApi.requestWithdrawal()
+**Admin Operations (7 files):**
 - `PaymentSettingsTab.tsx` - Uses localStorage-based state
-- `UsersTab.tsx` - Replaced with adminApi.getUsers()
-- `OverviewTab.tsx` - Replaced with adminApi.getOverview()
-- `LedgerExplorerTab.tsx` - Replaced with adminApi.getLedger(), adminApi.getUsers()
-- `WalletBalancesTab.tsx` - Replaced with adminApi.getUsers()
-- `WithdrawalsTab.tsx` - Replaced with adminApi.getWithdrawals(), adminApi.getUsers()
-- `RiskMonitorTab.tsx` - Replaced with adminApi calls
+- `UsersTab.tsx` - Replaced with `adminApi.getUsers()`
+- `OverviewTab.tsx` - Replaced with `adminApi.getOverview()`
+- `LedgerExplorerTab.tsx` - Replaced with `adminApi.getLedger()`, `adminApi.getUsers()`
+- `WalletBalancesTab.tsx` - Replaced with `adminApi.getUsers()`
+- `WithdrawalsTab.tsx` - Replaced with `adminApi.getWithdrawals()`, `adminApi.getUsers()`
+- `RiskMonitorTab.tsx` - Replaced with `adminApi` calls
+
+**Support & KYC:**
 - `src/pages/support/page.tsx` - Uses localStorage-based ticket management
-- `src/components/KYCDocumentUpload.tsx` - Replaced with userApi.getProfile(), userApi.updateProfile()
-- `src/components/PhoneVerification.tsx` - Replaced with userApi.updateProfile()
-- `src/components/AdminHealthCheck.tsx` - Replaced with healthApi.check(), userApi.getProfile()
+- `src/components/KYCDocumentUpload.tsx` - Replaced with `userApi.getProfile()`, `userApi.updateProfile()`
+- `src/components/PhoneVerification.tsx` - Replaced with `userApi.updateProfile()`
+- `src/components/AdminHealthCheck.tsx` - Replaced with `healthApi.check()`, `userApi.getProfile()`
+
+**Services:**
 - `src/lib/exchangeRateService.ts` - Removed supabase fallback, uses external API only
 - `src/contexts/CurrencyContext.tsx` - Removed unused supabase import
-
-**DevOps Audit:**
-- Build pipeline validated (14.61s, no errors)
-- Security audit passed (no secrets in frontend)
-- Port configuration verified (5000/3001/8080)
-- Crash-proof startup with environment validation
-- Autoscale deployment configured
-
-### Earlier Changes
-
-- Added database connection error handling (503 for ECONNREFUSED/ETIMEDOUT)
-- Added `isDatabaseConnectionError()` helper in `server/db/pool.ts`
-- Added real person photos to testimonials section
-- Created context files for external IDE integration
-- Added JWT authentication to MCP server
-- Integrated Google Gemini AI for code analysis and generation
-- Added AI-powered error fixing capabilities
-- Redesigned MCP server landing page
-- Fixed Rate Limiter IPv6 compatibility issues
-- Fixed KYC banner display for Super Admin users
-- Fixed 404 page component issue
 
 ---
 
@@ -449,15 +404,15 @@ All `supabase.from()` calls replaced with proper API calls:
 
 | Check | Status |
 |-------|--------|
-| Build Pipeline | Passed (14.61s) |
-| LSP Diagnostics | No errors |
-| Security Audit | No secrets in frontend |
-| Port Configuration | 5000/3001/8080 |
-| Database Connection | 503 on failure |
-| Crash-proof Startup | Environment validation |
-| Autoscale Deploy | Configured |
+| Build Pipeline | ✅ Passed (14.61s) |
+| LSP Diagnostics | ✅ No errors |
+| Security Audit | ✅ No secrets in frontend |
+| Port Configuration | ✅ 5000/3001/8080 |
+| Database Connection | ✅ 503 on failure |
+| Crash-proof Startup | ✅ Environment validation |
+| Autoscale Deploy | ✅ Configured |
 
 ---
 
 ## Last Updated
-January 30, 2026
+January 29, 2026
