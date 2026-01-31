@@ -67,6 +67,7 @@
     "@types/jest": "^30.0.0",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^5.1.2",
     "@vitejs/plugin-react-swc": "^3.10.2",
     "@vitest/ui": "^4.0.17",
     "autoprefixer": "^10.4.21",
@@ -90,7 +91,7 @@
   "scripts": {
     "start": "NODE_ENV=production tsx server/index.ts",
     "build": "vite build",
-    "dev": "tsx server/index.ts & NODE_ENV=development vite",
+    "dev": "tsx server/index.ts & NODE_ENV=development npx vite",
     "server": "tsx server/index.ts",
     "client": "vite",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
