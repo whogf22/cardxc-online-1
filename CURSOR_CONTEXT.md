@@ -27,7 +27,7 @@ CardXC is a **modern fintech platform** for digital banking operations. It provi
 | TailwindCSS | 3.4.17 | Styling |
 | Framer Motion | - | Animations |
 | React Router | 7.x | Routing |
-| Lucide React | - | Icons |
+| RemixIcon | - | Iconography |
 | Recharts | - | Charts/Analytics |
 
 ### Backend
@@ -37,17 +37,10 @@ CardXC is a **modern fintech platform** for digital banking operations. It provi
 | Express | 5.2.1 | HTTP Server |
 | TypeScript | 5.8 | Type safety |
 | PostgreSQL | - | Database (Neon-backed) |
+| Drizzle ORM | - | Database ORM |
 | JWT | - | Authentication |
 | Nodemailer | - | Email service |
-| Stripe | - | Payment processing |
-
-### Services & Integrations
-| Service | Purpose |
-|---------|---------|
-| Google Gemini AI | AI-powered analysis and code generation |
-| Stripe | Payment processing |
-| SMTP (Hostinger) | Transactional emails |
-| Sentry | Error tracking (optional) |
+| Stripe | - | Payment processing (Backend only) |
 
 ---
 
@@ -61,358 +54,83 @@ cardxc/
 │   │   ├── ProtectedRoute.tsx    # Auth route wrapper
 │   │   ├── AdminRoute.tsx        # Admin-only route wrapper
 │   │   ├── DashboardLayout.tsx   # Main dashboard layout
-│   │   ├── KYCStatusBanner.tsx   # KYC verification banner
 │   │   └── ...                   # 40+ components
 │   ├── pages/                    # Page components
 │   │   ├── dashboard/            # User dashboard
 │   │   ├── wallet/               # Wallet management
-│   │   ├── transactions/         # Transaction history
+│   │   ├── profile/              # Profile & settings (accessibility, language, etc.)
 │   │   ├── cards/                # Virtual cards
 │   │   ├── admin-dashboard/      # Admin panel
-│   │   ├── signin/signup/        # Authentication
 │   │   └── ...                   # 25+ pages
-│   ├── contexts/                 # React contexts
-│   │   ├── AuthContext.tsx       # Authentication state
-│   │   ├── ToastContext.tsx      # Toast notifications
-│   │   └── CurrencyContext.tsx   # Currency preferences
-│   ├── hooks/                    # Custom React hooks
-│   │   ├── useAuth.ts            # Auth hook
-│   │   ├── useRealtimeBalance.ts # Real-time balance updates
-│   │   └── ...                   # 10+ hooks
-│   ├── lib/                      # Utility libraries
-│   │   ├── api.ts                # API client
-│   │   ├── apiClient.ts          # HTTP client wrapper
-│   │   ├── currencyUtils.ts      # Currency formatting
-│   │   ├── inputSanitizer.ts     # XSS protection
-│   │   └── ...                   # 15+ utilities
+│   ├── contexts/                 # React contexts (Auth, Toast, Currency)
+│   ├── lib/                      # Utility libraries (api.ts, authClient.ts, currencyUtils.ts)
 │   ├── router/                   # Routing configuration
-│   │   └── config.tsx            # Route definitions
 │   └── types/                    # TypeScript types
 │
 ├── server/                       # Backend Express application
 │   ├── routes/                   # API route handlers
-│   │   ├── auth.ts               # Authentication endpoints
-│   │   ├── user.ts               # User management
-│   │   ├── transactions.ts       # Transaction endpoints
-│   │   ├── cards.ts              # Virtual card endpoints
-│   │   ├── payments.ts           # Payment processing
-│   │   ├── admin.ts              # Admin endpoints
-│   │   ├── savings.ts            # Savings goals
-│   │   ├── rewards.ts            # Rewards system
-│   │   └── ...                   # 15+ route files
-│   ├── services/                 # Business logic services
-│   │   ├── emailService.ts       # Email sending
-│   │   ├── fraudService.ts       # Fraud detection
-│   │   ├── backgroundJobs.ts     # Scheduled tasks
-│   │   ├── twoFactorService.ts   # 2FA implementation
-│   │   └── ...                   # 10+ services
-│   ├── middleware/               # Express middleware
-│   │   ├── auth.ts               # JWT authentication
-│   │   ├── rateLimit.ts          # Rate limiting
-│   │   ├── errorHandler.ts       # Global error handling (503 for DB errors)
-│   │   └── ...
-│   ├── db/                       # Database configuration
-│   │   └── pool.ts               # PostgreSQL pool + isDatabaseConnectionError()
+│   ├── services/                 # Business logic (email, fraud, background)
+│   ├── middleware/               # Express middleware (auth, rateLimit, errorHandler)
+│   ├── db/                       # Database configuration (pool.ts, schema.ts)
 │   └── index.ts                  # Server entry point
 │
 ├── mcp-server/                   # MCP Server for AI assistants
 │   └── http-server.js            # HTTP-based MCP server (port 8080)
 │
 ├── shared/                       # Shared types between frontend/backend
-└── public/                       # Static assets
-    └── images/
-        └── testimonials/         # Real person photos for testimonials
+└── public/                       # Static assets (images, icons)
 ```
 
 ---
 
 ## Environment Variables
 
-### Required Secrets (Set via Replit Secrets)
-| Variable | Purpose |
-|----------|---------|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `SESSION_SECRET` | JWT signing secret |
-| `AI_INTEGRATIONS_GEMINI_API_KEY` | Gemini AI API key |
-| `AI_INTEGRATIONS_GEMINI_BASE_URL` | Gemini AI base URL |
+### Required Secrets
+- `DATABASE_URL`: PostgreSQL connection string
+- `SESSION_SECRET`: JWT signing secret
+- `AI_INTEGRATIONS_GEMINI_API_KEY`: Gemini AI API key
+- `GITHUB_PERSONAL_ACCESS_TOKEN`: GitHub personal access token
 
-### Application Config (Environment Variables)
-| Variable | Value | Purpose |
-|----------|-------|---------|
-| `NODE_ENV` | production | Environment mode |
-| `VITE_APP_DOMAIN` | https://cardxc.online | App domain |
-| `VITE_ADMIN_DOMAIN` | https://cardxc.online | Admin domain |
-| `SMTP_HOST` | smtp.hostinger.com | Email server |
-| `SMTP_PORT` | 465 | Email port |
-| `SMTP_USER` | admin@cardxc.online | Email user |
-| `MCP_API_KEY` | cardxc-mcp-key | MCP server API key |
-| `MCP_SECRET` | [generated] | MCP JWT secret |
+### App Config
+- `NODE_ENV`: production/development
+- `VITE_APP_DOMAIN`: https://cardxc.online
+- `VITE_ADMIN_DOMAIN`: https://cardxc.online
+- `AUTH_API_URL`: Backend Auth API URL
+- `AUTH_API_KEY`: Backend Auth API Key
+- `MCP_API_KEY`: `cardxc-mcp-key`
 
 ---
 
-## API Endpoints
+## Complete Change History (Last Updated: February 2, 2026)
 
-### Authentication (`/api/auth/*`)
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User login
-- `POST /api/auth/logout` - Logout
-- `GET /api/auth/session` - Get current session
-- `POST /api/auth/verify-2fa` - 2FA verification
-- `POST /api/auth/forgot-password` - Password reset request
-- `POST /api/auth/reset-password` - Password reset
+### February 2, 2026 - Synchronization & Key Management
+- **SSH Key Integration**: Added SSH private/public keys for secure project access.
+- **GitHub Sync**: Fully synchronized with latest Cursor IDE changes via `git pull --rebase`.
+- **Secret Management**: Verified and configured `GITHUB_PERSONAL_ACCESS_TOKEN`.
 
-### User (`/api/user/*`)
-- `GET /api/user/profile` - Get user profile
-- `PUT /api/user/profile` - Update profile
-- `POST /api/user/kyc` - Submit KYC documents
+### January 30, 2026 - White-Label & Security
+- **Branding Removal**: Stripped all third-party logos (PayPal, Visa, Mastercard) from the frontend.
+- **Generic Labels**: Replaced specific brand names with "Credit & Debit Cards".
+- **Code Refactor**: Renamed `supabase.ts` to `authClient.ts` to remove service-specific naming.
+- **Profile Redesign**: Implemented a comprehensive mobile-first Profile section with 7 sub-pages.
 
-### Transactions (`/api/transactions/*`)
-- `GET /api/transactions` - List transactions
-- `POST /api/transactions/transfer` - P2P transfer
-- `GET /api/transactions/:id` - Transaction details
+### January 29, 2026 - API Migration
+- **Supabase to API**: Migrated all database operations from direct Supabase calls to a secure backend API layer (`api.ts`).
+- **Error Handling**: Implemented 503 Service Unavailable handling for database connection failures.
+- **DevOps**: Configured autoscale deployment and crash-proof startup validation.
 
-### Cards (`/api/cards/*`)
-- `GET /api/cards` - List virtual cards
-- `POST /api/cards` - Create new card
-- `PUT /api/cards/:id/freeze` - Freeze/unfreeze card
-- `PUT /api/cards/:id/limits` - Update spending limits
-
-### Payments (`/api/payments/*`)
-- `POST /api/payments/deposit` - Initiate deposit
-- `POST /api/payments/withdraw` - Initiate withdrawal
-- `POST /api/payments/webhook` - Payment webhooks
-
-### Admin (`/api/admin/*`)
-- `GET /api/admin/users` - List all users
-- `GET /api/admin/transactions` - All transactions
-- `PUT /api/admin/users/:id/status` - Update user status
-- `GET /api/admin/analytics` - System analytics
-
-### MCP Server (Port 8080)
-- `GET /health` - Health check
-- `GET /mcp/manifest` - MCP manifest
-- `GET /mcp/tools` - Available tools
-- `POST /auth/token` - Get JWT token
-- `POST /execute` - Execute tool
-- `POST /mcp/tools/call` - MCP protocol tool call
+### MCP Server Features
+- **Remote Debugging**: Full support for Cursor/Antigravity via HTTP MCP.
+- **AI Tools**: `list_files`, `read_file`, `write_file`, `run_command`, `query_database`, `ai_analyze`, `ai_fix_error`.
+- **Security**: JWT-based authentication for AI assistant connections.
 
 ---
 
-## Error Handling
-
-### Database Connection Errors
-When the database is unavailable (ECONNREFUSED, ETIMEDOUT, etc.), the API returns:
-```json
-{
-  "success": false,
-  "error": {
-    "message": "Service temporarily unavailable. Please try again later.",
-    "code": "SERVICE_UNAVAILABLE"
-  }
-}
-```
-- **HTTP Status**: 503 (Service Unavailable)
-- **Detection**: `isDatabaseConnectionError()` in `server/db/pool.ts`
-- **Handler**: `errorHandler` middleware in `server/middleware/errorHandler.ts`
-
-### Standard Errors
-| Code | Status | Description |
-|------|--------|-------------|
-| `SERVICE_UNAVAILABLE` | 503 | Database connection failure |
-| `VALIDATION_ERROR` | 400 | Input validation failed |
-| `UNAUTHORIZED` | 401 | Authentication required |
-| `FORBIDDEN` | 403 | Insufficient permissions |
-| `NOT_FOUND` | 404 | Resource not found |
-| `INTERNAL_ERROR` | 500 | Unexpected server error |
+## Deploy Readiness
+- **Build Pipeline**: ✅ Passed
+- **Security Audit**: ✅ Passed (No frontend secrets)
+- **Port Config**: ✅ 5000 (Vite), 3001 (Express), 8080 (MCP)
+- **Mobile-First**: ✅ All pages responsive
 
 ---
-
-## Data Flow
-
-```
-User Action → React Component → API Client (lib/api.ts)
-                                      ↓
-                              Express Router (server/routes/*)
-                                      ↓
-                              Middleware (auth, rate-limit)
-                                      ↓
-                              Service Layer (server/services/*)
-                                      ↓
-                              PostgreSQL Database
-                                      ↓
-                              Response → React State Update → UI
-```
-
----
-
-## Security Features
-
-### Implemented ✅
-- Password hashing (bcrypt 12 rounds)
-- JWT session management (8h expiry)
-- Rate limiting (auth: 5/15min, API: 100/min, financial: 5/min)
-- SQL injection protection (parameterized queries)
-- XSS protection (DOMPurify, CSP headers)
-- CSRF protection headers
-- IP blocking (5 failed attempts = 15min block)
-- Account lockout after 5 failed logins
-- Two-factor authentication (TOTP)
-- Audit logging
-- Fraud detection system
-- Device fingerprinting
-- Helmet security headers
-- Input sanitization
-
----
-
-## Current Status
-
-### Running Services
-| Service | Port | Status |
-|---------|------|--------|
-| Frontend (Vite) | 5000 | ✅ Running |
-| Backend (Express) | 3001 | ✅ Running |
-| MCP Server | 8080 | ✅ Running |
-
-### Known Issues / Technical Debt
-1. LSP diagnostics in `server/replit_integrations/` (non-critical, integration files)
-2. Some console warnings about Supabase (legacy code, not in use)
-3. Auth check timeout warnings (network timing, not blocking)
-
-### Admin Access
-- Email: siyamhasan4@gmail.com
-- Role: SUPER_ADMIN
-- KYC: Approved (bypasses verification)
-
----
-
-## Quick Commands
-
-```bash
-# Start development
-npm run dev
-
-# Build for production
-npm run build
-
-# Start production server
-npm run start
-
-# Run MCP server
-npm run mcp:http
-
-# Database operations
-npm run db:push        # Sync schema
-npm run db:push --force # Force sync
-```
-
----
-
-## MCP Server Connection
-
-**URL:** `https://[replit-domain]:8080`
-**API Key:** `cardxc-mcp-key`
-
-**Get Token:**
-```bash
-curl -X POST "[URL]/auth/token" \
-  -H "Content-Type: application/json" \
-  -d '{"apiKey": "cardxc-mcp-key", "username": "cursor"}'
-```
-
-**Available Tools:** list_files, read_file, write_file, run_command, query_database, get_project_info, get_system_health, ai_analyze, ai_generate_code, ai_fix_error, search_files, get_logs
-
----
-
-## External IDE Integration
-
-### Cursor IDE (MCP)
-Add to `.cursor/mcp.json`:
-```json
-{
-  "mcpServers": {
-    "cardxc": {
-      "type": "http",
-      "url": "https://[replit-url]:8080",
-      "headers": { "Authorization": "Bearer <token>" }
-    }
-  }
-}
-```
-
-### Google Antigravity
-Add to MCP Servers → Manage → View raw config:
-```json
-{
-  "mcpServers": {
-    "cardxc": {
-      "transport": { "type": "http", "url": "https://[replit-url]:8080/mcp/tools/call" }
-    }
-  }
-}
-```
-
-### SSH (Real-time Sync)
-```bash
-# Generate key in Replit: Tools → SSH → Generate Key
-ssh -i ~/.ssh/replit_key replit@your-repl.replit.dev
-```
-
----
-
-## Static Assets
-
-| Path | Purpose |
-|------|---------|
-| `public/images/testimonials/*.jpg` | Real person photos for testimonials |
-
----
-
----
-
-## Fixed Issues (January 29, 2026)
-
-### Complete Supabase Migration - ALL FILES FIXED
-
-**Wallet & Withdrawals:**
-- `src/pages/wallet/page.tsx` - Replaced with `userApi.getWallets()`, `userApi.getTransactions()`
-- `src/pages/wallet/components/WithdrawModal.tsx` - Replaced with `userApi.requestWithdrawal()`
-- `src/pages/dashboard/components/WithdrawModal.tsx` - Replaced with `userApi.requestWithdrawal()`
-
-**Admin Operations (7 files):**
-- `PaymentSettingsTab.tsx` - Uses localStorage-based state
-- `UsersTab.tsx` - Replaced with `adminApi.getUsers()`
-- `OverviewTab.tsx` - Replaced with `adminApi.getOverview()`
-- `LedgerExplorerTab.tsx` - Replaced with `adminApi.getLedger()`, `adminApi.getUsers()`
-- `WalletBalancesTab.tsx` - Replaced with `adminApi.getUsers()`
-- `WithdrawalsTab.tsx` - Replaced with `adminApi.getWithdrawals()`, `adminApi.getUsers()`
-- `RiskMonitorTab.tsx` - Replaced with `adminApi` calls
-
-**Support & KYC:**
-- `src/pages/support/page.tsx` - Uses localStorage-based ticket management
-- `src/components/KYCDocumentUpload.tsx` - Replaced with `userApi.getProfile()`, `userApi.updateProfile()`
-- `src/components/PhoneVerification.tsx` - Replaced with `userApi.updateProfile()`
-- `src/components/AdminHealthCheck.tsx` - Replaced with `healthApi.check()`, `userApi.getProfile()`
-
-**Services:**
-- `src/lib/exchangeRateService.ts` - Removed supabase fallback, uses external API only
-- `src/contexts/CurrencyContext.tsx` - Removed unused supabase import
-
----
-
-## Deploy Readiness Status
-
-| Check | Status |
-|-------|--------|
-| Build Pipeline | ✅ Passed (14.61s) |
-| LSP Diagnostics | ✅ No errors |
-| Security Audit | ✅ No secrets in frontend |
-| Port Configuration | ✅ 5000/3001/8080 |
-| Database Connection | ✅ 503 on failure |
-| Crash-proof Startup | ✅ Environment validation |
-| Autoscale Deploy | ✅ Configured |
-
----
-
-## Last Updated
-January 29, 2026
+*Last Updated: February 02, 2026*
