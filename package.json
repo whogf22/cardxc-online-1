@@ -100,7 +100,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "mcp": "node mcp-server/index.js",
-    "mcp:http": "node mcp-server/http-server.js"
+    "mcp:http": "node mcp-server/http-server.js",
+    "mcp:push-all": "git add . && git commit -m 'mcp: auto-sync' && git push origin replit-agent",
+    "mcp:push-all:recovery": "git add . && git commit -m 'mcp: recovery-sync' && git push -f origin replit-agent"
   },
   "type": "module",
   "version": "0.0.0"
