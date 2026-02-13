@@ -1,9 +1,9 @@
 export default function AboutSection() {
   return (
-    <section id="about" className="py-24 bg-dark-bg">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl sm:text-5xl font-bold text-white mb-4">
+    <section id="about" className="py-24 lg:py-32 bg-dark-bg">
+      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
+        <div className="text-center mb-14 lg:mb-16">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-3 sm:mb-4">
             Why Choose <span className="gradient-text">CardXC</span>?
           </h2>
           <p className="text-xl text-neutral-400 max-w-3xl mx-auto">
@@ -11,10 +11,10 @@ export default function AboutSection() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
           <div className="group dark-card-interactive p-8">
-            <div className="w-14 h-14 bg-gradient-to-br from-cream-300 to-cream-500 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-              <i className="ri-flashlight-line text-dark-bg text-2xl"></i>
+            <div className="w-14 h-14 bg-lime-500 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+              <i className="ri-flashlight-line text-black text-2xl"></i>
             </div>
             <h3 className="text-xl font-bold text-white mb-3">Lightning Fast</h3>
             <p className="text-neutral-400 leading-relaxed">
@@ -43,8 +43,8 @@ export default function AboutSection() {
           </div>
 
           <div className="group dark-card-interactive p-8">
-            <div className="w-14 h-14 bg-gradient-to-br from-cream-400 to-cream-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-              <i className="ri-global-line text-dark-bg text-2xl"></i>
+            <div className="w-14 h-14 bg-lime-500 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+              <i className="ri-global-line text-black text-2xl"></i>
             </div>
             <h3 className="text-xl font-bold text-white mb-3">Global Reach</h3>
             <p className="text-neutral-400 leading-relaxed">
@@ -63,8 +63,8 @@ export default function AboutSection() {
           </div>
 
           <div className="group dark-card-interactive p-8">
-            <div className="w-14 h-14 bg-gradient-to-br from-cream-300 to-cream-500 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-              <i className="ri-line-chart-line text-dark-bg text-2xl"></i>
+            <div className="w-14 h-14 bg-lime-500 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+              <i className="ri-line-chart-line text-black text-2xl"></i>
             </div>
             <h3 className="text-xl font-bold text-white mb-3">Transparent Pricing</h3>
             <p className="text-neutral-400 leading-relaxed">

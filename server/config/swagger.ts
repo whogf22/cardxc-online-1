@@ -9,7 +9,7 @@ const options: swaggerJsdoc.Options = {
       description: 'CardXC Fintech Platform API - Virtual cards, payments, savings, and rewards',
       contact: {
         name: 'CardXC Support',
-        email: 'support@cardxc.com',
+        email: process.env.SUPPORT_EMAIL || 'support@cardxc.online',
       },
     },
     servers: [

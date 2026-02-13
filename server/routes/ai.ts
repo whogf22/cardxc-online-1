@@ -9,10 +9,14 @@ import { logger } from '../middleware/logger';
 const router = Router();
 router.use(authenticate);
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+function getOpenAI(): OpenAI | null {
+  const key = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  if (!key) return null;
+  return new OpenAI({
+    apiKey: key,
+    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  });
+}
 
 const SYSTEM_PROMPT = `You are CardXC Assistant, a helpful AI support agent for CardXC - a digital payment platform for virtual cards and money transfers.
 
@@ -139,7 +143,13 @@ router.post('/conversations/:id/messages',
         })),
       ];
 
-      const stream = await openai.chat.completions.create({
+      const client = getOpenAI();
+      if (!client) {
+        res.write(`data: ${JSON.stringify({ error: 'AI not configured. Set AI_INTEGRATIONS_OPENAI_API_KEY.' })}\n\n`);
+        res.end();
+        return;
+      }
+      const stream = await client.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: chatMessages,
         stream: true,

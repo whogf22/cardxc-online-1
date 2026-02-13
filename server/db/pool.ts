@@ -1,13 +1,28 @@
 import { Pool } from 'pg';
 import { logger } from '../middleware/logger';
 
+const useSSL = process.env.DATABASE_SSL !== 'false' && (
+  process.env.NODE_ENV === 'production' || (process.env.DATABASE_URL || '').includes('replit')
+);
+
+/** Minimal pool interface for type-safe usage when pg types resolve to BoundPool */
+interface PoolLike {
+  on(event: 'error', listener: (err: Error) => void): void;
+  query(text: string, params?: any[]): Promise<{ rows: any[] }>;
+  connect(): Promise<{
+    query: (text: string, params?: any[]) => Promise<any>;
+    release: () => void;
+  }>;
+  end?: () => Promise<void>;
+}
+
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  max: 20,
+  ssl: useSSL ? { rejectUnauthorized: false } : false,
+  max: Math.min(20, Math.max(2, parseInt(process.env.DB_POOL_MAX || '20', 10) || 20)),
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000, // Increased for stability
-});
+  connectionTimeoutMillis: 10000,
+}) as unknown as PoolLike;
 
 pool.on('error', (err) => {
   logger.error('Unexpected database pool error:', err);
@@ -42,7 +57,7 @@ export async function queryOne<T = any>(text: string, params?: any[]): Promise<T
   return rows[0] || null;
 }
 
-export async function transaction<T>(callback: (client: any) => Promise<T>): Promise<T> {
+export async function transaction<T>(callback: (client: Awaited<ReturnType<PoolLike['connect']>>) => Promise<T>): Promise<T> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -50,7 +65,7 @@ export async function transaction<T>(callback: (client: any) => Promise<T>): Pro
     await client.query('COMMIT');
     return result;
   } catch (error) {
-    await client.query('ROLLBACK');
+    await client.query('ROLLBACK').catch(() => {});
     throw error;
   } finally {
     client.release();

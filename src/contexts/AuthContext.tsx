@@ -10,6 +10,9 @@ export interface User {
   fullName?: string;
   full_name?: string;
   role?: string;
+  kyc_status?: string;
+  account_status?: string;
+  profile_picture?: string;
   user_metadata?: {
     full_name?: string;
     phone?: string;
@@ -78,6 +81,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const user = result.data.user;
         const role = user.role === 'SUPER_ADMIN' ? 'admin' : 'customer';
+        const kycStatus = (user.kyc_status || 'pending').toLowerCase();
+        const accountStatus = (user.account_status || 'active').toLowerCase();
         return {
           ...prev,
           user: {
@@ -86,6 +91,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             fullName: user.full_name,
             full_name: user.full_name,
             role: user.role,
+            kyc_status: kycStatus,
+            account_status: accountStatus,
             user_metadata: { full_name: user.full_name, phone: user.phone },
           },
           role,
@@ -112,6 +119,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authCheckCompleted.current = false;
     
     const runCheck = async () => {
+      // Small delay to ensure cookies are settled
+      await new Promise(resolve => setTimeout(resolve, 100));
       await checkAuth();
       authCheckCompleted.current = true;
       if (timeoutTimer) {
@@ -161,6 +170,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         resetApiClient();
         
+        const kycStatus = (user.kyc_status || 'pending').toLowerCase();
+        const accountStatus = (user.account_status || 'active').toLowerCase();
         setAuthState({
           user: {
             id: user.id,
@@ -168,6 +179,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             fullName: user.fullName,
             full_name: user.fullName,
             role: user.role,
+            kyc_status: kycStatus,
+            account_status: accountStatus,
             user_metadata: { full_name: user.fullName },
           },
           role,
@@ -201,6 +214,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (user) {
         resetApiClient();
         
+        const kycStatus = (user.kyc_status || 'pending').toLowerCase();
+        const accountStatus = (user.account_status || 'active').toLowerCase();
         setAuthState({
           user: {
             id: user.id,
@@ -208,6 +223,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             fullName: user.fullName,
             full_name: user.fullName,
             role: user.role,
+            kyc_status: kycStatus,
+            account_status: accountStatus,
             user_metadata: { full_name: user.fullName },
           },
           role: 'customer',

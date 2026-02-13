@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import BottomNavigation from '../../../components/BottomNavigation';
 
 interface ProfileData {
   two_factor_enabled: boolean;
@@ -78,8 +77,6 @@ export default function LoginSecurityPage() {
           </div>
         </div>
       </div>
-
-      <BottomNavigation />
     </div>
   );
 }

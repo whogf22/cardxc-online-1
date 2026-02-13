@@ -50,7 +50,7 @@ export function blockSuspiciousIPs(req: Request, res: Response, next: NextFuncti
     return next();
   }
   
-  const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+  const ip = req.ip || req.socket?.remoteAddress || 'unknown';
   const attempt = failedAttempts.get(ip);
   
   if (attempt) {
@@ -119,8 +119,7 @@ export function detectMaliciousInput(req: Request, res: Response, next: NextFunc
   
   const checkValue = (value: any, path: string): boolean => {
     if (typeof value === 'string') {
-      // Only check if string is reasonably long (avoid false positives on short strings)
-      if (value.length > 10) {
+      if (value.length > 2) {
         const sqlMatch = SQL_INJECTION_PATTERNS.some(pattern => pattern.test(value));
         const xssMatch = XSS_PATTERNS.some(pattern => pattern.test(value));
         
@@ -165,10 +164,16 @@ export function detectMaliciousInput(req: Request, res: Response, next: NextFunc
 
 // Path traversal detection
 export function preventPathTraversal(req: Request, res: Response, next: NextFunction) {
-  const suspicious = ['../', '..\\', '%2e%2e', '%2e%2e%2f', '..%2f'];
-  const path = req.path.toLowerCase();
+  const suspicious = ['../', '..\\', '%2e%2e', '%2e%2e%2f', '..%2f', '%252e', '%c0%ae', '%c1%9c', '....//'];
+  let path: string;
+  try {
+    path = decodeURIComponent(req.path).toLowerCase();
+  } catch {
+    path = req.path.toLowerCase();
+  }
+  const rawPath = req.path.toLowerCase();
   
-  if (suspicious.some(pattern => path.includes(pattern))) {
+  if (suspicious.some(pattern => path.includes(pattern) || rawPath.includes(pattern))) {
     logger.warn(`[Security] Path traversal attempt from ${req.ip}: ${req.path}`);
     throw new AppError('Invalid path', 400, 'INVALID_PATH');
   }
@@ -179,7 +184,7 @@ export function preventPathTraversal(req: Request, res: Response, next: NextFunc
 // Request fingerprinting for anomaly detection
 export function requestFingerprint(req: Request, res: Response, next: NextFunction) {
   const fingerprint = {
-    ip: req.ip || req.connection?.remoteAddress || 'unknown',
+    ip: req.ip || req.socket?.remoteAddress || 'unknown',
     userAgent: req.get('user-agent') || 'unknown',
     method: req.method,
     path: req.path,

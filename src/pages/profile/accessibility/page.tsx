@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import BottomNavigation from '../../../components/BottomNavigation';
 
 export default function AccessibilityPage() {
   const navigate = useNavigate();
@@ -51,8 +50,6 @@ export default function AccessibilityPage() {
           </button>
         </div>
       </div>
-
-      <BottomNavigation />
     </div>
   );
 }

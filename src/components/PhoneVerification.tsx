@@ -93,10 +93,16 @@ export default function PhoneVerification({
     setError('');
 
     try {
-      const expectedCode = '123456';
+      const response = await fetch('/api/auth/verify-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ phone: `${countryCode}${phone.replace(/^0+/, '')}`, code }),
+      });
+      const verifyResult = await response.json();
       
-      if (code !== expectedCode) {
-        throw new Error('Invalid verification code. For demo, use: 123456');
+      if (!response.ok || !verifyResult.success) {
+        throw new Error(verifyResult.message || 'Verification failed. Please check your code and try again.');
       }
 
       // Fetch existing profile to get current metadata

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import BottomNavigation from '../../../components/BottomNavigation';
 
 export default function PrivacySharingPage() {
   const navigate = useNavigate();
@@ -53,8 +52,6 @@ export default function PrivacySharingPage() {
           </button>
         </div>
       </div>
-
-      <BottomNavigation />
     </div>
   );
 }

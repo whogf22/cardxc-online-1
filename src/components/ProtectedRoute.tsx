@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../contexts/AuthContext';
 import { LoadingSpinner } from './LoadingSpinner';
+import BottomNavigation from './BottomNavigation';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -28,5 +29,16 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  return isAuthenticated ? <>{children}</> : null;
+  if (!isAuthenticated) return null;
+
+  return (
+    <>
+      <div className="pb-20 lg:pb-0">
+        {children}
+      </div>
+      <div className="lg:hidden">
+        <BottomNavigation />
+      </div>
+    </>
+  );
 }

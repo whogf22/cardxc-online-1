@@ -1,97 +1,161 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { fetchExchangeRates, getConversionRate } from '../../../lib/exchangeRateService';
 
 export default function HeroSection() {
   const navigate = useNavigate();
+  const [eurRate, setEurRate] = useState(0.92);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadRate();
+  }, []);
+
+  const loadRate = async () => {
+    try {
+      await fetchExchangeRates();
+      const rate = getConversionRate('USD', 'EUR');
+      setEurRate(rate);
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to load rate:', error);
+      setLoading(false);
+    }
+  };
+
+  const sendAmount = 1000;
+  const receiveAmount = sendAmount * eurRate;
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-dark-bg preserve-3d">
-      {/* 3D Background Lighting */}
+    <section className="relative min-h-[92vh] flex items-center justify-center overflow-hidden">
+      <div className="absolute inset-0 bg-[#030303]" />
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-40 w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-[120px] animate-pulse-soft"></div>
-        <div className="absolute bottom-1/4 -right-40 w-[700px] h-[700px] bg-cream-400/10 rounded-full blur-[140px]"></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-dark-elevated/40 rounded-full blur-[160px]"></div>
+        <div className="absolute top-1/4 -left-32 w-[500px] h-[500px] bg-lime-500/[0.07] rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-1/4 -right-32 w-[400px] h-[400px] bg-lime-400/[0.04] rounded-full blur-[100px]"></div>
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-lime-500/20 to-transparent"></div>
       </div>
 
-      {/* 3D Mesh Grid */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `radial-gradient(circle at 2px 2px, rgba(247, 220, 204, 0.15) 1px, transparent 0)`,
-          backgroundSize: '64px 64px'
-        }}></div>
-      </div>
+      <div className="relative z-10 w-full max-w-6xl mx-auto px-6 py-20">
+        <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <div className="space-y-8">
+            <div className="inline-flex items-center gap-2 bg-lime-500/[0.08] px-4 py-2 rounded-full border border-lime-500/20">
+              <div className="w-2 h-2 bg-lime-400 rounded-full animate-pulse"></div>
+              <span className="text-xs font-semibold text-lime-400 uppercase tracking-wider">Secure & Fast Payments</span>
+            </div>
 
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 py-24 sm:py-32">
-        <div className="text-center space-y-10 sm:space-y-12 lg:space-y-16">
-          {/* Floating Badge */}
-          <div className="inline-flex items-center gap-3 bg-white/5 backdrop-blur-xl px-6 py-3.5 rounded-full border border-white/10 shadow-3d-depth animate-float">
-            <div className="w-2.5 h-2.5 bg-emerald-400 rounded-full shadow-[0_0_12px_rgba(52,211,153,0.6)] animate-pulse"></div>
-            <span className="text-sm sm:text-base font-black text-white uppercase tracking-[0.2em]">World Class FinTech</span>
-          </div>
+            <div className="space-y-5">
+              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-white leading-[1.05] tracking-tight">
+                Send Money<br />
+                <span className="text-lime-400">Worldwide</span>
+              </h1>
+              <p className="text-lg text-neutral-400 max-w-md leading-relaxed">
+                Fast, secure, and affordable international transfers. Trust CardXC for your global payment needs.
+              </p>
+            </div>
 
-          <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-9xl font-black text-white leading-[0.95] tracking-tighter transform-gpu hover:scale-[1.02] transition-transform duration-700 depth-text">
-            GLOBAL PAYMENTS
-            <span className="block mt-4 gradient-text filter drop-shadow-[0_0_30px_rgba(247,220,204,0.3)]">
-              REIMAGINED
-            </span>
-          </h1>
-
-          <p className="text-xl sm:text-2xl text-neutral-400 max-w-4xl mx-auto leading-relaxed px-6">
-            Transfer assets globally with institutional precision. 
-            <span className="block mt-2 font-black text-white uppercase tracking-widest text-sm opacity-60">Zero Friction • Real-Time • Secure</span>
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-8">
-            <button
-              onClick={() => navigate('/signup')}
-              className="btn-3d w-full sm:w-auto h-20 px-14 !rounded-[1.5rem] text-xl"
-            >
-              <span className="flex items-center justify-center gap-4">
-                Initialize Account
-                <i className="ri-arrow-right-line text-2xl"></i>
-              </span>
-            </button>
-
-            <button
-              onClick={() => {
-                const calculatorSection = document.getElementById('calculator');
-                calculatorSection?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="w-full sm:w-auto h-20 px-12 bg-dark-card text-white rounded-[1.5rem] font-black text-lg border border-white/10 shadow-3d-depth hover:shadow-3d-float hover:-translate-y-2 active:shadow-3d-pressed active:translate-y-1 transition-all transform-gpu"
-            >
-              <span className="flex items-center justify-center gap-4">
-                <i className="ri-calculator-fill text-2xl text-cream-300"></i>
-                ROI Analysis
-              </span>
-            </button>
-          </div>
-
-          {/* 3D Feature Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 lg:gap-10 pt-20">
-            {[
-              { icon: 'shield-check-fill', label: 'SSL SECURE', color: 'text-emerald-400' },
-              { icon: 'flashlight-fill', label: 'INSTANT', color: 'text-primary-400' },
-              { icon: 'copper-coin-fill', label: 'ELITE RATES', color: 'text-cream-300' },
-              { icon: 'customer-service-fill', label: '24/7 VIP', color: 'text-warning-400' }
-            ].map((item, index) => (
-              <div 
-                key={index} 
-                className="group flex flex-col items-center gap-4 p-8 rounded-[2rem] bg-white/[0.03] backdrop-blur-md border border-white/5 shadow-3d-depth hover:shadow-3d-float hover:-translate-y-4 hover:border-white/20 transition-all duration-500 transform-gpu cursor-pointer"
+            <div className="flex flex-col sm:flex-row gap-4">
+              <button
+                onClick={() => navigate('/signup')}
+                className="group px-8 py-4 bg-lime-500 text-black font-bold rounded-xl hover:bg-lime-400 transition-all shadow-lime-glow hover:shadow-glow text-[15px]"
               >
-                <div className={`w-16 h-16 flex items-center justify-center rounded-2xl bg-white/5 mb-2 group-hover:scale-110 transition-transform shadow-inner ${item.color}`}>
-                  <i className={`ri-${item.icon} text-3xl`}></i>
-                </div>
-                <span className="text-xs font-black text-neutral-300 tracking-[0.2em] group-hover:text-white transition-colors">{item.label}</span>
-                {/* Reflection */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-[2rem]"></div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+                Open Free Account
+                <i className="ri-arrow-right-line ml-2 group-hover:translate-x-1 transition-transform inline-block"></i>
+              </button>
+              <button
+                onClick={() => navigate('/calculator')}
+                className="px-8 py-4 bg-white/[0.04] text-white font-semibold rounded-xl border border-white/[0.08] hover:border-lime-500/30 hover:bg-white/[0.06] transition-all text-[15px]"
+              >
+                Calculate Transfer
+              </button>
+            </div>
 
-      <div className="absolute bottom-12 left-1/2 -translate-x-1/2 animate-bounce opacity-40">
-        <div className="w-10 h-16 rounded-full border-2 border-white/10 flex items-start justify-center p-2">
-          <div className="w-1.5 h-4 bg-cream-300 rounded-full animate-pulse"></div>
+            <div className="flex items-center gap-8 pt-2">
+              {[
+                { value: '100%', label: 'Secure' },
+                { value: '24/7', label: 'Support' },
+                { value: 'Instant', label: 'Transfers' }
+              ].map((stat, i) => (
+                <div key={i} className="flex items-center gap-8">
+                  {i > 0 && <div className="w-px h-8 bg-white/[0.08] -ml-8"></div>}
+                  <div>
+                    <div className="text-xl font-bold text-white">{stat.value}</div>
+                    <div className="text-xs text-neutral-500 uppercase tracking-wider">{stat.label}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="hidden lg:block">
+            <div className="relative">
+              <div className="absolute -inset-1 bg-gradient-to-r from-lime-500/20 via-lime-400/10 to-lime-500/20 rounded-2xl blur-xl"></div>
+              <div className="relative bg-[#0d0d0d] rounded-2xl p-7 border border-white/[0.08] shadow-dark-elevated">
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-neutral-400 font-medium">Send Money</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 bg-lime-400 rounded-full animate-pulse"></span>
+                      <span className="text-lime-400 text-xs font-semibold">Live Rate</span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="bg-white/[0.03] rounded-xl p-4 border border-white/[0.06]">
+                      <div className="text-xs text-neutral-500 mb-1.5 font-medium">You send</div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-2xl font-bold text-white tracking-tight">
+                          {sendAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </span>
+                        <div className="flex items-center gap-2 bg-white/[0.06] px-3 py-1.5 rounded-lg border border-white/[0.06]">
+                          <span className="text-base">🇺🇸</span>
+                          <span className="text-sm font-semibold text-white">USD</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-center">
+                      <div className="w-9 h-9 bg-lime-500 rounded-full flex items-center justify-center shadow-glow-sm">
+                        <i className="ri-arrow-down-line text-black text-lg"></i>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-white/[0.03] rounded-xl p-4 border border-white/[0.06]">
+                      <div className="text-xs text-neutral-500 mb-1.5 font-medium">Recipient gets</div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-2xl font-bold text-lime-400 tracking-tight">
+                          {loading ? '...' : `€${receiveAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        </span>
+                        <div className="flex items-center gap-2 bg-white/[0.06] px-3 py-1.5 rounded-lg border border-white/[0.06]">
+                          <span className="text-base">🇪🇺</span>
+                          <span className="text-sm font-semibold text-white">EUR</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2 pt-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-neutral-500">Exchange rate</span>
+                      <span className="text-white font-medium">
+                        1 USD = {loading ? '...' : eurRate.toFixed(4)} EUR
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-neutral-500">Fee</span>
+                      <span className="text-lime-400 font-semibold">1%</span>
+                    </div>
+                  </div>
+                  
+                  <button 
+                    onClick={() => navigate('/signup')}
+                    className="w-full py-3.5 bg-lime-500 text-black font-bold rounded-xl hover:bg-lime-400 transition-all shadow-glow-sm hover:shadow-glow text-[15px]"
+                  >
+                    Send Now
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>

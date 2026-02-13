@@ -6,6 +6,8 @@ import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { apiLimiter, sensitiveOpLimiter, financialOpLimiter } from '../middleware/rateLimit';
 import { createAuditLog } from '../services/auditService';
 import { runFraudChecks } from '../services/fraudService';
+import { logger } from '../middleware/logger';
+import * as fluzApi from '../services/fluzApi';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
@@ -53,7 +55,7 @@ router.put('/profile',
     if (updates.length > 0) {
       updates.push('updated_at = NOW()');
       values.push(req.user!.id);
-      
+
       await query(`
         UPDATE users SET ${updates.join(', ')} WHERE id = $${paramIndex}
       `, values);
@@ -92,19 +94,42 @@ router.get('/wallets', asyncHandler(async (req: AuthenticatedRequest, res: Respo
   const totalUsdBalance = usdWallet ? Number(usdWallet.balance_cents) / 100 : 0;
   const totalUsdtBalance = usdWallet ? Number(usdWallet.usdt_balance_cents) / 100 : 0;
 
-  res.json({ 
-    success: true, 
-    data: { 
+  let fluzBalance: any = null;
+  if (fluzApi.isConfigured()) {
+    try {
+      const fluzWallet = await fluzApi.getWallet();
+      fluzBalance = {
+        cashBalance: fluzWallet.balances.cashBalance.available,
+        rewardsBalance: fluzWallet.balances.rewardsBalance.available,
+        giftCardBalance: fluzWallet.balances.giftCardCashBalance.available,
+        totalAvailable: fluzWallet.balances.cashBalance.available + fluzWallet.balances.rewardsBalance.available,
+      };
+    } catch (err: any) {
+      logger.error('Failed to fetch Fluz balance', { error: err?.message });
+      fluzBalance = { error: 'Failed to fetch Fluz balance' };
+    }
+  }
+
+  res.json({
+    success: true,
+    data: {
       wallets: formatted,
       usdBalance: totalUsdBalance,
       usdtBalance: totalUsdtBalance,
-    } 
+      fluzBalance,
+      fluzConfigured: fluzApi.isConfigured(),
+    }
   });
 }));
 
+const MAX_PAGE_SIZE = 100;
+const MAX_OFFSET = 10000;
+const safeLimit = (v: unknown) => Math.min(MAX_PAGE_SIZE, Math.max(1, Number(v) || 50));
+const safeOffset = (v: unknown) => Math.max(0, Math.min(MAX_OFFSET, Number(v) || 0));
+
 router.get('/transactions', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
-  const offset = parseInt(req.query.offset as string) || 0;
+  const limit = safeLimit(req.query.limit);
+  const offset = safeOffset(req.query.offset);
   const type = req.query.type as string;
 
   let whereClause = 'user_id = $1';
@@ -136,6 +161,7 @@ router.post('/withdraw',
   financialOpLimiter,
   body('amount').isFloat({ min: 1 }),
   body('currency').isIn(['USD', 'EUR', 'GBP', 'NGN']),
+  body('walletType').optional().isIn(['fiat', 'usdt']).withMessage('Wallet type must be fiat or usdt'),
   body('bankName').trim().notEmpty(),
   body('accountNumber').trim().notEmpty(),
   body('accountName').trim().notEmpty(),
@@ -146,14 +172,14 @@ router.post('/withdraw',
       throw new AppError(errors.array()[0].msg, 400, 'VALIDATION_ERROR');
     }
 
-    const { amount, currency, bankName, accountNumber, accountName, idempotencyKey } = req.body;
+    const { amount, currency, walletType = 'fiat', bankName, accountNumber, accountName, idempotencyKey } = req.body;
     const amountCents = Math.round(amount * 100);
     const key = idempotencyKey || uuidv4();
 
     const existing = await queryOne(`
       SELECT id FROM withdrawal_requests WHERE user_id = $1 AND amount_cents = $2 AND created_at > NOW() - INTERVAL '1 hour'
     `, [req.user!.id, amountCents]);
-    
+
     if (existing) {
       throw new AppError('Duplicate withdrawal request detected', 409, 'DUPLICATE_REQUEST');
     }
@@ -164,23 +190,40 @@ router.post('/withdraw',
       amount: amountCents,
     });
 
+    // Check balance based on wallet type
     const wallet = await queryOne<any>(`
-      SELECT balance_cents, reserved_cents FROM wallets WHERE user_id = $1 AND currency = $2
+      SELECT balance_cents, reserved_cents, usdt_balance_cents FROM wallets WHERE user_id = $1 AND currency = $2
     `, [req.user!.id, currency]);
 
     if (!wallet) {
       throw new AppError('Wallet not found', 404, 'WALLET_NOT_FOUND');
     }
 
-    const available = Number(wallet.balance_cents) - Number(wallet.reserved_cents);
-    if (available < amountCents) {
-      throw new AppError('Insufficient balance', 400, 'INSUFFICIENT_BALANCE');
+    let available: number;
+    if (walletType === 'usdt') {
+      available = Number(wallet.usdt_balance_cents || 0);
+      if (available < amountCents) {
+        throw new AppError('Insufficient USDT balance', 400, 'INSUFFICIENT_USDT_BALANCE');
+      }
+    } else {
+      available = Number(wallet.balance_cents) - Number(wallet.reserved_cents);
+      if (available < amountCents) {
+        throw new AppError('Insufficient balance', 400, 'INSUFFICIENT_BALANCE');
+      }
     }
 
     const result = await transaction(async (client) => {
-      await client.query(`
-        UPDATE wallets SET reserved_cents = reserved_cents + $1 WHERE user_id = $2 AND currency = $3
-      `, [amountCents, req.user!.id, currency]);
+      // Reserve balance based on wallet type
+      if (walletType === 'usdt') {
+        // For USDT, we deduct immediately (no reserved_cents for USDT)
+        await client.query(`
+          UPDATE wallets SET usdt_balance_cents = usdt_balance_cents - $1 WHERE user_id = $2 AND currency = $3
+        `, [amountCents, req.user!.id, currency]);
+      } else {
+        await client.query(`
+          UPDATE wallets SET reserved_cents = reserved_cents + $1 WHERE user_id = $2 AND currency = $3
+        `, [amountCents, req.user!.id, currency]);
+      }
 
       const withdrawalResult = await client.query(`
         INSERT INTO withdrawal_requests (user_id, amount_cents, currency, bank_name, account_number, account_name)
@@ -204,13 +247,13 @@ router.post('/withdraw',
       newValues: { amount: amountCents, currency, bankName },
     });
 
-    res.status(201).json({ 
-      success: true, 
-      data: { 
+    res.status(201).json({
+      success: true,
+      data: {
         withdrawalId: result.id,
         status: 'pending',
         fraudFlags: fraudCheck.flags,
-      } 
+      }
     });
   })
 );

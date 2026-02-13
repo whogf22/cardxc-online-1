@@ -27,15 +27,15 @@ export default function TestimonialsSection() {
     <section id="testimonials" className="relative py-24 bg-dark-bg" ref={sectionRef}>
       <div className="max-w-7xl mx-auto px-6">
         <div className={`text-center mb-16 transition-all duration-700 ${isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-12'}`}>
-          <div className="inline-flex items-center space-x-2 px-4 py-2 bg-cream-300/10 rounded-full border border-cream-300/20 mb-6">
-            <span className="text-cream-300 text-sm font-medium">Testimonials</span>
+          <div className="inline-flex items-center space-x-2 px-4 py-2 bg-lime-400/10 rounded-full border border-lime-400/20 mb-6">
+            <span className="text-lime-400 text-sm font-medium">Testimonials</span>
           </div>
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
-            Trusted by Thousands
-            <span className="block gradient-text mt-2">Across Nigeria</span>
+            What Our Users
+            <span className="block gradient-text mt-2">Are Saying</span>
           </h2>
           <p className="text-xl text-neutral-400 max-w-2xl mx-auto">
-            See what our customers say about their trading experience
+            See what our customers say about their experience with CardXC
           </p>
         </div>
 
@@ -57,7 +57,7 @@ export default function TestimonialsSection() {
               </p>
 
               <div className="flex items-center space-x-3 pt-4 border-t border-dark-border">
-                <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-cream-300/30">
+                <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-lime-400/30">
                   {testimonial.image ? (
                     <img 
                       src={testimonial.image} 
@@ -65,8 +65,8 @@ export default function TestimonialsSection() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-cream-300 to-cream-500 flex items-center justify-center">
-                      <span className="text-dark-bg font-bold text-lg">
+                    <div className="w-full h-full bg-lime-500 flex items-center justify-center">
+                      <span className="text-black font-bold text-lg">
                         {testimonial.name.charAt(0)}
                       </span>
                     </div>
@@ -84,18 +84,18 @@ export default function TestimonialsSection() {
         <div className="mt-16 text-center">
           <div className="inline-flex flex-wrap items-center justify-center gap-8 p-6 dark-card">
             <div className="text-center px-4">
-              <div className="text-4xl font-bold text-white mb-1">4.9/5</div>
-              <div className="text-neutral-500 text-sm">Average Rating</div>
+              <div className="text-4xl font-bold text-white mb-1"><i className="ri-shield-check-fill text-emerald-400"></i></div>
+              <div className="text-neutral-500 text-sm">Verified Platform</div>
             </div>
             <div className="hidden sm:block w-px h-12 bg-dark-border"></div>
             <div className="text-center px-4">
-              <div className="text-4xl font-bold text-white mb-1">2,000+</div>
-              <div className="text-neutral-500 text-sm">Happy Customers</div>
+              <div className="text-4xl font-bold text-white mb-1"><i className="ri-lock-fill text-lime-500"></i></div>
+              <div className="text-neutral-500 text-sm">Secure Payments</div>
             </div>
             <div className="hidden sm:block w-px h-12 bg-dark-border"></div>
             <div className="text-center px-4">
-              <div className="text-4xl font-bold text-white mb-1">10K+</div>
-              <div className="text-neutral-500 text-sm">Transactions</div>
+              <div className="text-4xl font-bold text-white mb-1"><i className="ri-customer-service-2-fill text-blue-400"></i></div>
+              <div className="text-neutral-500 text-sm">24/7 Support</div>
             </div>
           </div>
         </div>

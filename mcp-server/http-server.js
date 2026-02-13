@@ -7,109 +7,167 @@ import path from "path";
 import pg from "pg";
 import jwt from "jsonwebtoken";
 import { GoogleGenAI } from "@google/genai";
+import { Server } from "@modelcontextprotocol/sdk/server";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
 const execAsync = promisify(exec);
+
+const PROJECT_ROOT = path.resolve(".");
+const BLOCKED_PATHS = [".env", "node_modules/.cache", ".git/objects"];
+const BLOCKED_COMMANDS = ["rm -rf /", "mkfs", "dd if=", ":(){ :|:& };:", "shutdown", "reboot", "halt", "poweroff"];
+const DANGEROUS_SQL = /^\s*(DROP\s+(DATABASE|SCHEMA)|TRUNCATE\s+ALL|DELETE\s+FROM\s+\w+\s*;?\s*$)/i;
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 
-// JWT Secret for MCP authentication - REQUIRE from environment in production
-const MCP_SECRET = process.env.MCP_SECRET || process.env.SESSION_SECRET;
-if (!MCP_SECRET) {
-    console.warn("[MCP] Warning: MCP_SECRET not set. Using development fallback. Set MCP_SECRET or SESSION_SECRET in production.");
+const JWT_SECRET = process.env.MCP_SECRET || process.env.SESSION_SECRET || "dev-mcp-secret-do-not-use-in-production";
+if (!process.env.MCP_SECRET && !process.env.SESSION_SECRET) {
+    console.warn("[MCP] Warning: MCP_SECRET not set. Using development fallback.");
 }
-const JWT_SECRET = MCP_SECRET || "dev-mcp-secret-do-not-use-in-production";
 
-// Initialize Gemini AI client using Replit AI Integrations
-const genAI = new GoogleGenAI({
-    apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || "",
-    httpOptions: {
-        apiVersion: "",
-        baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
-    },
-});
+let genAI = null;
+try {
+    const geminiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || "";
+    if (geminiKey) {
+        genAI = new GoogleGenAI({
+            apiKey: geminiKey,
+            httpOptions: {
+                apiVersion: "",
+                baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+            },
+        });
+    }
+} catch (e) {
+    console.warn("[MCP] Gemini AI not available:", e.message);
+}
 
-// JWT Token verification middleware
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW = 60000;
+const RATE_LIMIT_MAX = 60;
+
+function checkRateLimit(key) {
+    const now = Date.now();
+    const entry = rateLimitMap.get(key) || { count: 0, resetAt: now + RATE_LIMIT_WINDOW };
+    if (now > entry.resetAt) {
+        entry.count = 0;
+        entry.resetAt = now + RATE_LIMIT_WINDOW;
+    }
+    entry.count++;
+    rateLimitMap.set(key, entry);
+    return entry.count <= RATE_LIMIT_MAX;
+}
+
+function sanitizePath(inputPath) {
+    const resolved = path.resolve(PROJECT_ROOT, inputPath);
+    if (!resolved.startsWith(PROJECT_ROOT)) {
+        throw new Error("Access denied: path traversal detected");
+    }
+    for (const blocked of BLOCKED_PATHS) {
+        if (resolved.includes(path.resolve(PROJECT_ROOT, blocked))) {
+            throw new Error("Access denied: restricted path");
+        }
+    }
+    return resolved;
+}
+
+function validateCommand(command) {
+    const lower = command.toLowerCase().trim();
+    for (const blocked of BLOCKED_COMMANDS) {
+        if (lower.includes(blocked)) {
+            throw new Error("Command blocked for safety: " + blocked);
+        }
+    }
+    if (lower.includes("..") && (lower.includes("rm") || lower.includes("cat /etc"))) {
+        throw new Error("Suspicious command pattern blocked");
+    }
+    return command;
+}
+
+function validateSQL(query) {
+    if (DANGEROUS_SQL.test(query)) {
+        throw new Error("Destructive SQL blocked. Use targeted DELETE with WHERE clause or ask an admin.");
+    }
+    return query;
+}
+
 const authenticateToken = (req, res, next) => {
-    const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(" ")[1];
+    const clientKey = req.ip || req.connection.remoteAddress || "unknown";
+    if (!checkRateLimit(clientKey)) {
+        return res.status(429).json({ error: "Rate limit exceeded. Try again later." });
+    }
 
+    const apiKeyHeader = (req.headers["x-api-key"] || "").toString().trim();
+    const configuredApiKey = (process.env.MCP_API_KEY || "cardxc-mcp-dev-key").toString().trim();
+    if (apiKeyHeader) {
+        if (apiKeyHeader !== configuredApiKey) {
+            return res.status(401).json({ error: "Invalid API key" });
+        }
+        req.user = { username: "api-key-client", role: "ai-assistant", auth: "api-key" };
+        return next();
+    }
+
+    const authHeader = (req.headers.authorization || "").toString();
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
     if (!token) {
-        return res.status(401).json({ error: "Access token required" });
+        return res.status(401).json({ error: "Access token required. Use Authorization: Bearer <token> or X-API-Key header." });
     }
 
     try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        req.user = decoded;
+        req.user = jwt.verify(token, JWT_SECRET);
         next();
-    } catch (error) {
+    } catch (_error) {
         return res.status(403).json({ error: "Invalid or expired token" });
     }
 };
 
-// Generate access token endpoint
-app.post("/auth/token", async (req, res) => {
+app.post("/auth/token", (req, res) => {
     const { apiKey, username } = req.body;
+    const expectedKey = process.env.MCP_API_KEY || "cardxc-mcp-dev-key";
 
-    // Validate API key - require MCP_API_KEY in production
-    const validApiKey = process.env.MCP_API_KEY;
-    if (!validApiKey) {
-        console.warn("[MCP] Warning: MCP_API_KEY not set. Using development fallback.");
-    }
-    const expectedKey = validApiKey || "cardxc-mcp-dev-key";
-    
     if (!apiKey || apiKey !== expectedKey) {
         return res.status(401).json({ error: "Invalid API key" });
     }
 
-    // Validate username
     const sanitizedUsername = (username || "mcp-client").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 50);
-
     const token = jwt.sign(
-        { 
-            username: sanitizedUsername, 
-            role: "ai-assistant",
-            iss: "cardxc-mcp",
-            aud: "cardxc-mcp-client"
-        },
+        { username: sanitizedUsername, role: "ai-assistant", iss: "cardxc-mcp", aud: "cardxc-mcp-client" },
         JWT_SECRET,
         { expiresIn: "8h" }
     );
 
-    res.json({ 
-        success: true, 
-        token,
-        expiresIn: "8h",
-        message: "Use this token in Authorization header: Bearer <token>"
-    });
+    res.json({ success: true, token, expiresIn: "8h", message: "Use this token in Authorization header: Bearer <token>" });
 });
 
 const tools = [
     {
         name: "list_files",
-        description: "List all files in the project directory",
+        description: "List files and directories in a given path with details",
         inputSchema: {
             type: "object",
             properties: {
-                directory: { type: "string", description: "Directory path to list" },
+                directory: { type: "string", description: "Directory path to list (default: project root)" },
+                recursive: { type: "boolean", description: "List recursively (default: false)" },
             },
         },
     },
     {
         name: "read_file",
-        description: "Read the contents of a file",
+        description: "Read the contents of a file. Supports offset/limit for large files.",
         inputSchema: {
             type: "object",
             properties: {
                 path: { type: "string", description: "Path to the file to read" },
+                offset: { type: "number", description: "Line number to start from (1-indexed, default: 1)" },
+                limit: { type: "number", description: "Number of lines to read (default: all)" },
             },
             required: ["path"],
         },
     },
     {
         name: "write_file",
-        description: "Write content to a file",
+        description: "Write content to a file. Creates parent directories if needed.",
         inputSchema: {
             type: "object",
             properties: {
@@ -120,19 +178,46 @@ const tools = [
         },
     },
     {
-        name: "run_command",
-        description: "Run a shell command in the project directory",
+        name: "edit_file",
+        description: "Edit a file by replacing a specific string with new content. Safer than write_file for partial edits.",
         inputSchema: {
             type: "object",
             properties: {
-                command: { type: "string", description: "Command to execute" },
+                path: { type: "string", description: "Path to the file to edit" },
+                old_string: { type: "string", description: "Exact string to find and replace" },
+                new_string: { type: "string", description: "Replacement string" },
+            },
+            required: ["path", "old_string", "new_string"],
+        },
+    },
+    {
+        name: "run_command",
+        description: "Run a shell command in the project directory (timeout: 30s). Some destructive commands are blocked.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                command: { type: "string", description: "Shell command to execute" },
+                timeout: { type: "number", description: "Timeout in ms (default: 30000, max: 120000)" },
             },
             required: ["command"],
         },
     },
     {
+        name: "search_files",
+        description: "Search file contents using grep (regex supported). Returns matching files and lines.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                pattern: { type: "string", description: "Search pattern (regex supported)" },
+                directory: { type: "string", description: "Directory to search in (default: project root)" },
+                include: { type: "string", description: "File extension filter, e.g. '*.ts' (default: source files)" },
+            },
+            required: ["pattern"],
+        },
+    },
+    {
         name: "query_database",
-        description: "Execute a SQL query on the PostgreSQL database",
+        description: "Execute a SQL query on the PostgreSQL database. Destructive queries (DROP DATABASE, TRUNCATE ALL) are blocked.",
         inputSchema: {
             type: "object",
             properties: {
@@ -142,22 +227,43 @@ const tools = [
         },
     },
     {
+        name: "get_database_schema",
+        description: "Get the full database schema: tables, columns, types, indexes, and row counts.",
+        inputSchema: { type: "object", properties: {} },
+    },
+    {
         name: "get_project_info",
-        description: "Get information about the project structure",
+        description: "Get project structure, package.json, and directory layout.",
         inputSchema: { type: "object", properties: {} },
     },
     {
         name: "get_system_health",
-        description: "Check the internal health of the main API server",
+        description: "Check the health of the main API server and MCP server.",
+        inputSchema: { type: "object", properties: {} },
+    },
+    {
+        name: "get_logs",
+        description: "Get recent application/workflow logs.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                lines: { type: "number", description: "Number of log lines (default: 100)" },
+                workflow: { type: "string", description: "Specific workflow name to filter (optional)" },
+            },
+        },
+    },
+    {
+        name: "get_env_info",
+        description: "Get server environment information (Node version, OS, memory, uptime). Does NOT expose secrets.",
         inputSchema: { type: "object", properties: {} },
     },
     {
         name: "ai_analyze",
-        description: "Use Google Gemini AI to analyze code or solve problems",
+        description: "Use Gemini AI to analyze code, debug issues, or answer technical questions.",
         inputSchema: {
             type: "object",
             properties: {
-                prompt: { type: "string", description: "The prompt or question for the AI" },
+                prompt: { type: "string", description: "The question or analysis request" },
                 context: { type: "string", description: "Additional context like file content" },
             },
             required: ["prompt"],
@@ -165,19 +271,19 @@ const tools = [
     },
     {
         name: "ai_generate_code",
-        description: "Use Google Gemini AI to generate code based on requirements",
+        description: "Use Gemini AI to generate code based on requirements.",
         inputSchema: {
             type: "object",
             properties: {
-                requirements: { type: "string", description: "The code requirements or description" },
-                language: { type: "string", description: "Programming language (typescript, javascript, etc.)" },
+                requirements: { type: "string", description: "Code requirements or description" },
+                language: { type: "string", description: "Programming language (default: typescript)" },
             },
             required: ["requirements"],
         },
     },
     {
         name: "ai_fix_error",
-        description: "Use Google Gemini AI to analyze and fix code errors",
+        description: "Use Gemini AI to analyze and fix code errors.",
         inputSchema: {
             type: "object",
             properties: {
@@ -189,230 +295,254 @@ const tools = [
         },
     },
     {
-        name: "search_files",
-        description: "Search for files containing a specific pattern",
-        inputSchema: {
-            type: "object",
-            properties: {
-                pattern: { type: "string", description: "Search pattern (regex supported)" },
-                directory: { type: "string", description: "Directory to search in" },
-            },
-            required: ["pattern"],
-        },
-    },
-    {
-        name: "get_logs",
-        description: "Get recent application logs",
-        inputSchema: {
-            type: "object",
-            properties: {
-                lines: { type: "number", description: "Number of log lines to retrieve" },
-            },
-        },
+        name: "healthCheck",
+        description: "Verify MCP server is running and responsive. Returns status and server info.",
+        inputSchema: { type: "object", properties: {} },
     },
 ];
 
-// Public endpoint - list available tools
-app.get("/tools", (req, res) => {
-    res.json({ tools });
-});
-
-// ============================================
-// GOOGLE ANTIGRAVITY MCP COMPATIBILITY
-// ============================================
-
-// MCP Manifest for Antigravity discovery
-const mcpManifest = {
-    name: "cardxc-mcp",
-    version: "2.0.0",
-    description: "CardXC Fintech MCP Server - AI-powered debugging and development tools",
-    author: "CardXC",
-    homepage: "https://cardxc.online",
-    protocol: "mcp",
-    capabilities: {
-        tools: true,
-        resources: false,
-        prompts: false
-    },
-    authentication: {
-        type: "bearer",
-        tokenEndpoint: "/auth/token"
-    }
-};
-
-// MCP Manifest endpoint for Antigravity discovery
-app.get("/mcp/manifest", (req, res) => {
-    res.json(mcpManifest);
-});
-
-// Alternative manifest location (some MCP clients check this)
-app.get("/.well-known/mcp.json", (req, res) => {
-    res.json(mcpManifest);
-});
-
-// Convert tools to Gemini-style function declarations for Antigravity
-const getAntigravityFunctionDeclarations = () => {
-    return tools.map(tool => ({
-        name: tool.name,
-        description: tool.description,
-        parameters: {
-            type: "object",
-            properties: tool.inputSchema?.properties || {},
-            required: tool.inputSchema?.required || []
-        }
-    }));
-};
-
-// Antigravity-compatible tools endpoint (Gemini function format)
-app.get("/mcp/tools", (req, res) => {
-    res.json({
-        tools: [{
-            functionDeclarations: getAntigravityFunctionDeclarations()
-        }]
-    });
-});
-
-// MCP Initialize endpoint for Antigravity handshake
-app.post("/mcp/initialize", (req, res) => {
-    const { protocolVersion, capabilities, clientInfo } = req.body || {};
-    
-    console.log("[MCP] Antigravity client connected:", clientInfo?.name || "unknown");
-    
-    res.json({
-        protocolVersion: protocolVersion || "2024-11-05",
-        capabilities: {
-            tools: { listChanged: false },
-            resources: { subscribe: false, listChanged: false },
-            prompts: { listChanged: false },
-            logging: {}
-        },
-        serverInfo: {
-            name: "cardxc-mcp",
-            version: "2.0.0"
-        }
-    });
-});
-
-// MCP Tools list endpoint (standard MCP protocol)
-app.get("/mcp/tools/list", authenticateToken, (req, res) => {
-    res.json({
-        tools: tools.map(t => ({
-            name: t.name,
-            description: t.description,
-            inputSchema: t.inputSchema
-        }))
-    });
-});
-
-// Shared tool executor function
 const executeToolInternal = async (tool, args) => {
     switch (tool) {
         case "list_files": {
-            const directory = args?.directory || ".";
-            const { stdout } = await execAsync("find " + directory + " -maxdepth 3 -not -path '*/.*' -not -path '*/node_modules/*'");
+            const dir = sanitizePath(args?.directory || ".");
+            if (args?.recursive) {
+                const { stdout } = await execAsync(`find "${dir}" -type f -not -path "*/node_modules/*" -not -path "*/.git/*" | head -200`);
+                return stdout || "No files found";
+            }
+            const { stdout } = await execAsync(`ls -la "${dir}"`);
             return stdout || "No files found";
         }
 
         case "read_file": {
-            return await fs.readFile(args.path, "utf-8");
+            const filePath = sanitizePath(args.path);
+            const content = await fs.readFile(filePath, "utf-8");
+            if (args.offset || args.limit) {
+                const lines = content.split("\n");
+                const start = Math.max(0, (args.offset || 1) - 1);
+                const end = args.limit ? start + args.limit : lines.length;
+                return lines.slice(start, end).map((l, i) => `${start + i + 1}: ${l}`).join("\n");
+            }
+            return content;
         }
 
         case "write_file": {
-            const dir = path.dirname(args.path);
-            await fs.mkdir(dir, { recursive: true });
-            await fs.writeFile(args.path, args.content, "utf-8");
+            const filePath = sanitizePath(args.path);
+            await fs.mkdir(path.dirname(filePath), { recursive: true });
+            await fs.writeFile(filePath, args.content, "utf-8");
             return "Successfully wrote to " + args.path;
         }
 
+        case "edit_file": {
+            const filePath = sanitizePath(args.path);
+            const content = await fs.readFile(filePath, "utf-8");
+            if (!content.includes(args.old_string)) {
+                throw new Error("old_string not found in file. Make sure it matches exactly.");
+            }
+            const count = content.split(args.old_string).length - 1;
+            if (count > 1) {
+                throw new Error(`old_string found ${count} times. Provide more context to make it unique.`);
+            }
+            const newContent = content.replace(args.old_string, args.new_string);
+            await fs.writeFile(filePath, newContent, "utf-8");
+            return `Successfully edited ${args.path} (replaced 1 occurrence)`;
+        }
+
         case "run_command": {
-            const { stdout, stderr } = await execAsync(args.command, { timeout: 30000 });
-            return stdout + (stderr ? "\nStderr: " + stderr : "");
+            const cmd = validateCommand(args.command);
+            const timeout = Math.min(args.timeout || 30000, 120000);
+            const { stdout, stderr } = await execAsync(cmd, { timeout, cwd: PROJECT_ROOT });
+            let result = stdout || "";
+            if (stderr) result += "\n[stderr]: " + stderr;
+            if (result.length > 50000) result = result.slice(0, 50000) + "\n...[truncated]";
+            return result || "(no output)";
+        }
+
+        case "search_files": {
+            const dir = sanitizePath(args.directory || ".");
+            const include = args.include || "*.ts --include=*.tsx --include=*.js --include=*.jsx --include=*.json --include=*.css --include=*.sql";
+            const safePattern = args.pattern.replace(/"/g, '\\"');
+            try {
+                const { stdout } = await execAsync(
+                    `grep -rn --include="${include}" "${safePattern}" "${dir}" 2>/dev/null | head -100`,
+                    { timeout: 15000 }
+                );
+                return stdout || "No matches found";
+            } catch (_e) {
+                return "No matches found";
+            }
         }
 
         case "query_database": {
             const databaseUrl = process.env.DATABASE_URL;
-            if (!databaseUrl) {
-                return "Database not configured. DATABASE_URL is missing.";
-            }
+            if (!databaseUrl) return "Database not configured. DATABASE_URL is missing.";
+            validateSQL(args.query);
             const client = new pg.Client({ connectionString: databaseUrl });
             await client.connect();
             try {
-                const queryResult = await client.query(args.query);
-                return JSON.stringify(queryResult.rows, null, 2);
+                const result = await client.query(args.query);
+                if (result.rows) {
+                    const json = JSON.stringify(result.rows, null, 2);
+                    return json.length > 50000 ? json.slice(0, 50000) + "\n...[truncated]" : json;
+                }
+                return `Query executed. Rows affected: ${result.rowCount}`;
+            } finally {
+                await client.end();
+            }
+        }
+
+        case "get_database_schema": {
+            const databaseUrl = process.env.DATABASE_URL;
+            if (!databaseUrl) return "Database not configured.";
+            const client = new pg.Client({ connectionString: databaseUrl });
+            await client.connect();
+            try {
+                const tables = await client.query(`
+                    SELECT t.table_name, 
+                           (SELECT count(*) FROM information_schema.columns c WHERE c.table_name = t.table_name AND c.table_schema = 'public') as column_count
+                    FROM information_schema.tables t 
+                    WHERE t.table_schema = 'public' AND t.table_type = 'BASE TABLE'
+                    ORDER BY t.table_name
+                `);
+                let schema = "=== Database Schema ===\n\n";
+                for (const table of tables.rows) {
+                    const cols = await client.query(`
+                        SELECT column_name, data_type, is_nullable, column_default
+                        FROM information_schema.columns 
+                        WHERE table_name = $1 AND table_schema = 'public'
+                        ORDER BY ordinal_position
+                    `, [table.table_name]);
+                    const countResult = await client.query(`SELECT count(*) as cnt FROM "${table.table_name}"`);
+                    schema += `\n## ${table.table_name} (${countResult.rows[0].cnt} rows)\n`;
+                    for (const col of cols.rows) {
+                        schema += `  - ${col.column_name}: ${col.data_type}${col.is_nullable === 'NO' ? ' NOT NULL' : ''}${col.column_default ? ' DEFAULT ' + col.column_default : ''}\n`;
+                    }
+                }
+                const indexes = await client.query(`
+                    SELECT indexname, tablename, indexdef 
+                    FROM pg_indexes WHERE schemaname = 'public' ORDER BY tablename, indexname
+                `);
+                if (indexes.rows.length > 0) {
+                    schema += "\n\n=== Indexes ===\n";
+                    for (const idx of indexes.rows) {
+                        schema += `  ${idx.tablename}.${idx.indexname}: ${idx.indexdef}\n`;
+                    }
+                }
+                return schema;
             } finally {
                 await client.end();
             }
         }
 
         case "get_project_info": {
-            let info = "Project Information:\n\n";
+            let info = "=== CardXC Project Info ===\n\n";
             try {
-                const pkg = await fs.readFile("package.json", "utf-8");
-                info += "=== package.json ===\n" + pkg + "\n\n";
-            } catch (e) {
-                info += "No package.json found\n\n";
+                const pkg = JSON.parse(await fs.readFile("package.json", "utf-8"));
+                info += `Name: ${pkg.name}\nVersion: ${pkg.version}\n`;
+                info += `Dependencies: ${Object.keys(pkg.dependencies || {}).length}\n`;
+                info += `DevDependencies: ${Object.keys(pkg.devDependencies || {}).length}\n\n`;
+                info += "Key Dependencies:\n";
+                for (const [k, v] of Object.entries(pkg.dependencies || {})) {
+                    info += `  ${k}: ${v}\n`;
+                }
+            } catch (_e) {
+                info += "No package.json found\n";
             }
-            const { stdout } = await execAsync("ls -la");
-            info += "=== Directory Structure ===\n" + stdout;
+            const { stdout } = await execAsync('find . -maxdepth 2 -type f -not -path "*/node_modules/*" -not -path "*/.git/*" | sort | head -100');
+            info += "\n=== Project Files (top 2 levels) ===\n" + stdout;
             return info;
         }
 
         case "get_system_health": {
+            let health = "=== System Health ===\n\n";
+            health += "MCP Server: RUNNING (port " + (process.env.MCP_PORT || 8080) + ")\n";
+            health += "Gemini AI: " + (genAI ? "CONNECTED" : "NOT CONFIGURED") + "\n";
+            health += "Database: " + (process.env.DATABASE_URL ? "CONFIGURED" : "NOT CONFIGURED") + "\n\n";
             try {
-                const { stdout } = await execAsync('curl -s http://localhost:3001/api/health || echo "Failed to connect"');
-                return "API Health Check Response:\n" + stdout;
+                const { stdout } = await execAsync('curl -s http://localhost:3001/api/health', { timeout: 5000 });
+                health += "API Server Health:\n" + stdout;
             } catch (e) {
-                return "Health check failed: " + e.message;
+                health += "API Server: UNREACHABLE (" + e.message + ")";
             }
-        }
-
-        case "ai_analyze": {
-            const prompt = args.context 
-                ? `${args.prompt}\n\nContext:\n${args.context}`
-                : args.prompt;
-            const aiResult = await genAI.models.generateContent({
-                model: "gemini-2.0-flash",
-                contents: [{ role: "user", parts: [{ text: prompt }] }],
-            });
-            return aiResult.text || "No response from AI";
-        }
-
-        case "ai_generate_code": {
-            const prompt = `Generate ${args.language || "code"} based on these requirements:\n\n${args.requirements}\n\nProvide clean, production-ready code with proper error handling.`;
-            const aiResult = await genAI.models.generateContent({
-                model: "gemini-2.0-flash",
-                contents: [{ role: "user", parts: [{ text: prompt }] }],
-            });
-            return aiResult.text || "No response from AI";
-        }
-
-        case "ai_fix_error": {
-            const prompt = `Fix this code error:\n\nError: ${args.error}\n\nCode${args.filename ? ` (${args.filename})` : ""}:\n\`\`\`\n${args.code}\n\`\`\`\n\nProvide the corrected code with an explanation.`;
-            const aiResult = await genAI.models.generateContent({
-                model: "gemini-2.0-flash",
-                contents: [{ role: "user", parts: [{ text: prompt }] }],
-            });
-            return aiResult.text || "No response from AI";
-        }
-
-        case "search_files": {
-            const directory = args.directory || ".";
-            try {
-                const { stdout } = await execAsync(`grep -rl "${args.pattern}" ${directory} --include="*.js" --include="*.ts" --include="*.tsx" --include="*.json" 2>/dev/null | head -50`);
-                return stdout || "No files found matching pattern";
-            } catch (e) {
-                return "Search failed or no results found";
-            }
+            return health;
         }
 
         case "get_logs": {
-            const lines = args.lines || 50;
+            const lines = Math.min(args?.lines || 100, 500);
             try {
-                const { stdout } = await execAsync(`tail -n ${lines} /tmp/logs/*.log 2>/dev/null || echo "No logs available"`);
-                return stdout;
+                let cmd;
+                if (args?.workflow) {
+                    const safeName = args.workflow.replace(/[^a-zA-Z0-9_-]/g, "");
+                    cmd = `ls -t /tmp/logs/${safeName}*.log 2>/dev/null | head -1 | xargs tail -n ${lines} 2>/dev/null`;
+                } else {
+                    cmd = `for f in $(ls -t /tmp/logs/*.log 2>/dev/null | head -5); do echo "=== $(basename $f) ==="; tail -n ${Math.floor(lines / 5)} "$f" 2>/dev/null; echo; done`;
+                }
+                const { stdout } = await execAsync(cmd, { timeout: 10000 });
+                return stdout || "No logs available";
             } catch (e) {
                 return "Failed to retrieve logs: " + e.message;
             }
+        }
+
+        case "get_env_info": {
+            const memUsage = process.memoryUsage();
+            return JSON.stringify({
+                node: process.version,
+                platform: process.platform,
+                arch: process.arch,
+                uptime: Math.floor(process.uptime()) + "s",
+                memory: {
+                    rss: Math.round(memUsage.rss / 1024 / 1024) + "MB",
+                    heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024) + "MB",
+                    heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024) + "MB",
+                },
+                cwd: process.cwd(),
+                geminiAvailable: !!genAI,
+                databaseConfigured: !!process.env.DATABASE_URL,
+            }, null, 2);
+        }
+
+        case "ai_analyze": {
+            if (!genAI) return "Gemini AI is not configured. Set AI_INTEGRATIONS_GEMINI_API_KEY.";
+            const prompt = args.context ? `${args.prompt}\n\nContext:\n${args.context}` : args.prompt;
+            const result = await genAI.models.generateContent({
+                model: "gemini-2.0-flash",
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+            });
+            return result.text || "No response from AI";
+        }
+
+        case "ai_generate_code": {
+            if (!genAI) return "Gemini AI is not configured. Set AI_INTEGRATIONS_GEMINI_API_KEY.";
+            const prompt = `Generate ${args.language || "typescript"} code:\n\n${args.requirements}\n\nProvide clean, production-ready code with proper error handling.`;
+            const result = await genAI.models.generateContent({
+                model: "gemini-2.0-flash",
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+            });
+            return result.text || "No response from AI";
+        }
+
+        case "ai_fix_error": {
+            if (!genAI) return "Gemini AI is not configured. Set AI_INTEGRATIONS_GEMINI_API_KEY.";
+            const prompt = `Fix this code error:\n\nError: ${args.error}\n\nCode${args.filename ? ` (${args.filename})` : ""}:\n\`\`\`\n${args.code}\n\`\`\`\n\nProvide the corrected code with explanation.`;
+            const result = await genAI.models.generateContent({
+                model: "gemini-2.0-flash",
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+            });
+            return result.text || "No response from AI";
+        }
+
+        case "healthCheck": {
+            return JSON.stringify({
+                status: "ok",
+                server: "cardxc-mcp",
+                version: "2.1.0",
+                transport: "http",
+                uptime: Math.floor(process.uptime()) + "s",
+                tools: tools.length,
+                gemini: !!genAI,
+                database: !!process.env.DATABASE_URL,
+                message: "MCP server is running and responsive",
+            }, null, 2);
         }
 
         default:
@@ -420,415 +550,286 @@ const executeToolInternal = async (tool, args) => {
     }
 };
 
-// MCP Tools call endpoint (standard MCP protocol)
+app.get("/tools", (req, res) => {
+    res.json({ tools: tools.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })) });
+});
+
+const mcpManifest = {
+    name: "cardxc-mcp",
+    version: "2.1.0",
+    description: "CardXC MCP Server — AI-powered debugging, code editing, database access, and development tools for the CardXC fintech platform.",
+    author: "GameNova Vault LLC",
+    homepage: "https://cardxc.online",
+    protocol: "mcp",
+    capabilities: { tools: true, resources: false, prompts: false },
+    authentication: { type: "bearer", tokenEndpoint: "/auth/token" },
+};
+
+app.get("/mcp/manifest", (req, res) => res.json(mcpManifest));
+app.get("/.well-known/mcp.json", (req, res) => res.json(mcpManifest));
+
+app.get("/mcp/tools", (req, res) => {
+    res.json({
+        tools: [{ functionDeclarations: tools.map(t => ({ name: t.name, description: t.description, parameters: { type: "object", properties: t.inputSchema?.properties || {}, required: t.inputSchema?.required || [] } })) }]
+    });
+});
+
+app.post("/mcp/initialize", (req, res) => {
+    const { protocolVersion, clientInfo } = req.body || {};
+    console.log("[MCP] Client connected:", clientInfo?.name || "unknown");
+    res.json({
+        protocolVersion: protocolVersion || "2024-11-05",
+        capabilities: { tools: { listChanged: false }, resources: { subscribe: false, listChanged: false }, prompts: { listChanged: false }, logging: {} },
+        serverInfo: { name: "cardxc-mcp", version: "2.1.0" },
+    });
+});
+
+app.get("/mcp/tools/list", authenticateToken, (req, res) => {
+    res.json({ tools: tools.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })) });
+});
+
 app.post("/mcp/tools/call", authenticateToken, async (req, res) => {
     const { name, arguments: args } = req.body;
-    
     try {
         const result = await executeToolInternal(name, args || {});
-        res.json({
-            content: [{ type: "text", text: String(result) }],
-            isError: false
-        });
+        res.json({ content: [{ type: "text", text: String(result) }], isError: false });
     } catch (error) {
-        res.json({
-            content: [{ type: "text", text: "Error: " + error.message }],
-            isError: true
-        });
+        res.json({ content: [{ type: "text", text: "Error: " + error.message }], isError: true });
     }
 });
 
-// Protected endpoint - execute tools
 app.post("/execute", authenticateToken, async (req, res) => {
     const { tool, arguments: args } = req.body;
-
     try {
-        let result;
-
-        switch (tool) {
-            case "list_files": {
-                const directory = args?.directory || ".";
-                const { stdout } = await execAsync("find " + directory + " -maxdepth 3 -not -path '*/.*' -not -path '*/node_modules/*'");
-                result = stdout || "No files found";
-                break;
-            }
-
-            case "read_file": {
-                result = await fs.readFile(args.path, "utf-8");
-                break;
-            }
-
-            case "write_file": {
-                const dir = path.dirname(args.path);
-                await fs.mkdir(dir, { recursive: true });
-                await fs.writeFile(args.path, args.content, "utf-8");
-                result = "Successfully wrote to " + args.path;
-                break;
-            }
-
-            case "run_command": {
-                const { stdout, stderr } = await execAsync(args.command, { timeout: 30000 });
-                result = stdout + (stderr ? "\nStderr: " + stderr : "");
-                break;
-            }
-
-            case "query_database": {
-                const databaseUrl = process.env.DATABASE_URL;
-                if (!databaseUrl) {
-                    result = "Database not configured. DATABASE_URL is missing.";
-                    break;
-                }
-                const client = new pg.Client({ connectionString: databaseUrl });
-                await client.connect();
-                try {
-                    const queryResult = await client.query(args.query);
-                    result = JSON.stringify(queryResult.rows, null, 2);
-                } finally {
-                    await client.end();
-                }
-                break;
-            }
-
-            case "get_project_info": {
-                let info = "Project Information:\n\n";
-                try {
-                    const pkg = await fs.readFile("package.json", "utf-8");
-                    info += "=== package.json ===\n" + pkg + "\n\n";
-                } catch (e) {
-                    info += "No package.json found\n\n";
-                }
-                const { stdout } = await execAsync("ls -la");
-                info += "=== Directory Structure ===\n" + stdout;
-                result = info;
-                break;
-            }
-
-            case "get_system_health": {
-                try {
-                    const { stdout } = await execAsync('curl -s http://localhost:3001/api/health || echo "Failed to connect"');
-                    result = "API Health Check Response:\n" + stdout;
-                } catch (e) {
-                    result = "Health check failed: " + e.message;
-                }
-                break;
-            }
-
-            case "ai_analyze": {
-                const prompt = args.context 
-                    ? `${args.prompt}\n\nContext:\n${args.context}`
-                    : args.prompt;
-                const aiResult = await genAI.models.generateContent({
-                    model: "gemini-2.5-flash",
-                    contents: prompt,
-                });
-                result = aiResult.text || "No response generated";
-                break;
-            }
-
-            case "ai_generate_code": {
-                const language = args.language || "typescript";
-                const prompt = `Generate ${language} code for the following requirements. Only provide the code without explanations unless asked:\n\n${args.requirements}`;
-                const aiResult = await genAI.models.generateContent({
-                    model: "gemini-2.5-flash",
-                    contents: prompt,
-                });
-                result = aiResult.text || "No response generated";
-                break;
-            }
-
-            case "ai_fix_error": {
-                const prompt = `Fix this code error:\n\nError: ${args.error}\n\nCode:\n${args.code}\n${args.filename ? `\nFilename: ${args.filename}` : ""}\n\nProvide the corrected code and a brief explanation of the fix.`;
-                const aiResult = await genAI.models.generateContent({
-                    model: "gemini-2.5-flash",
-                    contents: prompt,
-                });
-                result = aiResult.text || "No response generated";
-                break;
-            }
-
-            case "search_files": {
-                const directory = args.directory || ".";
-                try {
-                    const { stdout } = await execAsync(`grep -r -l "${args.pattern}" ${directory} --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" --include="*.json" 2>/dev/null | head -50`);
-                    result = stdout || "No matches found";
-                } catch (e) {
-                    result = "No matches found";
-                }
-                break;
-            }
-
-            case "get_logs": {
-                const lines = args.lines || 50;
-                try {
-                    const { stdout } = await execAsync(`ls -t /tmp/logs/*.log 2>/dev/null | head -1 | xargs tail -${lines} 2>/dev/null`);
-                    result = stdout || "No logs available";
-                } catch (e) {
-                    result = "Unable to retrieve logs: " + e.message;
-                }
-                break;
-            }
-
-            default:
-                return res.status(400).json({ error: "Unknown tool: " + tool });
-        }
-
+        const result = await executeToolInternal(tool, args || {});
         res.json({ success: true, result });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// Health check endpoint (public)
+async function setupMcpStreamableHttp() {
+    const mcpServer = new Server(
+        { name: "cardxc-mcp", version: "2.1.0" },
+        { capabilities: { tools: {} } }
+    );
+    mcpServer.setRequestHandler(ListToolsRequestSchema, async () => ({
+        tools: tools.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema || { type: "object", properties: {} } })),
+    }));
+    mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
+        try {
+            const result = await executeToolInternal(request.params.name, request.params.arguments || {});
+            return { content: [{ type: "text", text: String(result) }] };
+        } catch (e) {
+            return { content: [{ type: "text", text: String(e.message) }], isError: true };
+        }
+    });
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    await mcpServer.connect(transport);
+    app.all("/mcp", (req, res) => {
+        transport.handleRequest(req, res, req.body).catch((err) => {
+            console.error("[MCP] Streamable HTTP error:", err);
+            if (!res.headersSent) res.status(500).json({ error: String(err.message) });
+        });
+    });
+}
+
 app.get("/health", (req, res) => {
-    res.json({ 
-        status: "ok", 
-        server: "cardxc-mcp", 
-        version: "2.0.0",
-        features: ["jwt-auth", "gemini-ai", "database", "file-operations"],
-        authenticated: false
+    res.json({
+        status: "ok",
+        server: "cardxc-mcp",
+        version: "2.1.0",
+        uptime: Math.floor(process.uptime()) + "s",
+        tools: tools.length,
+        features: ["jwt-auth", "api-key-auth", "gemini-ai", "database", "file-operations", "rate-limiting"],
     });
 });
 
-// Authenticated health check
 app.get("/health/auth", authenticateToken, (req, res) => {
-    res.json({ 
-        status: "ok", 
-        server: "cardxc-mcp", 
-        version: "2.0.0",
-        features: ["jwt-auth", "gemini-ai", "database", "file-operations"],
+    res.json({
+        status: "ok",
+        server: "cardxc-mcp",
+        version: "2.1.0",
         authenticated: true,
-        user: req.user
+        user: req.user,
+        tools: tools.length,
     });
 });
 
-// Landing page with modern design
 app.get("/", (req, res) => {
     const host = req.get("host");
-    res.send(`
-<!DOCTYPE html>
+    res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CardXC MCP Server</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #0f0f23 100%);
-      min-height: 100vh;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .container {
-      max-width: 800px;
-      padding: 3rem;
-      text-align: center;
-    }
-    .logo {
-      font-size: 4rem;
-      margin-bottom: 1rem;
-    }
-    h1 {
-      font-size: 2.5rem;
-      background: linear-gradient(90deg, #00d9ff, #00ff88);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin-bottom: 0.5rem;
-    }
-    .subtitle {
-      color: #888;
-      font-size: 1.2rem;
-      margin-bottom: 2rem;
-    }
-    .card {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 16px;
-      padding: 2rem;
-      margin-bottom: 2rem;
-      backdrop-filter: blur(10px);
-    }
-    .status {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(0,255,136,0.1);
-      border: 1px solid rgba(0,255,136,0.3);
-      padding: 8px 16px;
-      border-radius: 50px;
-      color: #00ff88;
-      font-weight: 600;
-      margin-bottom: 1.5rem;
-    }
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      background: #00ff88;
-      border-radius: 50%;
-      animation: pulse 2s infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    .features {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 1rem;
-      margin-top: 1.5rem;
-    }
-    .feature {
-      background: rgba(255,255,255,0.03);
-      padding: 1rem;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.05);
-    }
-    .feature-icon {
-      font-size: 1.5rem;
-      margin-bottom: 0.5rem;
-    }
-    .feature-title {
-      font-weight: 600;
-      margin-bottom: 0.25rem;
-    }
-    .feature-desc {
-      font-size: 0.85rem;
-      color: #888;
-    }
-    .endpoints {
-      text-align: left;
-      margin-top: 1.5rem;
-    }
-    .endpoint {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px;
-      background: rgba(0,0,0,0.3);
-      border-radius: 8px;
-      margin-bottom: 8px;
-      font-family: monospace;
-    }
-    .method {
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      font-weight: 700;
-    }
-    .get { background: #00d9ff; color: #000; }
-    .post { background: #00ff88; color: #000; }
-    .path { color: #fff; }
-    .desc { color: #666; font-size: 0.85rem; margin-left: auto; }
-    .auth-badge {
-      background: rgba(255,193,7,0.2);
-      color: #ffc107;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 0.7rem;
-      margin-left: 8px;
-    }
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0D0D0D;min-height:100vh;color:#fff}
+    .wrap{max-width:900px;margin:0 auto;padding:2rem}
+    h1{font-size:2.2rem;background:linear-gradient(90deg,#84CC16,#65a30d);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.3rem}
+    .sub{color:#888;font-size:1rem;margin-bottom:1.5rem}
+    .badge{display:inline-flex;align-items:center;gap:6px;background:rgba(132,204,22,.12);border:1px solid rgba(132,204,22,.3);padding:6px 14px;border-radius:50px;color:#84CC16;font-weight:600;font-size:.85rem;margin-bottom:1.5rem}
+    .dot{width:8px;height:8px;background:#84CC16;border-radius:50%;animation:pulse 2s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    .card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:14px;padding:1.5rem;margin-bottom:1.2rem}
+    .card h3{color:#84CC16;margin-bottom:1rem;font-size:1rem;text-transform:uppercase;letter-spacing:.5px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.8rem;margin-bottom:1rem}
+    .feat{background:#222;padding:1rem;border-radius:10px;border:1px solid #333}
+    .feat .icon{font-size:1.3rem;margin-bottom:.4rem}
+    .feat .t{font-weight:600;font-size:.9rem;margin-bottom:.2rem}
+    .feat .d{font-size:.75rem;color:#888}
+    .ep{display:flex;align-items:center;gap:10px;padding:10px;background:#111;border-radius:8px;margin-bottom:6px;font-family:monospace;font-size:.85rem;flex-wrap:wrap}
+    .m{padding:3px 8px;border-radius:4px;font-size:.7rem;font-weight:700;flex-shrink:0}
+    .get{background:#84CC16;color:#000}
+    .post{background:#22c55e;color:#000}
+    .all{background:#eab308;color:#000}
+    .auth{background:rgba(234,179,8,.2);color:#eab308;padding:2px 6px;border-radius:4px;font-size:.65rem;margin-left:4px}
+    .desc{color:#666;font-size:.8rem;margin-left:auto}
+    .code{background:#111;border:1px solid #333;border-radius:10px;padding:1rem;font-family:monospace;font-size:.8rem;overflow-x:auto;color:#ccc;margin-top:.8rem;white-space:pre-wrap}
+    .code .k{color:#84CC16}
+    .code .s{color:#22c55e}
+    .copy-section{margin-top:.8rem}
+    .copy-section h4{color:#ccc;font-size:.85rem;margin-bottom:.5rem}
+    .footer{text-align:center;color:#555;font-size:.75rem;margin-top:2rem;padding-top:1rem;border-top:1px solid #222}
+    .tabs{display:flex;gap:4px;margin-bottom:1rem}
+    .tab{padding:6px 14px;border-radius:8px;font-size:.8rem;cursor:pointer;border:1px solid #333;background:#1a1a1a;color:#888;transition:all .2s}
+    .tab.active,.tab:hover{background:rgba(132,204,22,.15);color:#84CC16;border-color:rgba(132,204,22,.3)}
+    .tab-content{display:none}
+    .tab-content.active{display:block}
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="logo">🔌</div>
-    <h1>CardXC MCP Server</h1>
-    <p class="subtitle">Model Context Protocol for AI Assistants</p>
-    <p style="color: #00d9ff; font-size: 0.9rem; margin-top: -1rem;">Compatible with Google Antigravity IDE</p>
-    
-    <div class="card">
-      <div class="status">
-        <div class="status-dot"></div>
-        Server Running
-      </div>
-      <p>Port: ${process.env.MCP_PORT || 8080} | Version: 2.0.0</p>
-      
-      <div class="features">
-        <div class="feature">
-          <div class="feature-icon">🔐</div>
-          <div class="feature-title">JWT Authentication</div>
-          <div class="feature-desc">Secure token-based access</div>
-        </div>
-        <div class="feature">
-          <div class="feature-icon">🤖</div>
-          <div class="feature-title">Gemini AI</div>
-          <div class="feature-desc">Google AI integration</div>
-        </div>
-        <div class="feature">
-          <div class="feature-icon">🗄️</div>
-          <div class="feature-title">Database</div>
-          <div class="feature-desc">PostgreSQL access</div>
-        </div>
-        <div class="feature">
-          <div class="feature-icon">📁</div>
-          <div class="feature-title">File Operations</div>
-          <div class="feature-desc">Read, write, search files</div>
-        </div>
-      </div>
+<div class="wrap">
+  <div class="badge"><div class="dot"></div> Server Online</div>
+  <h1>CardXC MCP Server</h1>
+  <p class="sub">Model Context Protocol Server v2.1.0 &mdash; by GameNova Vault LLC</p>
+
+  <div class="card">
+    <h3>Capabilities</h3>
+    <div class="grid">
+      <div class="feat"><div class="icon">🔐</div><div class="t">Auth</div><div class="d">JWT Bearer + API Key</div></div>
+      <div class="feat"><div class="icon">📁</div><div class="t">Files</div><div class="d">Read, write, edit, search</div></div>
+      <div class="feat"><div class="icon">🗄️</div><div class="t">Database</div><div class="d">PostgreSQL query + schema</div></div>
+      <div class="feat"><div class="icon">🤖</div><div class="t">Gemini AI</div><div class="d">Analyze, generate, fix</div></div>
+      <div class="feat"><div class="icon">⚡</div><div class="t">Shell</div><div class="d">Run commands (sandboxed)</div></div>
+      <div class="feat"><div class="icon">🛡️</div><div class="t">Security</div><div class="d">Rate limit, path protection</div></div>
     </div>
-    
-    <div class="card">
-      <h3 style="margin-bottom: 1rem;">API Endpoints</h3>
-      <div class="endpoints">
-        <div class="endpoint">
-          <span class="method post">POST</span>
-          <span class="path">/auth/token</span>
-          <span class="desc">Get access token</span>
-        </div>
-        <div class="endpoint">
-          <span class="method get">GET</span>
-          <span class="path">/tools</span>
-          <span class="desc">List available tools</span>
-        </div>
-        <div class="endpoint">
-          <span class="method post">POST</span>
-          <span class="path">/execute</span>
-          <span class="auth-badge">AUTH</span>
-          <span class="desc">Execute a tool</span>
-        </div>
-        <div class="endpoint">
-          <span class="method get">GET</span>
-          <span class="path">/health</span>
-          <span class="desc">Health check</span>
-        </div>
-      </div>
-      
-      <h3 style="margin: 1.5rem 0 1rem; color: #00d9ff;">Antigravity MCP Protocol</h3>
-      <div class="endpoints">
-        <div class="endpoint">
-          <span class="method get">GET</span>
-          <span class="path">/mcp/manifest</span>
-          <span class="desc">MCP manifest</span>
-        </div>
-        <div class="endpoint">
-          <span class="method get">GET</span>
-          <span class="path">/mcp/tools</span>
-          <span class="desc">Gemini-style tools</span>
-        </div>
-        <div class="endpoint">
-          <span class="method post">POST</span>
-          <span class="path">/mcp/initialize</span>
-          <span class="desc">MCP handshake</span>
-        </div>
-        <div class="endpoint">
-          <span class="method post">POST</span>
-          <span class="path">/mcp/tools/call</span>
-          <span class="auth-badge">AUTH</span>
-          <span class="desc">Call a tool</span>
-        </div>
-      </div>
+    <p style="color:#888;font-size:.8rem">${tools.length} tools available &bull; Port ${process.env.MCP_PORT || 8080}</p>
+  </div>
+
+  <div class="card">
+    <h3>Connect Your AI IDE</h3>
+    <div class="tabs">
+      <div class="tab active" onclick="showTab('cursor')">Cursor</div>
+      <div class="tab" onclick="showTab('windsurf')">Windsurf</div>
+      <div class="tab" onclick="showTab('antigravity')">Antigravity</div>
+      <div class="tab" onclick="showTab('api')">REST API</div>
+    </div>
+
+    <div id="cursor" class="tab-content active">
+      <p style="color:#aaa;font-size:.85rem;margin-bottom:.5rem">Add to <code>.cursor/mcp.json</code>:</p>
+      <div class="code">{
+  <span class="k">"mcpServers"</span>: {
+    <span class="k">"cardxc"</span>: {
+      <span class="k">"url"</span>: <span class="s">"https://${host}/mcp"</span>,
+      <span class="k">"headers"</span>: {
+        <span class="k">"X-API-Key"</span>: <span class="s">"YOUR_MCP_API_KEY"</span>
+      }
+    }
+  }
+}</div>
+    </div>
+
+    <div id="windsurf" class="tab-content">
+      <p style="color:#aaa;font-size:.85rem;margin-bottom:.5rem">Add to <code>~/.codeium/windsurf/mcp_config.json</code>:</p>
+      <div class="code">{
+  <span class="k">"mcpServers"</span>: {
+    <span class="k">"cardxc"</span>: {
+      <span class="k">"serverUrl"</span>: <span class="s">"https://${host}/mcp"</span>,
+      <span class="k">"headers"</span>: {
+        <span class="k">"X-API-Key"</span>: <span class="s">"YOUR_MCP_API_KEY"</span>
+      }
+    }
+  }
+}</div>
+    </div>
+
+    <div id="antigravity" class="tab-content">
+      <p style="color:#aaa;font-size:.85rem;margin-bottom:.5rem">Use the MCP manifest URL:</p>
+      <div class="code"><span class="k">Manifest:</span> <span class="s">https://${host}/mcp/manifest</span>
+<span class="k">Tools:</span>    <span class="s">https://${host}/mcp/tools</span>
+<span class="k">Init:</span>     POST <span class="s">https://${host}/mcp/initialize</span></div>
+    </div>
+
+    <div id="api" class="tab-content">
+      <p style="color:#aaa;font-size:.85rem;margin-bottom:.5rem">REST API usage:</p>
+      <div class="code"><span class="k"># 1. Get token</span>
+curl -X POST https://${host}/auth/token \\
+  -H "Content-Type: application/json" \\
+  -d '{"apiKey":"YOUR_MCP_API_KEY","username":"my-ai"}'
+
+<span class="k"># 2. Execute tool</span>
+curl -X POST https://${host}/execute \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"tool":"healthCheck","arguments":{}}'
+
+<span class="k"># Or use API Key directly</span>
+curl -X POST https://${host}/execute \\
+  -H "X-API-Key: YOUR_MCP_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"tool":"list_files","arguments":{"directory":"."}}'</div>
     </div>
   </div>
+
+  <div class="card">
+    <h3>API Endpoints</h3>
+    <div class="ep"><span class="m post">POST</span>/auth/token<span class="desc">Get JWT access token</span></div>
+    <div class="ep"><span class="m get">GET</span>/tools<span class="desc">List all tools</span></div>
+    <div class="ep"><span class="m post">POST</span>/execute<span class="auth">AUTH</span><span class="desc">Execute any tool</span></div>
+    <div class="ep"><span class="m get">GET</span>/health<span class="desc">Public health check</span></div>
+    <div class="ep"><span class="m get">GET</span>/health/auth<span class="auth">AUTH</span><span class="desc">Authenticated health</span></div>
+    <div class="ep"><span class="m all">ALL</span>/mcp<span class="desc">Streamable HTTP (Cursor)</span></div>
+    <div class="ep"><span class="m get">GET</span>/mcp/manifest<span class="desc">MCP manifest</span></div>
+    <div class="ep"><span class="m get">GET</span>/mcp/tools<span class="desc">Tools (Gemini format)</span></div>
+    <div class="ep"><span class="m post">POST</span>/mcp/initialize<span class="desc">MCP handshake</span></div>
+    <div class="ep"><span class="m post">POST</span>/mcp/tools/call<span class="auth">AUTH</span><span class="desc">Call a tool (MCP)</span></div>
+    <div class="ep"><span class="m get">GET</span>/mcp/tools/list<span class="auth">AUTH</span><span class="desc">List tools (MCP)</span></div>
+    <div class="ep"><span class="m get">GET</span>/.well-known/mcp.json<span class="desc">Auto-discovery</span></div>
+  </div>
+
+  <div class="card">
+    <h3>Available Tools (${tools.length})</h3>
+    <div class="grid">
+      ${tools.map(t => `<div class="feat"><div class="t">${t.name}</div><div class="d">${t.description.slice(0, 60)}${t.description.length > 60 ? '...' : ''}</div></div>`).join("")}
+    </div>
+  </div>
+
+  <div class="footer">
+    &copy; ${new Date().getFullYear()} CardXC &mdash; a digital wallet and payments platform operated by GameNova Vault LLC.
+  </div>
+</div>
+<script>
+function showTab(id){
+  document.querySelectorAll('.tab-content').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
 </body>
-</html>
-    `);
+</html>`);
 });
 
 const PORT = process.env.MCP_PORT || 8080;
-app.listen(PORT, "0.0.0.0", () => {
-    console.log("MCP HTTP Server running on port " + PORT);
-    console.log("Features: JWT Auth, Gemini AI, Database Access, File Operations");
-});
+(async () => {
+    await setupMcpStreamableHttp();
+    app.listen(PORT, "0.0.0.0", () => {
+        console.log("MCP HTTP Server running on port " + PORT);
+        console.log("Features: JWT Auth, API Key Auth, Gemini AI, Database, File Ops, Rate Limiting");
+        console.log("Tools: " + tools.length + " available");
+        console.log("Cursor MCP: use URL http://localhost:" + PORT + "/mcp (Streamable HTTP)");
+    });
+})();

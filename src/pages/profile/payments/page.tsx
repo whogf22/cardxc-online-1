@@ -1,5 +1,4 @@
 import { useNavigate } from 'react-router-dom';
-import BottomNavigation from '../../../components/BottomNavigation';
 
 export default function PaymentsInformationPage() {
   const navigate = useNavigate();
@@ -26,8 +25,6 @@ export default function PaymentsInformationPage() {
           </div>
         </div>
       </div>
-
-      <BottomNavigation />
     </div>
   );
 }

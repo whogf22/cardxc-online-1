@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SUPPORT_EMAIL } from '../../../lib/contactPlaceholders';
 
 export default function SupportTicketsTab() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -23,7 +24,7 @@ export default function SupportTicketsTab() {
           For now, customer inquiries can be handled through email or external support channels.
         </p>
         <a 
-          href="mailto:support@cardxc.com" 
+          href={`mailto:${SUPPORT_EMAIL}`}
           className="inline-flex items-center gap-2 px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg shadow-blue-500/25"
         >
           <i className="ri-mail-line"></i>

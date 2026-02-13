@@ -19,6 +19,7 @@ export interface VirtualCard {
   card_name?: string;
   created_at: string;
   updated_at: string;
+  is_frozen?: boolean;
 }
 
 export interface CardTransaction {

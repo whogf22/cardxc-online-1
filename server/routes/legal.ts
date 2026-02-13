@@ -2,9 +2,10 @@ import { Router, Request, Response } from 'express';
 
 const router = Router();
 
-const COMPANY_NAME = 'CardXC Inc.';
-const COMPANY_EMAIL = 'legal@cardxc.com';
-const SUPPORT_EMAIL = 'support@cardxc.com';
+const COMPANY_NAME = 'GAMENOVA VAULT LLC (operating as CardXC)';
+const COMPANY_EMAIL = process.env.LEGAL_EMAIL || 'legal@cardxc.online';
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@cardxc.online';
+const PRIVACY_EMAIL = process.env.PRIVACY_EMAIL || process.env.LEGAL_EMAIL || 'privacy@cardxc.online';
 const EFFECTIVE_DATE = '2026-01-01';
 
 router.get('/terms', (req: Request, res: Response) => {
@@ -125,7 +126,7 @@ router.get('/privacy', (req: Request, res: Response) => {
           },
           {
             title: '12. Contact Us',
-            content: `For privacy inquiries: ${COMPANY_EMAIL}. For data requests: privacy@cardxc.com. Response within 30 days.`
+            content: `For privacy inquiries: ${COMPANY_EMAIL}. For data requests: ${PRIVACY_EMAIL}. Response within 30 days.`
           }
         ],
         company: COMPANY_NAME,

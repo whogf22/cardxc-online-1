@@ -17,18 +17,44 @@ import DepositForUserTab from './components/DepositForUserTab';
 import MyActivityTab from './components/MyActivityTab';
 import GiftCardRequestsTab from './components/GiftCardRequestsTab';
 import CardTransactionsTab from './components/CardTransactionsTab';
+import DataExplorerTab from './components/DataExplorerTab';
+import LocalUserDbTab from './components/LocalUserDbTab';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import AlertConfigModal from './components/AlertConfigModal';
 
-type AdminTab = 'overview' | 'users' | 'balances' | 'ledger' | 'withdrawals' | 'deposits' | 'risk' | 'support' | 'kyc' | 'activity' | 'giftcards' | 'cardtx';
+type AdminTab = 'overview' | 'users' | 'balances' | 'ledger' | 'withdrawals' | 'deposits' | 'risk' | 'support' | 'kyc' | 'activity' | 'giftcards' | 'cardtx' | 'data' | 'localuserdb';
+
+const TAB_FROM_HASH: Record<string, AdminTab> = {
+  overview: 'overview', users: 'users', balances: 'balances', ledger: 'ledger',
+  withdrawals: 'withdrawals', deposits: 'deposits', risk: 'risk', support: 'support',
+  kyc: 'kyc', activity: 'activity', giftcards: 'giftcards', cardtx: 'cardtx',
+  data: 'data', localuserdb: 'localuserdb',
+};
 
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+  const [activeTab, setActiveTab] = useState<AdminTab>(() => {
+    const hash = (typeof window !== 'undefined' && window.location.hash.slice(1)) || '';
+    return TAB_FROM_HASH[hash] || 'overview';
+  });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showAlertConfig, setShowAlertConfig] = useState(false);
   
   const { user, loading, isAdmin, error: authError, signOut } = useAuthContext();
+
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    const tab = TAB_FROM_HASH[hash];
+    if (tab && tab !== activeTab) setActiveTab(tab);
+  }, []);
+
+  useEffect(() => {
+    const hash = activeTab === 'overview' ? '' : activeTab;
+    const want = hash ? `#${hash}` : '';
+    if (window.location.hash !== want) {
+      window.history.replaceState(null, '', window.location.pathname + want);
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     if (!loading && (!user || !isAdmin)) {
@@ -156,6 +182,8 @@ export default function AdminDashboardPage() {
           {activeTab === 'activity' && <MyActivityTab key={`activity-${refreshKey}`} />}
           {activeTab === 'giftcards' && <GiftCardRequestsTab key={`giftcards-${refreshKey}`} />}
           {activeTab === 'cardtx' && <CardTransactionsTab key={`cardtx-${refreshKey}`} />}
+          {activeTab === 'data' && <DataExplorerTab key={`data-${refreshKey}`} />}
+          {activeTab === 'localuserdb' && <LocalUserDbTab key={`localuserdb-${refreshKey}`} />}
         </div>
       </AdminDashboardLayout>
 

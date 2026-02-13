@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { checkoutApi, userApi } from '../../../lib/api';
 
 interface DepositModalProps {
@@ -66,6 +67,7 @@ const formatCardNumber = (value: string): string => {
 };
 
 export default function DepositModal({ currency, onClose, onSuccess, onOpenCryptoDeposit }: DepositModalProps) {
+  const navigate = useNavigate();
   const checkoutCurrency = SUPPORTED_CHECKOUT_CURRENCIES.includes(currency) ? currency : 'USD';
   const config = currencyConfig[checkoutCurrency] || currencyConfig.USD;
 
@@ -74,6 +76,7 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
   const [depositAmount, setDepositAmount] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [checkoutErrorCode, setCheckoutErrorCode] = useState<string | null>(null);
   const [checkoutUrl, setCheckoutUrl] = useState('');
   const [initialBalance, setInitialBalance] = useState<number | null>(null);
   const [newBalance, setNewBalance] = useState<number | null>(null);
@@ -270,6 +273,12 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
     const numAmount = parseFloat(amount);
     const roundedAmount = Math.round(numAmount * 100) / 100;
 
+    if (roundedAmount < 100 || roundedAmount > 2500) {
+      setStep('error');
+      setErrorMessage('Amount must be between $100 and $2,500 (USD).');
+      return;
+    }
+
     setIsProcessing(true);
     setErrorMessage('');
     setDepositAmount(roundedAmount);
@@ -277,7 +286,7 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
     try {
       const currentBalance = await fetchWalletBalance();
       setInitialBalance(currentBalance);
-      
+
       const response = await checkoutApi.createCardCheckout({
         amount: roundedAmount,
         currency: checkoutCurrency,
@@ -288,12 +297,15 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
         setCheckoutUrl(response.data.checkoutUrl);
         setStep('checkout');
       } else {
-        throw new Error('Failed to create checkout session');
+        setCheckoutErrorCode(response.error?.code ?? null);
+        setErrorMessage(response.error?.message || 'Failed to create checkout session');
+        setStep('error');
       }
     } catch (error: any) {
       console.error('[DepositModal] Checkout error:', error);
+      setCheckoutErrorCode(null);
       setStep('error');
-      setErrorMessage(error.response?.data?.error?.message || error.message || 'Payment failed. Please try again.');
+      setErrorMessage(error?.message || 'Payment failed. Please try again.');
     } finally {
       setIsProcessing(false);
     }
@@ -386,7 +398,8 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder="0.00"
-                    className="w-full pl-12 pr-4 py-4 text-2xl font-bold border-2 border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
+                    className="w-full pl-12 pr-4 py-4 text-2xl font-bold border-2 border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors bg-white text-slate-900"
+                    style={{ color: '#0f172a', WebkitTextFillColor: '#0f172a' }}
                   />
                 </div>
                 <p className="text-sm text-slate-500 mt-2">{config.name} (Card deposits processed in {checkoutCurrency})</p>
@@ -483,7 +496,7 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
                   value={cardDetails.nameOnCard}
                   onChange={(e) => setCardDetails({ ...cardDetails, nameOnCard: e.target.value })}
                   placeholder="John Doe"
-                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white text-slate-900"
                 />
               </div>
 
@@ -496,7 +509,7 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
                     onChange={(e) => setCardDetails({ ...cardDetails, cardNumber: formatCardNumber(e.target.value) })}
                     placeholder="1234 5678 9012 3456"
                     maxLength={19}
-                    className="w-full px-4 py-3 pr-16 border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className="w-full px-4 py-3 pr-16 border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white text-slate-900"
                   />
                   <div className="absolute right-4 top-1/2 -translate-y-1/2">
                     {getCardIcon()}
@@ -538,7 +551,7 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
                     }}
                     placeholder="123"
                     maxLength={4}
-                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white text-slate-900"
                   />
                 </div>
               </div>
@@ -596,7 +609,7 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
                   value={billingAddress.streetAddress}
                   onChange={(e) => setBillingAddress({ ...billingAddress, streetAddress: e.target.value })}
                   placeholder="123 Main Street, Apt 4B"
-                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white text-slate-900"
                 />
               </div>
 
@@ -608,7 +621,7 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
                     value={billingAddress.city}
                     onChange={(e) => setBillingAddress({ ...billingAddress, city: e.target.value })}
                     placeholder="New York"
-                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white text-slate-900"
                   />
                 </div>
                 <div>
@@ -618,7 +631,7 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
                     value={billingAddress.state}
                     onChange={(e) => setBillingAddress({ ...billingAddress, state: e.target.value })}
                     placeholder="NY"
-                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white text-slate-900"
                   />
                 </div>
               </div>
@@ -631,7 +644,7 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
                     value={billingAddress.postalCode}
                     onChange={(e) => setBillingAddress({ ...billingAddress, postalCode: e.target.value })}
                     placeholder="10001"
-                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white text-slate-900"
                   />
                 </div>
                 <div>
@@ -765,14 +778,31 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
               <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <i className="ri-close-line text-4xl text-red-600"></i>
               </div>
-              <h3 className="text-2xl font-bold text-slate-900 mb-2">Payment Failed</h3>
+              <h3 className="text-2xl font-bold text-slate-900 mb-2">
+                {checkoutErrorCode === 'EMAIL_VERIFICATION_REQUIRED' ? 'Email verification required' :
+                  checkoutErrorCode === 'KYC_REQUIRED' ? 'Verification required' : 'Payment Failed'}
+              </h3>
               <p className="text-slate-600 mb-6">{errorMessage}</p>
-              
+              {checkoutErrorCode === 'EMAIL_VERIFICATION_REQUIRED' && (
+                <p className="text-sm text-slate-500 mb-4">Check your inbox for a verification link, or update your email in Settings.</p>
+              )}
+              {checkoutErrorCode === 'KYC_REQUIRED' && (
+                <p className="text-sm text-slate-500 mb-4">Complete identity verification in Settings to add funds with a card.</p>
+              )}
               <div className="flex flex-col gap-3 max-w-xs mx-auto">
+                {(checkoutErrorCode === 'EMAIL_VERIFICATION_REQUIRED' || checkoutErrorCode === 'KYC_REQUIRED') && (
+                  <button
+                    onClick={() => { onClose(); navigate('/settings'); }}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-4 rounded-xl font-bold transition-all cursor-pointer"
+                  >
+                    {checkoutErrorCode === 'EMAIL_VERIFICATION_REQUIRED' ? 'Go to Settings' : 'Complete verification'}
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setStep('card-details');
                     setErrorMessage('');
+                    setCheckoutErrorCode(null);
                     setCheckoutUrl('');
                   }}
                   className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-6 py-4 rounded-xl font-bold transition-all cursor-pointer shadow-lg shadow-emerald-500/30"

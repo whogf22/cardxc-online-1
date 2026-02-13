@@ -14,9 +14,9 @@ router.use(authenticate);
 
 router.post('/p2p/transfer',
   financialOpLimiter,
-  body('recipient').trim().notEmpty(),
+  body('recipient').trim().notEmpty().isLength({ max: 255 }),
   body('recipientType').isIn(['email', 'phone', 'username']),
-  body('amount').isFloat({ min: 0.01 }),
+  body('amount').isFloat({ min: 0.01, max: 50000 }).withMessage('Transfer amount must be between $0.01 and $50,000'),
   body('currency').isIn(['USD', 'EUR', 'GBP', 'NGN']),
   body('note').optional().trim().isLength({ max: 255 }),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -111,7 +111,7 @@ router.post('/p2p/transfer',
 );
 
 router.post('/payment-links',
-  body('amount').optional().isFloat({ min: 0.01 }),
+  body('amount').optional().isFloat({ min: 0.01, max: 100000 }).withMessage('Amount must be between $0.01 and $100,000'),
   body('currency').isIn(['USD', 'EUR', 'GBP', 'NGN']),
   body('description').optional().trim().isLength({ max: 255 }),
   body('expiresInHours').optional().isInt({ min: 1, max: 168 }),
@@ -174,7 +174,7 @@ router.get('/payment-links/:code/public', asyncHandler(async (req: Authenticated
 
 router.post('/payment-links/:code/pay',
   sensitiveOpLimiter,
-  body('amount').optional().isFloat({ min: 0.01 }),
+  body('amount').optional().isFloat({ min: 0.01, max: 100000 }).withMessage('Amount must be between $0.01 and $100,000'),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { code } = req.params;
     const { amount } = req.body;

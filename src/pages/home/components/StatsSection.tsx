@@ -1,47 +1,22 @@
 export default function StatsSection() {
   const stats = [
-    {
-      icon: 'ri-shield-check-line',
-      value: '100%',
-      label: 'Secure Transactions',
-      description: 'Bank-level encryption',
-      color: 'text-success-400'
-    },
-    {
-      icon: 'ri-time-line',
-      value: '5 Min',
-      label: 'Average Payout',
-      description: 'Lightning fast transfers',
-      color: 'text-primary-400'
-    },
-    {
-      icon: 'ri-star-line',
-      value: '4.9/5',
-      label: 'Customer Rating',
-      description: 'From 2,000+ reviews',
-      color: 'text-cream-300'
-    },
-    {
-      icon: 'ri-customer-service-2-line',
-      value: '24/7',
-      label: 'Support Available',
-      description: 'Always here to help',
-      color: 'text-warning-400'
-    }
+    { value: '100%', label: 'Secure', icon: 'ri-shield-check-fill' },
+    { value: '24/7', label: 'Support', icon: 'ri-customer-service-fill' },
+    { value: '0%', label: 'Hidden Fees', icon: 'ri-money-dollar-circle-fill' },
+    { value: 'Instant', label: 'Transfers', icon: 'ri-flashlight-fill' }
   ];
 
   return (
-    <section className="relative py-20 bg-dark-card border-t border-dark-border">
-      <div className="max-w-7xl mx-auto px-6">
+    <section className="py-16 bg-[#030303] border-y border-white/[0.04]">
+      <div className="max-w-6xl mx-auto px-6">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           {stats.map((stat, index) => (
             <div key={index} className="text-center group">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-dark-elevated group-hover:bg-cream-300/10 rounded-2xl mb-4 transition-all border border-dark-border group-hover:border-cream-300/20">
-                <i className={`${stat.icon} text-3xl ${stat.color}`}></i>
+              <div className="w-12 h-12 mx-auto mb-4 bg-lime-500/[0.08] rounded-xl flex items-center justify-center border border-lime-500/10 group-hover:border-lime-500/20 group-hover:bg-lime-500/[0.12] transition-all">
+                <i className={`${stat.icon} text-xl text-lime-400`}></i>
               </div>
-              <div className="text-4xl font-bold text-white mb-2">{stat.value}</div>
-              <div className="text-white font-medium mb-1">{stat.label}</div>
-              <div className="text-sm text-neutral-400">{stat.description}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-white mb-1">{stat.value}</div>
+              <div className="text-xs text-neutral-500 uppercase tracking-wider">{stat.label}</div>
             </div>
           ))}
         </div>

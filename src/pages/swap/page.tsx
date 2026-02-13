@@ -35,29 +35,25 @@ export default function SwapPage() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <SwapCard />
-
-        <div className="mt-6 space-y-4">
-          <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
-            <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center">
-              <i className="ri-line-chart-line text-emerald-500 mr-2"></i>
-              Popular Pairs
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { from: 'USD', to: 'BTC', rate: '$43,478.26' },
-                { from: 'USD', to: 'ETH', rate: '$2,380.95' },
-                { from: 'BTC', to: 'ETH', rate: '18.5 ETH' },
-                { from: 'USD', to: 'USDT', rate: '1:1' },
-              ].map((pair, index) => (
-                <div key={index} className="p-3 bg-slate-50 rounded-lg">
-                  <p className="text-sm font-medium text-slate-900">{pair.from}/{pair.to}</p>
-                  <p className="text-xs text-slate-500">{pair.rate}</p>
-                </div>
-              ))}
+        <div className="mb-6 p-4 bg-amber-50 rounded-xl border border-amber-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <i className="ri-tools-line text-amber-600 text-lg"></i>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-amber-900">Coming Soon</p>
+              <p className="text-xs text-amber-700">
+                Crypto swap is currently under development. This feature will allow you to exchange assets instantly at competitive rates.
+              </p>
             </div>
           </div>
+        </div>
 
+        <div className="opacity-60 pointer-events-none">
+          <SwapCard />
+        </div>
+
+        <div className="mt-6 space-y-4">
           <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
             <div className="flex items-start space-x-3">
               <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
@@ -66,23 +62,8 @@ export default function SwapPage() {
               <div>
                 <p className="text-sm font-semibold text-slate-900 mb-1">Secure & Instant</p>
                 <p className="text-xs text-slate-600">
-                  All swaps are executed instantly at the best available rate. 
+                  When launched, all swaps will be executed instantly at the best available rate. 
                   Your funds are always secure with our non-custodial swap protocol.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-4 bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl border border-amber-100">
-            <div className="flex items-start space-x-3">
-              <div className="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center flex-shrink-0">
-                <i className="ri-lightbulb-line text-white"></i>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-900 mb-1">Pro Tip</p>
-                <p className="text-xs text-slate-600">
-                  Swap fees are only 0.3%. For the best rates, consider swapping during 
-                  low market volatility periods.
                 </p>
               </div>
             </div>

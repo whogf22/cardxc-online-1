@@ -23,7 +23,6 @@ export default function DashboardHeader() {
   useEffect(() => {
     if (!user?.id) return;
     loadNotifications();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   const loadNotifications = async () => {
@@ -48,25 +47,11 @@ export default function DashboardHeader() {
       }));
 
       setNotifications(notifs);
+      setUnreadCount(notifs.filter(n => !n.read).length);
     } catch (err) {
       console.warn('Failed to load notifications:', err);
       setNotifications([]);
     }
-  };
-
-  const addNewNotification = (entry: any) => {
-    const newNotif: Notification = {
-      id: entry.id,
-      type: entry.type === 'deposit' ? 'deposit' : entry.type === 'withdrawal' ? 'withdrawal' : 'transfer',
-      title: getNotificationTitle(entry.type, entry.status),
-      message: getNotificationMessage(entry.type, entry.amount, entry.currency),
-      timestamp: new Date(entry.created_at),
-      read: false,
-      transactionId: entry.id,
-    };
-
-    setNotifications((prev) => [newNotif, ...prev.slice(0, 9)]);
-    setUnreadCount((prev) => prev + 1);
   };
 
   const getNotificationTitle = (type: string, status: string) => {
@@ -123,154 +108,129 @@ export default function DashboardHeader() {
     setUnreadCount(0);
   };
 
-  const handleLogout = async () => {
-    await authApi.signOut();
-    navigate('/');
-  };
+  const displayName = user?.full_name || user?.email?.split('@')[0] || 'User';
 
   return (
-    <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-xl flex items-center justify-center">
-              <i className="ri-exchange-dollar-line text-white text-xl"></i>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900">CardXC</h1>
-              <p className="text-xs text-slate-500">Digital Payments</p>
-            </div>
+    <header className="px-5 pt-4 pb-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div
+            className="w-12 h-12 rounded-full bg-gradient-to-br from-lime-400 to-emerald-600 flex items-center justify-center cursor-pointer overflow-hidden"
+            onClick={() => navigate('/profile')}
+          >
+            {user?.profile_picture ? (
+              <img src={user.profile_picture} alt="" className="w-full h-full object-cover rounded-full" />
+            ) : (
+              <span className="text-white font-bold text-lg">{displayName.charAt(0).toUpperCase()}</span>
+            )}
           </div>
+          <div>
+            <h1 className="text-white text-lg font-semibold">
+              Hello, {displayName}
+            </h1>
+            <p className="text-gray-500 text-xs">Welcome Back</p>
+          </div>
+        </div>
 
-          {/* Right Section */}
-          <div className="flex items-center gap-4">
-            {/* Notifications - FIXED: Badge positioning */}
-            <div className="relative">
-              <button
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="relative w-10 h-10 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <i className="ri-notification-3-line text-slate-600 text-xl"></i>
-                {unreadCount > 0 && (
-                  <span className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 text-white text-xs font-semibold rounded-full flex items-center justify-center border-2 border-white">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
+        <div className="relative">
+          <button
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="relative w-11 h-11 flex items-center justify-center rounded-full bg-[#1a1a1a] border border-white/10 cursor-pointer"
+          >
+            <i className="ri-notification-3-line text-white text-lg"></i>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-lime-400 text-black text-[10px] font-bold rounded-full flex items-center justify-center">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
 
-              {/* Notifications Dropdown */}
-              {showNotifications && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setShowNotifications(false)}
-                  ></div>
-                  <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-96 max-w-sm bg-white rounded-xl shadow-2xl border border-slate-200 z-50 max-h-[32rem] overflow-hidden flex flex-col">
-                    {/* Header */}
-                    <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-slate-900">Notifications</h3>
-                      {unreadCount > 0 && (
-                        <button
-                          onClick={markAllAsRead}
-                          className="text-xs text-teal-600 hover:text-teal-700 font-medium cursor-pointer whitespace-nowrap"
-                        >
-                          Mark all as read
-                        </button>
-                      )}
+          {showNotifications && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowNotifications(false)}
+              ></div>
+              <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-80 bg-[#1a1a1a] rounded-2xl border border-white/10 z-50 max-h-[24rem] overflow-hidden flex flex-col shadow-2xl">
+                <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-white">Notifications</h3>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllAsRead}
+                      className="text-xs text-lime-400 font-medium cursor-pointer"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+
+                <div className="overflow-y-auto flex-1">
+                  {notifications.length === 0 ? (
+                    <div className="px-4 py-8 text-center">
+                      <i className="ri-notification-off-line text-gray-600 text-3xl mb-2"></i>
+                      <p className="text-sm text-gray-500">No notifications yet</p>
                     </div>
-
-                    {/* Notifications List */}
-                    <div className="overflow-y-auto flex-1">
-                      {notifications.length === 0 ? (
-                        <div className="px-4 py-8 text-center">
-                          <i className="ri-notification-off-line text-slate-300 text-4xl mb-2"></i>
-                          <p className="text-sm text-slate-500">No notifications yet</p>
-                        </div>
-                      ) : (
-                        notifications.map((notification) => (
+                  ) : (
+                    notifications.map((notification) => (
+                      <div
+                        key={notification.id}
+                        onClick={() => handleNotificationClick(notification)}
+                        className={`px-4 py-3 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${
+                          !notification.read ? 'bg-lime-400/5' : ''
+                        }`}
+                      >
+                        <div className="flex gap-3">
                           <div
-                            key={notification.id}
-                            onClick={() => handleNotificationClick(notification)}
-                            className={`px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer ${
-                              !notification.read ? 'bg-teal-50/30' : ''
+                            className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              notification.type === 'deposit'
+                                ? 'bg-emerald-500/20'
+                                : notification.type === 'withdrawal'
+                                ? 'bg-orange-500/20'
+                                : 'bg-blue-500/20'
                             }`}
                           >
-                            <div className="flex gap-3">
-                              <div
-                                className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                                  notification.type === 'deposit'
-                                    ? 'bg-green-100'
-                                    : notification.type === 'withdrawal'
-                                    ? 'bg-orange-100'
-                                    : 'bg-blue-100'
-                                }`}
-                              >
-                                <i
-                                  className={`${
-                                    notification.type === 'deposit'
-                                      ? 'ri-arrow-down-line text-green-600'
-                                      : notification.type === 'withdrawal'
-                                      ? 'ri-arrow-up-line text-orange-600'
-                                      : 'ri-exchange-line text-blue-600'
-                                  } text-lg`}
-                                ></i>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-start justify-between gap-2">
-                                  <p className="text-sm font-semibold text-slate-900">
-                                    {notification.title}
-                                  </p>
-                                  {!notification.read && (
-                                    <span className="w-2 h-2 bg-teal-500 rounded-full flex-shrink-0 mt-1.5"></span>
-                                  )}
-                                </div>
-                                <p className="text-xs text-slate-600 mt-1">{notification.message}</p>
-                                <p className="text-xs text-slate-400 mt-1">
-                                  {getTimeAgo(notification.timestamp)}
-                                </p>
-                              </div>
-                            </div>
+                            <i
+                              className={`${
+                                notification.type === 'deposit'
+                                  ? 'ri-arrow-down-line text-emerald-400'
+                                  : notification.type === 'withdrawal'
+                                  ? 'ri-arrow-up-line text-orange-400'
+                                  : 'ri-exchange-line text-blue-400'
+                              } text-sm`}
+                            ></i>
                           </div>
-                        ))
-                      )}
-                    </div>
-
-                    {/* Footer */}
-                    {notifications.length > 0 && (
-                      <div className="px-4 py-3 border-t border-slate-200 bg-slate-50">
-                        <button
-                          onClick={() => {
-                            setShowNotifications(false);
-                            navigate('/transactions');
-                          }}
-                          className="w-full text-sm text-teal-600 hover:text-teal-700 font-medium cursor-pointer whitespace-nowrap"
-                        >
-                          View all transactions
-                        </button>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-xs font-semibold text-white">{notification.title}</p>
+                              {!notification.read && (
+                                <span className="w-2 h-2 bg-lime-400 rounded-full flex-shrink-0 mt-1"></span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">{notification.message}</p>
+                            <p className="text-[10px] text-gray-600 mt-0.5">{getTimeAgo(notification.timestamp)}</p>
+                          </div>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
+                    ))
+                  )}
+                </div>
 
-            {/* User Menu */}
-            <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-4 border-l border-slate-200">
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-semibold text-slate-900">{user?.email?.split('@')[0] || 'User'}</p>
-                <p className="text-xs text-slate-500">Customer</p>
+                {notifications.length > 0 && (
+                  <div className="px-4 py-2.5 border-t border-white/10">
+                    <button
+                      onClick={() => {
+                        setShowNotifications(false);
+                        navigate('/transactions');
+                      }}
+                      className="w-full text-xs text-lime-400 font-medium cursor-pointer"
+                    >
+                      View all transactions
+                    </button>
+                  </div>
+                )}
               </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-3 py-2 bg-slate-100 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer text-slate-600"
-                title="Sign Out"
-              >
-                <i className="ri-logout-box-r-line text-lg"></i>
-                <span className="text-sm font-medium hidden sm:inline">Logout</span>
-              </button>
-            </div>
-          </div>
+            </>
+          )}
         </div>
       </div>
     </header>

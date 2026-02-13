@@ -1,0 +1,30 @@
+// Directories to ignore
+dist/
+node_modules/
+.worktrees/
+.replit_integration_files/
+.local/
+build/
+coverage/
+
+// Config files
+*.config.js
+*.config.ts
+vite.config.ts
+tailwind.config.js
+
+// Generated files
+*.d.ts
+
+// MCP server
+mcp-server/
+
+// Scripts
+scripts/
+
+// Test files
+**/__tests__/**
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx

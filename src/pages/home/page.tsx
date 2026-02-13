@@ -2,15 +2,15 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import HeroSection from './components/HeroSection';
 import FeaturesSection from './components/FeaturesSection';
-import TestimonialsSection from './components/TestimonialsSection';
 import TrustSection from './components/TrustSection';
 import StatsSection from './components/StatsSection';
-import AboutSection from './components/AboutSection';
-import CustomerServiceSection from './components/CustomerServiceSection';
-import ValuesSection from './components/ValuesSection';
 import HowItWorksSection from './components/HowItWorksSection';
+import ValuesSection from './components/ValuesSection';
+import RatesSection from './components/RatesSection';
+import CalculatorSection from './components/CalculatorSection';
 import AppExperienceSection from './components/AppExperienceSection';
 import SupportSection from './components/SupportSection';
+import FAQSection from './components/FAQSection';
 import Footer from './components/Footer';
 import ContactModal from './components/ContactModal';
 
@@ -29,48 +29,38 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-dark-bg" key="home-v150">
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-dark-bg/95 backdrop-blur-xl border-b border-dark-border safe-area-inset-top">
-        <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
-          <div className="flex items-center justify-between h-20 sm:h-24">
+    <div className="min-h-screen bg-[#030303]">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#030303]/80 backdrop-blur-xl border-b border-white/[0.06]">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="flex items-center justify-between h-16">
             <button
               onClick={() => navigate('/')}
-              className="flex items-center gap-3 sm:gap-4 group touch-target-lg"
-              aria-label="CardXC Home"
+              className="flex items-center gap-3 group"
             >
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-cream-300 to-cream-500 rounded-xl flex items-center justify-center shadow-glow-sm group-hover:shadow-glow group-hover:scale-105 transition-all duration-300">
-                <i className="ri-wallet-3-line text-xl sm:text-2xl text-dark-bg"></i>
+              <div className="w-9 h-9 bg-lime-500 rounded-lg flex items-center justify-center shadow-glow-sm group-hover:shadow-glow transition-shadow">
+                <i className="ri-wallet-3-line text-lg text-black font-bold"></i>
               </div>
-              <span className="text-xl sm:text-2xl font-bold text-white">
-                CardXC
-              </span>
+              <span className="text-lg font-bold text-white tracking-tight">CardXC</span>
             </button>
 
-            <div className="hidden lg:flex items-center gap-2">
-              {[
-                { label: 'Features', href: '#features' },
-                { label: 'About', href: '#about' }
-              ].map((item) => (
-                <a
-                  key={item.label}
-                  href={item.href}
-                  className="nav-link-neon px-5 py-3 text-base font-medium text-neutral-400 hover:text-white hover:bg-dark-hover rounded-xl transition-all duration-300 touch-target"
-                >
-                  {item.label}
-                </a>
-              ))}
+            <div className="hidden md:flex items-center gap-8">
+              <a href="#features" className="text-[13px] text-neutral-400 hover:text-lime-400 transition-colors">Features</a>
+              <a href="#how-it-works" className="text-[13px] text-neutral-400 hover:text-lime-400 transition-colors">How It Works</a>
+              <a href="#rates" className="text-[13px] text-neutral-400 hover:text-lime-400 transition-colors">Rates</a>
+              <a href="#values" className="text-[13px] text-neutral-400 hover:text-lime-400 transition-colors">About</a>
+              <button onClick={() => setIsContactOpen(true)} className="text-[13px] text-neutral-400 hover:text-lime-400 transition-colors">Contact</button>
             </div>
 
-            <div className="hidden lg:flex items-center gap-4">
+            <div className="hidden md:flex items-center gap-3">
               <button
                 onClick={() => navigate('/signin')}
-                className="px-6 py-3 text-base font-semibold text-neutral-300 hover:text-white hover:bg-dark-hover rounded-xl transition-all duration-300 touch-target"
+                className="px-4 py-2 text-sm font-medium text-neutral-300 hover:text-white transition-colors"
               >
                 Sign In
               </button>
               <button
                 onClick={() => navigate('/signup')}
-                className="px-8 py-4 text-base font-semibold text-dark-bg bg-gradient-to-r from-cream-300 to-cream-400 rounded-xl shadow-glow-sm hover:shadow-glow hover:scale-105 active:scale-100 transition-all duration-300 touch-target-lg"
+                className="px-5 py-2 text-sm font-semibold text-black bg-lime-500 rounded-lg hover:bg-lime-400 transition-all shadow-glow-sm hover:shadow-glow"
               >
                 Get Started
               </button>
@@ -78,54 +68,24 @@ export default function HomePage() {
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden w-12 h-12 flex items-center justify-center rounded-xl bg-dark-elevated hover:bg-dark-hover active:bg-dark-border transition-colors touch-target"
-              aria-label="Toggle menu"
-              aria-expanded={mobileMenuOpen}
+              className="md:hidden w-10 h-10 flex items-center justify-center rounded-lg bg-white/[0.06] border border-white/[0.08]"
             >
-              <i className={`text-2xl text-neutral-300 transition-transform duration-300 ${mobileMenuOpen ? 'ri-close-line rotate-90' : 'ri-menu-line'}`}></i>
+              <i className={`text-xl text-white ${mobileMenuOpen ? 'ri-close-line' : 'ri-menu-line'}`}></i>
             </button>
           </div>
         </div>
 
         {mobileMenuOpen && (
-          <div className="lg:hidden border-t border-dark-border bg-dark-card shadow-dark-elevated safe-area-inset-bottom">
-            <div className="px-6 py-6 space-y-2">
-              {[
-                { label: 'Features', href: '#features', icon: 'star-line' },
-                { label: 'About', href: '#about', icon: 'information-line' }
-              ].map((item) => (
-                <a
-                  key={item.label}
-                  href={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="nav-link-mobile-glow flex items-center gap-4 px-5 py-4 text-base font-semibold text-neutral-300 hover:text-white hover:bg-dark-hover rounded-xl transition-all duration-300 touch-target-lg"
-                >
-                  <i className={`ri-${item.icon} text-xl text-cream-300`}></i>
-                  {item.label}
-                </a>
-              ))}
-              
-              <div className="pt-4 space-y-3 border-t border-dark-border">
-                <button
-                  onClick={() => {
-                    navigate('/signin');
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full flex items-center justify-center gap-3 px-6 py-4 text-base font-semibold text-neutral-300 bg-dark-elevated hover:bg-dark-hover rounded-xl transition-all duration-300 touch-target-lg"
-                >
-                  <i className="ri-login-box-line text-xl"></i>
-                  Sign In
-                </button>
-                <button
-                  onClick={() => {
-                    navigate('/signup');
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full flex items-center justify-center gap-3 px-6 py-5 text-base font-semibold text-dark-bg bg-gradient-to-r from-cream-300 to-cream-400 rounded-xl shadow-glow-sm hover:shadow-glow hover:scale-[1.02] active:scale-100 transition-all duration-300 touch-target-lg"
-                >
-                  <i className="ri-user-add-line text-xl"></i>
-                  Get Started Free
-                </button>
+          <div className="md:hidden border-t border-white/[0.06] bg-[#0d0d0d]/95 backdrop-blur-xl">
+            <div className="px-6 py-4 space-y-1">
+              <a href="#features" onClick={() => setMobileMenuOpen(false)} className="block py-3 text-neutral-300 hover:text-lime-400 transition-colors">Features</a>
+              <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="block py-3 text-neutral-300 hover:text-lime-400 transition-colors">How It Works</a>
+              <a href="#rates" onClick={() => setMobileMenuOpen(false)} className="block py-3 text-neutral-300 hover:text-lime-400 transition-colors">Rates</a>
+              <a href="#values" onClick={() => setMobileMenuOpen(false)} className="block py-3 text-neutral-300 hover:text-lime-400 transition-colors">About</a>
+              <button onClick={() => { setIsContactOpen(true); setMobileMenuOpen(false); }} className="block w-full text-left py-3 text-neutral-300 hover:text-lime-400 transition-colors">Contact</button>
+              <div className="pt-4 space-y-2 border-t border-white/[0.06]">
+                <button onClick={() => { navigate('/signin'); setMobileMenuOpen(false); }} className="w-full py-3 text-center text-neutral-300 bg-white/[0.04] rounded-lg border border-white/[0.08]">Sign In</button>
+                <button onClick={() => { navigate('/signup'); setMobileMenuOpen(false); }} className="w-full py-3 text-center font-semibold text-black bg-lime-500 rounded-lg">Get Started</button>
               </div>
             </div>
           </div>
@@ -133,62 +93,40 @@ export default function HomePage() {
       </nav>
 
       {sessionExpired && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-6">
-          <div className="w-full sm:max-w-md dark-card rounded-t-3xl sm:rounded-3xl overflow-hidden animate-slide-up">
-            <div className="bg-dark-elevated px-6 sm:px-8 py-6 sm:py-8 border-b border-dark-border">
-              <div className="flex items-center gap-4 sm:gap-5">
-                <div className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center rounded-2xl bg-cream-300/10">
-                  <i className="ri-time-line text-2xl sm:text-3xl text-cream-300"></i>
-                </div>
-                <div>
-                  <h3 className="text-xl sm:text-2xl font-bold text-white">Session Expired</h3>
-                  <p className="text-sm sm:text-base text-neutral-400 mt-1">Please sign in again to continue</p>
-                </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-6">
+          <div className="w-full max-w-md bg-[#0d0d0d] rounded-2xl p-8 border border-white/[0.08]">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-12 h-12 flex items-center justify-center rounded-xl bg-amber-500/10">
+                <i className="ri-time-line text-2xl text-amber-400"></i>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-white">Session Expired</h3>
+                <p className="text-sm text-neutral-400">Please sign in again</p>
               </div>
             </div>
-
-            <div className="px-6 sm:px-8 py-6 sm:py-8 space-y-6">
-              <p className="text-base sm:text-lg text-neutral-400 leading-relaxed">
-                Your session has expired for security reasons. Please sign in again to access your account.
-              </p>
-
-              <button
-                onClick={handleSignInAgain}
-                className="btn-primary w-full group"
-              >
-                <span className="flex items-center justify-center gap-3">
-                  <i className="ri-login-box-line text-xl"></i>
-                  Sign In Again
-                  <i className="ri-arrow-right-line text-xl group-hover:translate-x-1 transition-transform"></i>
-                </span>
-              </button>
-            </div>
-
-            <div className="h-safe-area-inset-bottom sm:hidden"></div>
+            <button onClick={handleSignInAgain} className="w-full py-3 bg-lime-500 text-black font-semibold rounded-xl hover:bg-lime-400 transition-colors">
+              Sign In Again
+            </button>
           </div>
         </div>
       )}
 
-      <main className="pt-20">
+      <main className="pt-16">
         <HeroSection />
-        <FeaturesSection />
         <StatsSection />
-        <AboutSection />
+        <FeaturesSection />
         <ValuesSection />
         <HowItWorksSection />
-        <TestimonialsSection />
+        <RatesSection />
+        <CalculatorSection />
         <TrustSection />
-        <SupportSection />
         <AppExperienceSection />
-        <CustomerServiceSection />
+        <SupportSection />
+        <FAQSection />
       </main>
 
-      <Footer />
-      
-      <ContactModal 
-        isOpen={isContactOpen} 
-        onClose={() => setIsContactOpen(false)} 
-      />
+      <Footer onOpenContact={() => setIsContactOpen(true)} />
+      <ContactModal isOpen={isContactOpen} onClose={() => setIsContactOpen(false)} />
     </div>
   );
 }

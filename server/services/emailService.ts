@@ -1,6 +1,9 @@
 import nodemailer from 'nodemailer';
 import { logger } from '../middleware/logger';
 
+const APP_BASE_URL = process.env.APP_URL || process.env.FRONTEND_URL || 'https://cardxc.online';
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@cardxc.online';
+
 function getSmtpConfig() {
   const SMTP_HOST = process.env.SMTP_HOST || 'smtp.hostinger.com';
   const SMTP_PORT = parseInt(process.env.SMTP_PORT || '465', 10);
@@ -92,7 +95,7 @@ export async function verifySmtpConnection(): Promise<{ success: boolean; error?
     const errorMessage = error.message || 'Unknown error';
     
     if (errorCode === 'EAUTH' || errorMessage.includes('535') || errorMessage.includes('authentication failed')) {
-      logger.error('SMTP authentication failed (535)', {
+      logger.warn('SMTP authentication failed (535) - email features disabled', {
         host: config.host,
         port: config.port,
         secure: config.secure,
@@ -167,7 +170,7 @@ const emailTemplates = {
               <li>Advanced security features including 2FA</li>
             </ul>
             <p>Get started by completing your profile and verifying your identity.</p>
-            <a href="https://cardxc.online/dashboard" class="button">Go to Dashboard</a>
+            <a href="${APP_BASE_URL}/dashboard" class="button">Go to Dashboard</a>
           </div>
           <div class="footer">
             <p>CardXC - Secure Digital Payments</p>
@@ -177,7 +180,7 @@ const emailTemplates = {
       </body>
       </html>
     `,
-    text: `Welcome to CardXC, ${name}! Your account is ready. Visit https://cardxc.online/dashboard to get started.`,
+    text: `Welcome to CardXC, ${name}! Your account is ready. Visit ${APP_BASE_URL}/dashboard to get started.`,
   }),
 
   passwordReset: (name: string, resetToken: string) => ({
@@ -208,7 +211,7 @@ const emailTemplates = {
             <h2>Password Reset Request</h2>
             <p>Hi ${name},</p>
             <p>We received a request to reset your password. Click the button below to create a new password:</p>
-            <a href="https://cardxc.online/reset-password?token=${resetToken}" class="button">Reset Password</a>
+            <a href="${APP_BASE_URL}/reset-password?token=${resetToken}" class="button">Reset Password</a>
             <div class="warning">
               <strong>Security Notice:</strong> This link expires in 1 hour. If you didn't request this reset, please ignore this email or contact support.
             </div>
@@ -220,7 +223,7 @@ const emailTemplates = {
       </body>
       </html>
     `,
-    text: `Hi ${name}, we received a request to reset your CardXC password. Visit https://cardxc.online/reset-password?token=${resetToken} to reset it. This link expires in 1 hour.`,
+    text: `Hi ${name}, we received a request to reset your CardXC password. Visit ${APP_BASE_URL}/reset-password?token=${resetToken} to reset it. This link expires in 1 hour.`,
   }),
 
   twoFactorEnabled: (name: string) => ({
@@ -338,7 +341,7 @@ const emailTemplates = {
             <h2>Verify Your Email Address</h2>
             <p>Hi ${name},</p>
             <p>Thank you for signing up for CardXC! Please verify your email address by clicking the button below:</p>
-            <a href="https://cardxc.online/verify-email?token=${verificationToken}" class="button">Verify Email</a>
+            <a href="${APP_BASE_URL}/verify-email?token=${verificationToken}" class="button">Verify Email</a>
             <div class="warning">
               <strong>Note:</strong> This link expires in 24 hours. If you didn't create an account with CardXC, please ignore this email.
             </div>
@@ -350,7 +353,7 @@ const emailTemplates = {
       </body>
       </html>
     `,
-    text: `Hi ${name}, thank you for signing up for CardXC! Please verify your email by visiting: https://cardxc.online/verify-email?token=${verificationToken}. This link expires in 24 hours.`,
+    text: `Hi ${name}, thank you for signing up for CardXC! Please verify your email by visiting: ${APP_BASE_URL}/verify-email?token=${verificationToken}. This link expires in 24 hours.`,
   }),
 
   suspiciousActivity: (name: string, activity: string, details: string) => ({
@@ -385,17 +388,17 @@ const emailTemplates = {
               ${details}
             </div>
             <p style="margin-top: 20px;">If this was you, you can safely ignore this email. If you don't recognize this activity, please secure your account immediately:</p>
-            <a href="https://cardxc.online/settings/security" class="button">Secure My Account</a>
+            <a href="${APP_BASE_URL}/profile/security" class="button">Secure My Account</a>
           </div>
           <div class="footer">
             <p>CardXC - Secure Digital Payments</p>
-            <p>For immediate assistance, contact support@cardxc.online</p>
+            <p>For immediate assistance, contact ${SUPPORT_EMAIL}</p>
           </div>
         </div>
       </body>
       </html>
     `,
-    text: `Hi ${name}, suspicious activity detected on your CardXC account: ${activity}. ${details}. If this wasn't you, secure your account immediately at https://cardxc.online/settings/security`,
+    text: `Hi ${name}, suspicious activity detected on your CardXC account: ${activity}. ${details}. If this wasn't you, secure your account immediately at ${APP_BASE_URL}/profile/security`,
   }),
 };
 

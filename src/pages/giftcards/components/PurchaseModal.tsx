@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { giftCardApi } from '../../../lib/api';
+import { useToastContext } from '../../../contexts/ToastContext';
 import type { GiftCardBrand } from './GiftCardItem';
 
 interface PurchaseModalProps {
@@ -12,6 +14,7 @@ export default function PurchaseModal({ isOpen, onClose, card }: PurchaseModalPr
   const [quantity, setQuantity] = useState(1);
   const [step, setStep] = useState<'select' | 'confirm' | 'success'>('select');
   const [isProcessing, setIsProcessing] = useState(false);
+  const toast = useToastContext();
 
   if (!isOpen || !card) return null;
 
@@ -19,10 +22,34 @@ export default function PurchaseModal({ isOpen, onClose, card }: PurchaseModalPr
   const paymentAmount = total * (card.rate / 100);
 
   const handlePurchase = async () => {
+    if (!selectedDenom || !card) return;
+
     setIsProcessing(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsProcessing(false);
-    setStep('success');
+    try {
+      const result = await giftCardApi.createRequest({
+        type: 'buy',
+        brand: card.name,
+        amount: total,
+        currency: 'USD',
+        rate: card.rate,
+        metadata: {
+          denomination: selectedDenom,
+          quantity,
+          paymentAmount
+        }
+      });
+
+      if (!result.success) {
+        throw new Error(result.error?.message || 'Failed to submit purchase request');
+      }
+
+      setStep('success');
+    } catch (error: any) {
+      console.error('Purchase failed:', error);
+      toast.error(error.message || 'Something went wrong. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleClose = () => {
@@ -35,11 +62,11 @@ export default function PurchaseModal({ isOpen, onClose, card }: PurchaseModalPr
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={handleClose} />
-      
+
       <div className="relative bg-dark-card rounded-3xl border border-dark-border w-full max-w-md max-h-[90vh] overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-dark-border">
           <div className="flex items-center gap-3">
-            <div 
+            <div
               className="w-10 h-10 rounded-xl flex items-center justify-center"
               style={{ backgroundColor: card.bgColor }}
             >
@@ -50,7 +77,7 @@ export default function PurchaseModal({ isOpen, onClose, card }: PurchaseModalPr
               <p className="text-xs text-neutral-400">Gift Card</p>
             </div>
           </div>
-          <button 
+          <button
             onClick={handleClose}
             className="w-8 h-8 flex items-center justify-center rounded-full bg-dark-elevated hover:bg-dark-hover transition-colors"
           >
@@ -68,11 +95,10 @@ export default function PurchaseModal({ isOpen, onClose, card }: PurchaseModalPr
                     <button
                       key={denom}
                       onClick={() => setSelectedDenom(denom)}
-                      className={`py-3 rounded-xl font-semibold text-sm transition-all ${
-                        selectedDenom === denom
-                          ? 'bg-cream-300 text-dark-bg'
-                          : 'bg-dark-elevated text-white hover:bg-dark-hover border border-dark-border'
-                      }`}
+                      className={`py-3 rounded-xl font-semibold text-sm transition-all ${selectedDenom === denom
+                        ? 'bg-lime-500 text-black'
+                        : 'bg-dark-elevated text-white hover:bg-dark-hover border border-dark-border'
+                        }`}
                     >
                       ${denom}
                     </button>
@@ -112,7 +138,7 @@ export default function PurchaseModal({ isOpen, onClose, card }: PurchaseModalPr
                   <div className="h-px bg-dark-border" />
                   <div className="flex justify-between">
                     <span className="text-neutral-300 font-medium">You Pay</span>
-                    <span className="text-cream-300 font-bold text-lg">${paymentAmount.toFixed(2)}</span>
+                    <span className="text-lime-400 font-bold text-lg">${paymentAmount.toFixed(2)}</span>
                   </div>
                 </div>
               )}
@@ -120,7 +146,7 @@ export default function PurchaseModal({ isOpen, onClose, card }: PurchaseModalPr
               <button
                 onClick={() => setStep('confirm')}
                 disabled={!selectedDenom}
-                className="w-full py-4 bg-cream-300 text-dark-bg font-semibold rounded-2xl hover:bg-cream-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-4 bg-lime-500 text-black font-semibold rounded-2xl hover:bg-lime-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Continue
               </button>
@@ -130,7 +156,7 @@ export default function PurchaseModal({ isOpen, onClose, card }: PurchaseModalPr
           {step === 'confirm' && (
             <div className="space-y-5">
               <div className="text-center py-4">
-                <div 
+                <div
                   className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4"
                   style={{ backgroundColor: card.bgColor }}
                 >
@@ -156,7 +182,7 @@ export default function PurchaseModal({ isOpen, onClose, card }: PurchaseModalPr
                 <div className="h-px bg-dark-border" />
                 <div className="flex justify-between">
                   <span className="text-neutral-300 font-medium">Payment Amount</span>
-                  <span className="text-cream-300 font-bold text-lg">${paymentAmount.toFixed(2)}</span>
+                  <span className="text-lime-400 font-bold text-lg">${paymentAmount.toFixed(2)}</span>
                 </div>
               </div>
 
@@ -170,7 +196,7 @@ export default function PurchaseModal({ isOpen, onClose, card }: PurchaseModalPr
                 <button
                   onClick={handlePurchase}
                   disabled={isProcessing}
-                  className="flex-1 py-4 bg-cream-300 text-dark-bg font-semibold rounded-2xl hover:bg-cream-400 transition-all disabled:opacity-70 flex items-center justify-center gap-2"
+                  className="flex-1 py-4 bg-lime-500 text-black font-semibold rounded-2xl hover:bg-lime-400 transition-all disabled:opacity-70 flex items-center justify-center gap-2"
                 >
                   {isProcessing ? (
                     <>
@@ -210,13 +236,13 @@ export default function PurchaseModal({ isOpen, onClose, card }: PurchaseModalPr
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-400">Amount Paid</span>
-                  <span className="text-cream-300 font-semibold">${paymentAmount.toFixed(2)}</span>
+                  <span className="text-lime-400 font-semibold">${paymentAmount.toFixed(2)}</span>
                 </div>
               </div>
 
               <button
                 onClick={handleClose}
-                className="w-full py-4 bg-cream-300 text-dark-bg font-semibold rounded-2xl hover:bg-cream-400 transition-all"
+                className="w-full py-4 bg-lime-500 text-black font-semibold rounded-2xl hover:bg-lime-400 transition-all"
               >
                 Done
               </button>

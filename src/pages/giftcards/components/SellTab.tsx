@@ -1,4 +1,6 @@
 import { useState, useRef } from 'react';
+import { giftCardApi } from '../../../lib/api';
+import { useToastContext } from '../../../contexts/ToastContext';
 
 const cardBrands = [
   { id: 'amazon', name: 'Amazon' },
@@ -23,6 +25,7 @@ export default function SellTab() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const toast = useToastContext();
 
   const estimatedPayout = cardValue ? (parseFloat(cardValue) * 0.75).toFixed(2) : '0.00';
 
@@ -40,10 +43,36 @@ export default function SellTab() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedBrand || !cardCode || !cardValue) return;
+
     setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsSubmitting(false);
-    setShowSuccess(true);
+    try {
+      const brandName = cardBrands.find(b => b.id === selectedBrand)?.name || selectedBrand;
+      const result = await giftCardApi.createRequest({
+        type: 'sell',
+        brand: brandName,
+        amount: parseFloat(cardValue),
+        currency: 'USD',
+        rate: 75,
+        metadata: {
+          code: cardCode,
+          pin: cardPin,
+          estimatedPayout,
+          hasImage: !!cardImage
+        }
+      });
+
+      if (!result.success) {
+        throw new Error(result.error?.message || 'Failed to submit sell request');
+      }
+
+      setShowSuccess(true);
+    } catch (error: any) {
+      console.error('Sell request failed:', error);
+      toast.error(error.message || 'Something went wrong. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const resetForm = () => {
@@ -81,12 +110,12 @@ export default function SellTab() {
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-neutral-400">Est. Payout</span>
-            <span className="text-cream-300 font-semibold">${estimatedPayout}</span>
+            <span className="text-lime-400 font-semibold">${estimatedPayout}</span>
           </div>
         </div>
         <button
           onClick={resetForm}
-          className="px-8 py-3 bg-cream-300 text-dark-bg font-semibold rounded-2xl hover:bg-cream-400 transition-all"
+          className="px-8 py-3 bg-lime-500 text-black font-semibold rounded-2xl hover:bg-lime-400 transition-all"
         >
           Sell Another Card
         </button>
@@ -102,7 +131,7 @@ export default function SellTab() {
           value={selectedBrand}
           onChange={(e) => setSelectedBrand(e.target.value)}
           required
-          className="w-full px-4 py-3.5 bg-dark-elevated border border-dark-border rounded-xl text-white focus:border-cream-300/50 focus:ring-2 focus:ring-cream-300/20 transition-all appearance-none cursor-pointer"
+          className="w-full px-4 py-3.5 bg-dark-elevated border border-dark-border rounded-xl text-white focus:border-lime-400/50 focus:ring-2 focus:ring-lime-400/20 transition-all appearance-none cursor-pointer"
         >
           <option value="" className="bg-dark-card">Select a brand</option>
           {cardBrands.map((brand) => (
@@ -121,7 +150,7 @@ export default function SellTab() {
           onChange={(e) => setCardCode(e.target.value)}
           placeholder="Enter the card code"
           required
-          className="w-full px-4 py-3.5 bg-dark-elevated border border-dark-border rounded-xl text-white placeholder:text-neutral-500 focus:border-cream-300/50 focus:ring-2 focus:ring-cream-300/20 transition-all"
+          className="w-full px-4 py-3.5 bg-dark-elevated border border-dark-border rounded-xl text-white placeholder:text-neutral-500 focus:border-lime-400/50 focus:ring-2 focus:ring-lime-400/20 transition-all"
         />
       </div>
 
@@ -132,7 +161,7 @@ export default function SellTab() {
           value={cardPin}
           onChange={(e) => setCardPin(e.target.value)}
           placeholder="Enter the PIN"
-          className="w-full px-4 py-3.5 bg-dark-elevated border border-dark-border rounded-xl text-white placeholder:text-neutral-500 focus:border-cream-300/50 focus:ring-2 focus:ring-cream-300/20 transition-all"
+          className="w-full px-4 py-3.5 bg-dark-elevated border border-dark-border rounded-xl text-white placeholder:text-neutral-500 focus:border-lime-400/50 focus:ring-2 focus:ring-lime-400/20 transition-all"
         />
       </div>
 
@@ -146,7 +175,7 @@ export default function SellTab() {
           required
           min="5"
           max="1000"
-          className="w-full px-4 py-3.5 bg-dark-elevated border border-dark-border rounded-xl text-white placeholder:text-neutral-500 focus:border-cream-300/50 focus:ring-2 focus:ring-cream-300/20 transition-all"
+          className="w-full px-4 py-3.5 bg-dark-elevated border border-dark-border rounded-xl text-white placeholder:text-neutral-500 focus:border-lime-400/50 focus:ring-2 focus:ring-lime-400/20 transition-all"
         />
       </div>
 
@@ -159,12 +188,12 @@ export default function SellTab() {
           accept="image/*"
           className="hidden"
         />
-        
+
         {imagePreview ? (
           <div className="relative">
-            <img 
-              src={imagePreview} 
-              alt="Card preview" 
+            <img
+              src={imagePreview}
+              alt="Card preview"
               className="w-full h-40 object-cover rounded-xl border border-dark-border"
             />
             <button
@@ -182,7 +211,7 @@ export default function SellTab() {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="w-full py-8 border-2 border-dashed border-dark-border rounded-xl flex flex-col items-center justify-center gap-2 hover:border-cream-300/30 transition-colors"
+            className="w-full py-8 border-2 border-dashed border-dark-border rounded-xl flex flex-col items-center justify-center gap-2 hover:border-lime-400/30 transition-colors"
           >
             <i className="ri-upload-cloud-line text-2xl text-neutral-500"></i>
             <span className="text-sm text-neutral-400">Click to upload card image</span>
@@ -203,7 +232,7 @@ export default function SellTab() {
           <div className="h-px bg-dark-border" />
           <div className="flex justify-between">
             <span className="text-neutral-300 font-medium">You'll Receive</span>
-            <span className="text-cream-300 font-bold text-lg">${estimatedPayout}</span>
+            <span className="text-lime-400 font-bold text-lg">${estimatedPayout}</span>
           </div>
         </div>
       )}
@@ -211,7 +240,7 @@ export default function SellTab() {
       <button
         type="submit"
         disabled={isSubmitting || !selectedBrand || !cardCode || !cardValue}
-        className="w-full py-4 bg-cream-300 text-dark-bg font-semibold rounded-2xl hover:bg-cream-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        className="w-full py-4 bg-lime-500 text-black font-semibold rounded-2xl hover:bg-lime-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
         {isSubmitting ? (
           <>

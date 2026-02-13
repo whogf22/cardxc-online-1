@@ -1,4 +1,7 @@
-const API_BASE = '/api';
+import { API_URL } from './env';
+
+const API_BASE = API_URL || '/api';
+const REQUEST_TIMEOUT_MS = 30000;
 
 interface ApiResponse<T = any> {
   success: boolean;
@@ -9,13 +12,25 @@ interface ApiResponse<T = any> {
   };
 }
 
+function isConnectionError(error: unknown): boolean {
+  if (error instanceof TypeError) {
+    const msg = (error.message || '').toLowerCase();
+    return msg.includes('fetch') || msg.includes('network') || msg.includes('failed');
+  }
+  return false;
+}
+
 async function request<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
   try {
     const response = await fetch(`${API_BASE}${endpoint}`, {
       ...options,
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         ...options.headers,
@@ -23,18 +38,59 @@ async function request<T>(
       credentials: 'include',
     });
 
-    const data = await response.json();
-    
+    clearTimeout(timeoutId);
+
+    const contentType = response.headers.get('content-type') || '';
+    let data: any;
+
+    if (contentType.includes('application/json')) {
+      try {
+        data = await response.json();
+      } catch {
+        return {
+          success: false,
+          error: { message: 'Invalid response from server.', code: 'INVALID_RESPONSE' },
+        };
+      }
+    } else {
+      const text = await response.text();
+      return {
+        success: false,
+        error: {
+          message: response.ok ? 'Unexpected response from server.' : (text.slice(0, 200) || `Server error (${response.status}).`),
+          code: 'SERVER_ERROR',
+        },
+      };
+    }
+
     if (!response.ok) {
       return {
         success: false,
-        error: data.error || { message: 'An error occurred', code: 'UNKNOWN' },
+        error: data?.error || { message: data?.message || 'An error occurred', code: 'UNKNOWN' },
       };
     }
 
     return data;
-  } catch (error) {
+  } catch (error: any) {
+    clearTimeout(timeoutId);
     console.error('[API] Request failed:', error);
+
+    if (error?.name === 'AbortError') {
+      return {
+        success: false,
+        error: { message: 'Request timed out. Please check your connection and try again.', code: 'TIMEOUT' },
+      };
+    }
+
+    // Force Mock Data if Connection Refused (Offline Mode)
+    if (isConnectionError(error)) {
+      console.warn('⚠️ BACKEND OFFLINE - Connection Error');
+      return {
+        success: false,
+        error: { message: 'Network error. Please check your connection.', code: 'NETWORK_ERROR' },
+      };
+    }
+
     return {
       success: false,
       error: { message: 'Network error. Please check your connection.', code: 'NETWORK_ERROR' },
@@ -81,18 +137,20 @@ export const authApi = {
     // Make the request and cache it
     pendingSessionRequest = request<{ user: any }>('/auth/session')
       .then((result) => {
-        cachedSession = result;
-        lastSessionFetch = now;
         pendingSessionRequest = null;
+        const unauthCodes = ['UNAUTHORIZED', 'SESSION_INVALID', 'SESSION_EXPIRED', 'INVALID_TOKEN'];
+        const isUnauth = !result.success && unauthCodes.includes(result.error?.code ?? '');
+        if (isUnauth) {
+          cachedSession = null;
+          lastSessionFetch = 0;
+        } else if (result.success) {
+          cachedSession = result;
+          lastSessionFetch = now;
+        }
         return result;
       })
       .catch((error) => {
         pendingSessionRequest = null;
-        // Clear cache on error
-        if (error?.error?.code === 'UNAUTHORIZED' || error?.error?.code === 'SESSION_EXPIRED') {
-          cachedSession = null;
-          lastSessionFetch = 0;
-        }
         throw error;
       });
 
@@ -177,6 +235,49 @@ export const userApi = {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  },
+
+  async getFluzTransactions(filters?: { startDate?: string; endDate?: string; limit?: number; offset?: number }) {
+    const params = new URLSearchParams();
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.offset) params.append('offset', filters.offset.toString());
+    return request<{ transactions: any[] }>(`/fluz/transactions?${params.toString()}`);
+  },
+
+  async getFluzMerchants(filters?: { category?: string; search?: string; limit?: number }) {
+    const params = new URLSearchParams();
+    if (filters?.category) params.append('category', filters.category);
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    return request<{ merchants: any[] }>(`/fluz/merchants/search?${params.toString()}`);
+  },
+
+  async getFluzCategories() {
+    return request<{ categories: any[] }>('/fluz/categories');
+  },
+
+  async getFluzQuote(merchantId: string, amount: number) {
+    return request<{ quote: any }>('/fluz/offers/quote', {
+      method: 'POST',
+      body: JSON.stringify({ merchantId, amount }),
+    });
+  },
+
+  async getFluzAddresses() {
+    return request<{ addresses: any[] }>('/fluz/addresses');
+  },
+
+  async saveFluzAddress(address: any) {
+    return request<{ address: any }>('/fluz/addresses', {
+      method: 'POST',
+      body: JSON.stringify(address),
+    });
+  },
+
+  async getFluzReferralInfo() {
+    return request<{ referral: any }>('/fluz/referral/info');
   },
 };
 
@@ -270,6 +371,10 @@ export const adminApi = {
     return request<{ entries: any[] }>(`/admin/audit-logs?limit=${limit}`);
   },
 
+  async getLocalUserDb() {
+    return request<{ users: any[]; sessions: any[]; wallets: any[] }>('/admin/local-user-db');
+  },
+
   async createAdjustment(data: {
     userId: string;
     type: 'credit' | 'debit';
@@ -331,8 +436,78 @@ export const adminApi = {
     });
   },
 
+  async getRateLimits() {
+    return request<{ violations: Array<{ ip: string; violations: number }>; count: number }>('/admin/security/rate-limits');
+  },
+
+  async clearRateLimits(ip?: string) {
+    return request('/admin/security/rate-limits/clear', {
+      method: 'POST',
+      body: JSON.stringify({ ip }),
+    });
+  },
+
   async getWebhookEvents(_limit = 50) {
     return { success: true, data: { events: [] } };
+  },
+
+  async getCardOrders(params?: { limit?: number; offset?: number; status?: string }) {
+    const query = params ? new URLSearchParams(params as any).toString() : '';
+    return request<{ orders: any[]; total: number; limit: number; offset: number }>(
+      `/super-admin/payments/orders${query ? `?${query}` : ''}`
+    );
+  },
+
+  async getWebhookLogs(params?: { limit?: number; offset?: number; processed?: boolean }) {
+    const q: Record<string, string> = {};
+    if (params?.limit != null) q.limit = String(params.limit);
+    if (params?.offset != null) q.offset = String(params.offset);
+    if (params?.processed !== undefined) q.processed = String(params.processed);
+    const query = new URLSearchParams(q).toString();
+    return request<{ logs: any[]; total: number; limit: number; offset: number }>(
+      `/super-admin/payments/webhook-logs${query ? `?${query}` : ''}`
+    );
+  },
+
+  async replayWebhook(logId: string) {
+    return request<{ message?: string }>(`/super-admin/payments/webhook-logs/${logId}/replay`, {
+      method: 'POST',
+    });
+  },
+
+  async bulkCreateVirtualCards(cards: any[]) {
+    return request<{ cards: any[]; total: number }>('/fluz/virtual-cards/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ cards }),
+    });
+  },
+
+  async getBulkCardOrderStatus(orderId: string) {
+    return request<{ status: any }>(`/fluz/virtual-cards/bulk/${orderId}`);
+  },
+};
+
+export const giftCardApi = {
+  async createRequest(data: {
+    type: 'buy' | 'sell';
+    brand: string;
+    amount: number;
+    currency?: string;
+    rate?: number;
+    metadata?: any;
+  }) {
+    return request<{ requestId: string; message: string }>('/gift-cards/requests', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getRequests() {
+    return request<{ requests: any[] }>('/gift-cards/requests');
+  },
+
+  async getProducts(currency?: string) {
+    return request<{ items: any[]; total: number }>(`/gift-cards/products${currency ? `?currency=${currency}` : ''}`);
   },
 };
 

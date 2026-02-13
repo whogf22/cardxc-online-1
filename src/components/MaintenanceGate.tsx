@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_TEL, SUPPORT_WHATSAPP_URL } from '../lib/contactPlaceholders';
 
 interface MaintenanceGateProps {
   children: React.ReactNode;
@@ -43,19 +44,17 @@ const MaintenancePage = ({ message, estimatedCompletion }: { message: string; es
         <div className="border-t border-dark-border pt-6">
           <p className="text-sm text-neutral-500 mb-4">Need immediate assistance?</p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <a 
-              href="tel:+88017302752121" 
-              className="btn-primary whitespace-nowrap"
-            >
+            <a href={SUPPORT_PHONE_TEL} className="btn-primary whitespace-nowrap">
               <i className="ri-phone-line mr-2"></i>
-              +88017302752121
+              {SUPPORT_PHONE}
             </a>
-            <a 
-              href="tel:+17373781872" 
-              className="btn-secondary whitespace-nowrap"
-            >
-              <i className="ri-phone-line mr-2"></i>
-              +1 (737) 378-1872
+            <a href={SUPPORT_WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="btn-secondary whitespace-nowrap">
+              <i className="ri-whatsapp-line mr-2"></i>
+              WhatsApp
+            </a>
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="btn-secondary whitespace-nowrap">
+              <i className="ri-mail-line mr-2"></i>
+              {SUPPORT_EMAIL}
             </a>
           </div>
         </div>

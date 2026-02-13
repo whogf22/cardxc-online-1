@@ -1,104 +1,138 @@
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_TEL, SUPPORT_WHATSAPP_URL } from '../../../lib/contactPlaceholders';
 
-export default function Footer() {
-  const navigate = useNavigate();
+const QUICK_LINKS = [
+  { label: 'About Us', href: '#about' },
+  { label: 'How It Works', href: '#how-it-works' },
+  { label: 'FAQ', href: '#faq' },
+  { label: 'Exchange Rates', href: '#rates' },
+  { label: 'Contact', href: '#contact' },
+] as const;
 
+const LEGAL_LINKS = [
+  { label: 'Terms of Service', to: '/terms' },
+  { label: 'Privacy Notice', to: '/privacy' },
+  { label: 'Refund Policy', to: '/refund-policy' },
+  { label: 'AML Policy', to: '/aml-policy' },
+] as const;
+
+const SOCIAL_LINKS = [
+  { name: 'twitter', url: 'https://twitter.com' },
+  { name: 'facebook', url: 'https://www.facebook.com/share/16o9sy49rA/' },
+  { name: 'linkedin', url: 'https://linkedin.com' },
+  { name: 'instagram', url: 'https://instagram.com' },
+] as const;
+
+interface FooterProps {
+  onOpenContact?: () => void;
+}
+
+export default function Footer({ onOpenContact }: FooterProps) {
   return (
-    <footer className="bg-dark-card border-t border-dark-border text-white">
-      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 py-12 sm:py-16 lg:py-20">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 sm:gap-12 lg:gap-16">
-          <div className="space-y-5 sm:space-y-6">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-cream-300 to-cream-500 rounded-xl flex items-center justify-center shadow-glow-sm">
-                <i className="ri-wallet-3-line text-2xl sm:text-3xl text-dark-bg"></i>
+    <footer className="bg-[#0a0a0a] border-t border-white/[0.06] text-white">
+      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 py-14 lg:py-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-12">
+          <div className="space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-lime-500 rounded-lg flex items-center justify-center shadow-glow-sm">
+                <i className="ri-wallet-3-line text-lg text-black font-bold" aria-hidden />
               </div>
-              <span className="text-2xl sm:text-3xl font-bold">CardXC</span>
+              <span className="text-xl font-bold tracking-tight">CardXC</span>
             </div>
-            <p className="text-base sm:text-lg text-neutral-400 leading-relaxed">
-              Fast, secure, and affordable international money transfers trusted by thousands worldwide.
+            <p className="text-sm text-neutral-400 leading-relaxed max-w-sm">
+              A digital wallet and payments platform. Fast, secure, and affordable international money transfers.
             </p>
-            <div className="flex items-center gap-4">
-              {['twitter', 'facebook', 'linkedin', 'instagram'].map((social) => (
+            <div className="flex items-center gap-2.5">
+              {SOCIAL_LINKS.map((social) => (
                 <a
-                  key={social}
-                  href={`https://${social}.com`}
+                  key={social.name}
+                  href={social.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-12 h-12 flex items-center justify-center rounded-xl bg-dark-elevated hover:bg-cream-300/10 hover:scale-110 active:scale-100 transition-all duration-300 touch-target border border-dark-border hover:border-cream-300/30"
-                  aria-label={`Follow us on ${social}`}
+                  className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/[0.04] hover:bg-lime-500/[0.12] border border-white/[0.06] hover:border-lime-500/20 transition-all"
+                  aria-label={`Follow us on ${social.name}`}
                 >
-                  <i className={`ri-${social}-line text-xl text-neutral-400 hover:text-cream-300`}></i>
+                  <i className={`ri-${social.name}-line text-base text-neutral-400 hover:text-lime-400`} aria-hidden />
                 </a>
               ))}
             </div>
           </div>
 
-          <div className="space-y-5 sm:space-y-6">
-            <h3 className="text-lg sm:text-xl font-bold text-cream-300">Quick Links</h3>
-            <ul className="space-y-3 sm:space-y-4">
-              {[
-                { label: 'About Us', href: '#about' },
-                { label: 'How It Works', href: '#features' },
-                { label: 'Exchange Rates', href: '#rates' },
-                { label: 'Contact', href: '#contact' }
-              ].map((link) => (
+          <div className="space-y-4">
+            <h3 className="text-xs font-semibold text-lime-400 uppercase tracking-[0.15em]">Quick Links</h3>
+            <ul className="space-y-2">
+              {QUICK_LINKS.map((link) => (
                 <li key={link.label}>
-                  <a
-                    href={link.href}
-                    className="inline-flex items-center gap-2 text-base sm:text-lg text-neutral-400 hover:text-white hover:translate-x-1 transition-all duration-300 py-2 touch-target"
-                  >
-                    <i className="ri-arrow-right-s-line text-cream-300"></i>
-                    {link.label}
-                  </a>
+                  {link.label === 'Contact' && onOpenContact ? (
+                    <button
+                      type="button"
+                      onClick={onOpenContact}
+                      className="text-sm text-neutral-400 hover:text-white transition-colors py-1"
+                    >
+                      {link.label}
+                    </button>
+                  ) : (
+                    <a
+                      href={link.href}
+                      className="text-sm text-neutral-400 hover:text-white transition-colors py-1 inline-block"
+                    >
+                      {link.label}
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>
           </div>
 
-          <div className="space-y-5 sm:space-y-6">
-            <h3 className="text-lg sm:text-xl font-bold text-cream-300">Legal</h3>
-            <ul className="space-y-3 sm:space-y-4">
-              {[
-                { label: 'Terms of Service', path: '/terms' },
-                { label: 'Privacy Policy', path: '/privacy' },
-                { label: 'Refund Policy', path: '/refund-policy' },
-                { label: 'AML Policy', path: '/aml-policy' }
-              ].map((link) => (
+          <div className="space-y-4">
+            <h3 className="text-xs font-semibold text-lime-400 uppercase tracking-[0.15em]">Legal</h3>
+            <ul className="space-y-2">
+              {LEGAL_LINKS.map((link) => (
                 <li key={link.label}>
-                  <button
-                    onClick={() => navigate(link.path)}
-                    className="inline-flex items-center gap-2 text-base sm:text-lg text-neutral-400 hover:text-white hover:translate-x-1 transition-all duration-300 py-2 touch-target"
+                  <Link
+                    to={link.to}
+                    className="text-sm text-neutral-400 hover:text-white transition-colors py-1 inline-block"
                   >
-                    <i className="ri-arrow-right-s-line text-cream-300"></i>
                     {link.label}
-                  </button>
+                  </Link>
                 </li>
               ))}
             </ul>
           </div>
 
-          <div className="space-y-5 sm:space-y-6">
-            <h3 className="text-lg sm:text-xl font-bold text-cream-300">Contact Us</h3>
-            <ul className="space-y-4 sm:space-y-5">
-              <li className="flex items-start gap-4">
-                <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-dark-elevated border border-dark-border">
-                  <i className="ri-mail-line text-cream-300"></i>
+          <div className="space-y-4">
+            <h3 className="text-xs font-semibold text-lime-400 uppercase tracking-[0.15em]">Contact Us</h3>
+            <ul className="space-y-3">
+              <li className="flex items-start gap-3">
+                <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/[0.04] border border-white/[0.06] shrink-0 mt-0.5">
+                  <i className="ri-mail-line text-lime-400 text-sm" aria-hidden />
                 </div>
-                <div>
-                  <p className="text-sm text-neutral-500">Email</p>
-                  <a href="mailto:support@cardxc.com" className="text-base sm:text-lg text-neutral-300 hover:text-cream-300 transition-colors">
-                    support@cardxc.com
+                <div className="min-w-0">
+                  <p className="text-[11px] text-neutral-500 uppercase tracking-wider">Email</p>
+                  <a href={`mailto:${SUPPORT_EMAIL}`} className="text-sm text-neutral-300 hover:text-lime-400 transition-colors break-all">
+                    {SUPPORT_EMAIL}
                   </a>
                 </div>
               </li>
-              <li className="flex items-start gap-4">
-                <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-dark-elevated border border-dark-border">
-                  <i className="ri-phone-line text-cream-300"></i>
+              <li className="flex items-start gap-3">
+                <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/[0.04] border border-white/[0.06] shrink-0 mt-0.5">
+                  <i className="ri-phone-line text-lime-400 text-sm" aria-hidden />
                 </div>
-                <div>
-                  <p className="text-sm text-neutral-500">Phone</p>
-                  <a href="tel:+1234567890" className="text-base sm:text-lg text-neutral-300 hover:text-cream-300 transition-colors">
-                    +1 (234) 567-890
+                <div className="min-w-0">
+                  <p className="text-[11px] text-neutral-500 uppercase tracking-wider">Phone</p>
+                  <a href={SUPPORT_PHONE_TEL} className="text-sm text-neutral-300 hover:text-lime-400 transition-colors">
+                    {SUPPORT_PHONE}
+                  </a>
+                </div>
+              </li>
+              <li className="flex items-start gap-3">
+                <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/[0.04] border border-white/[0.06] shrink-0 mt-0.5">
+                  <i className="ri-whatsapp-line text-lime-400 text-sm" aria-hidden />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[11px] text-neutral-500 uppercase tracking-wider">WhatsApp</p>
+                  <a href={SUPPORT_WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="text-sm text-neutral-300 hover:text-lime-400 transition-colors">
+                    {SUPPORT_PHONE}
                   </a>
                 </div>
               </li>
@@ -106,20 +140,25 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="mt-12 sm:mt-16 pt-8 sm:pt-10 border-t border-dark-border">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-            <p className="text-sm sm:text-base text-neutral-500 text-center sm:text-left">
-              &copy; {new Date().getFullYear()} CardXC. All rights reserved.
-            </p>
-            <div className="flex items-center gap-6 sm:gap-8">
-              <div className="flex items-center gap-2 text-sm text-neutral-500">
-                <i className="ri-shield-check-line text-success-500"></i>
-                <span>256-bit SSL</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-neutral-500">
-                <i className="ri-lock-2-line text-cream-300"></i>
-                <span>PCI Compliant</span>
-              </div>
+        <div className="mt-12 pt-8 border-t border-white/[0.06]">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-center sm:text-left">
+              <p className="text-xs text-neutral-500">
+                &copy; {new Date().getFullYear()} CardXC. All rights reserved.
+              </p>
+              <p className="text-xs text-neutral-600 mt-1">
+                CardXC is a digital wallet and payments platform operated by GameNova Vault LLC.
+              </p>
+            </div>
+            <div className="flex items-center gap-5">
+              <span className="flex items-center gap-1.5 text-xs text-neutral-500">
+                <i className="ri-shield-check-line text-emerald-500" aria-hidden />
+                256-bit SSL
+              </span>
+              <span className="flex items-center gap-1.5 text-xs text-neutral-500">
+                <i className="ri-lock-2-line text-lime-400" aria-hidden />
+                PCI Compliant
+              </span>
             </div>
           </div>
         </div>

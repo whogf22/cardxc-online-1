@@ -1,9 +1,13 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_TEL, SUPPORT_WHATSAPP_URL } from '../../lib/contactPlaceholders';
+
+const EFFECTIVE_DATE = 'January 10, 2026';
 
 export default function PrivacyPage() {
   useEffect(() => {
     window.scrollTo(0, 0);
+    document.title = 'Privacy Notice | CardXC';
   }, []);
 
   return (
@@ -12,14 +16,14 @@ export default function PrivacyPage() {
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <Link to="/" className="flex items-center gap-3 cursor-pointer group">
-              <div className="w-10 h-10 bg-gradient-to-br from-cream-300 to-cream-500 rounded-xl flex items-center justify-center shadow-glow-sm group-hover:shadow-glow transition-all duration-300">
-                <i className="ri-wallet-3-line text-dark-bg text-xl"></i>
+              <div className="w-10 h-10 bg-lime-500 rounded-xl flex items-center justify-center shadow-glow-sm group-hover:shadow-glow transition-all duration-300">
+                <i className="ri-wallet-3-line text-black text-xl"></i>
               </div>
               <span className="text-xl font-bold text-white">CardXC</span>
             </Link>
             <Link
               to="/"
-              className="text-neutral-400 hover:text-cream-300 transition-colors cursor-pointer flex items-center gap-2"
+              className="text-neutral-400 hover:text-lime-400 transition-colors cursor-pointer flex items-center gap-2"
             >
               <i className="ri-arrow-left-line"></i>
               Back to Home
@@ -28,24 +32,27 @@ export default function PrivacyPage() {
         </div>
       </header>
 
-      <div className="max-w-4xl mx-auto px-6 py-16">
-        <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Privacy Policy</h1>
-        <p className="text-neutral-400 mb-12">Last updated: {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
+      <main className="max-w-4xl mx-auto px-6 py-16" role="document" aria-label="Privacy Notice">
+        <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">Privacy Notice</h1>
+        <p className="text-neutral-400 text-sm uppercase tracking-wide mb-10">Effective Date: {EFFECTIVE_DATE}</p>
 
         <div className="space-y-8 text-neutral-300">
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-information-line text-cream-300"></i>
-              1. Introduction
+              <i className="ri-information-line text-lime-400"></i>
+              Introduction
             </h2>
-            <p className="leading-relaxed">
-              Welcome to CardXC's Privacy Policy. We are committed to protecting your personal information and your right to privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our virtual payment card and digital payment services. Please read this privacy policy carefully. If you do not agree with the terms of this privacy policy, please do not access our services.
+            <p className="leading-relaxed mb-4">
+              Welcome to CardXC. CardXC, a digital wallet and payments platform operated by GameNova Vault LLC (“we”, “us”, or “our”), operates the CardXC platform, including the CardXC website and applications (the “Services”). This Privacy Notice explains how we collect, use, disclose, and safeguard your information when you use our virtual payment card and digital payment services.
+            </p>
+            <p className="leading-relaxed text-neutral-400 text-sm">
+              Please read this Privacy Notice carefully. If you do not agree with its terms, please do not access or use our Services.
             </p>
           </section>
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-database-2-line text-cream-300"></i>
+              <i className="ri-database-2-line text-lime-400"></i>
               2. Information We Collect
             </h2>
             <p className="leading-relaxed mb-4">
@@ -64,7 +71,7 @@ export default function PrivacyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-settings-3-line text-cream-300"></i>
+              <i className="ri-settings-3-line text-lime-400"></i>
               3. How We Use Your Information
             </h2>
             <p className="leading-relaxed mb-4">
@@ -84,7 +91,7 @@ export default function PrivacyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-share-line text-cream-300"></i>
+              <i className="ri-share-line text-lime-400"></i>
               4. Information Sharing and Disclosure
             </h2>
             <p className="leading-relaxed mb-4">
@@ -105,7 +112,7 @@ export default function PrivacyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-shield-keyhole-line text-cream-300"></i>
+              <i className="ri-shield-keyhole-line text-lime-400"></i>
               5. Data Security
             </h2>
             <p className="leading-relaxed">
@@ -115,17 +122,17 @@ export default function PrivacyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-time-line text-cream-300"></i>
+              <i className="ri-time-line text-lime-400"></i>
               6. Data Retention
             </h2>
             <p className="leading-relaxed">
-              We retain your personal information for as long as necessary to fulfill the purposes outlined in this Privacy Policy, unless a longer retention period is required or permitted by law. Transaction records are retained for a minimum of 5 years to comply with financial regulations and AML requirements. When we no longer need your information, we will securely delete or anonymize it.
+              We retain your personal information for as long as necessary to fulfill the purposes outlined in this Privacy Notice, unless a longer retention period is required or permitted by law. Transaction records are retained for a minimum of 5 years to comply with financial regulations and AML requirements. When we no longer need your information, we will securely delete or anonymize it.
             </p>
           </section>
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-pie-chart-line text-cream-300"></i>
+              <i className="ri-pie-chart-line text-lime-400"></i>
               7. Cookies and Tracking Technologies
             </h2>
             <p className="leading-relaxed mb-4">
@@ -144,7 +151,7 @@ export default function PrivacyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-user-settings-line text-cream-300"></i>
+              <i className="ri-user-settings-line text-lime-400"></i>
               8. Your Privacy Rights
             </h2>
             <p className="leading-relaxed mb-4">
@@ -165,7 +172,7 @@ export default function PrivacyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-external-link-line text-cream-300"></i>
+              <i className="ri-external-link-line text-lime-400"></i>
               9. Third-Party Links
             </h2>
             <p className="leading-relaxed">
@@ -175,7 +182,7 @@ export default function PrivacyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-parent-line text-cream-300"></i>
+              <i className="ri-parent-line text-lime-400"></i>
               10. Children's Privacy
             </h2>
             <p className="leading-relaxed">
@@ -185,44 +192,44 @@ export default function PrivacyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-global-line text-cream-300"></i>
+              <i className="ri-global-line text-lime-400"></i>
               11. International Data Transfers
             </h2>
             <p className="leading-relaxed">
-              Your information may be transferred to and processed in countries other than your country of residence, including the United States and European Union. These countries may have different data protection laws. We take appropriate measures to ensure your information receives adequate protection in accordance with this Privacy Policy and applicable data protection laws.
+              Your information may be transferred to and processed in countries other than your country of residence, including the United States and European Union. These countries may have different data protection laws. We take appropriate measures to ensure your information receives adequate protection in accordance with this Privacy Notice and applicable data protection laws.
             </p>
           </section>
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-refresh-line text-cream-300"></i>
-              12. Changes to This Privacy Policy
+              <i className="ri-refresh-line text-lime-400"></i>
+              12. Changes to This Privacy Notice
             </h2>
             <p className="leading-relaxed">
-              We may update this Privacy Policy from time to time to reflect changes in our practices or for legal, operational, or regulatory reasons. We will notify you of any material changes by posting the new Privacy Policy on this page and updating the "Last Updated" date. For significant changes, we may also notify you via email. Your continued use of our services after such changes constitutes your acceptance of the updated Privacy Policy.
+              We may update this Privacy Notice from time to time to reflect changes in our practices or for legal, operational, or regulatory reasons. We will notify you of any material changes by posting the new Privacy Notice on this page and updating the Effective Date. For significant changes, we may also notify you via email. Your continued use of our services after such changes constitutes your acceptance of the updated Privacy Notice.
             </p>
           </section>
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-mail-line text-cream-300"></i>
+              <i className="ri-mail-line text-lime-400"></i>
               13. Contact Us
             </h2>
             <p className="leading-relaxed mb-4">
-              If you have any questions, concerns, or requests regarding this Privacy Policy or our privacy practices, please contact us:
+              If you have any questions, concerns, or requests regarding this Privacy Notice or our privacy practices, please contact us:
             </p>
             <div className="space-y-2">
               <p className="flex items-center gap-2">
-                <i className="ri-whatsapp-line text-cream-300"></i>
-                <span>WhatsApp: +880 1730-275-2121</span>
+                <i className="ri-whatsapp-line text-lime-400"></i>
+                <a href={SUPPORT_WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="text-neutral-300 hover:text-lime-400 transition-colors">{SUPPORT_PHONE}</a>
               </p>
               <p className="flex items-center gap-2">
-                <i className="ri-phone-line text-cream-300"></i>
-                <span>Phone: +1 (737) 378-1872</span>
+                <i className="ri-phone-line text-lime-400"></i>
+                <a href={SUPPORT_PHONE_TEL} className="text-neutral-300 hover:text-lime-400 transition-colors">{SUPPORT_PHONE}</a>
               </p>
               <p className="flex items-center gap-2">
-                <i className="ri-mail-line text-cream-300"></i>
-                <span>Email: support@cardxc.com</span>
+                <i className="ri-mail-line text-lime-400"></i>
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="text-neutral-300 hover:text-lime-400 transition-colors">{SUPPORT_EMAIL}</a>
               </p>
             </div>
           </section>
@@ -231,13 +238,13 @@ export default function PrivacyPage() {
         <div className="mt-12 text-center">
           <Link
             to="/"
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-cream-300 to-cream-400 text-dark-bg px-8 py-4 rounded-xl font-semibold transition-all duration-300 shadow-glow-sm hover:shadow-glow cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center gap-2 bg-lime-500 text-black px-8 py-4 rounded-xl font-semibold transition-all duration-300 shadow-glow-sm hover:shadow-glow cursor-pointer whitespace-nowrap"
           >
             <i className="ri-home-line"></i>
             Back to Home
           </Link>
         </div>
-      </div>
+      </main>
 
       <footer className="bg-dark-elevated border-t border-dark-border mt-20">
         <div className="max-w-7xl mx-auto px-6 py-8">

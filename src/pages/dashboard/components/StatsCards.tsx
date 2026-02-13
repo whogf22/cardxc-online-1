@@ -22,8 +22,7 @@ export default function StatsCards({ transactions, currencyRates }: StatsCardsPr
     {
       title: 'Total Income',
       value: format(totalIncome),
-      change: '+12.5%',
-      changeType: 'positive',
+      subtitle: `${completedTransactions.filter(t => t.entry_type === 'credit' || t.type === 'deposit' || t.transaction_type === 'deposit').length} transactions`,
       icon: 'ri-arrow-up-circle-fill',
       bgColor: 'bg-gradient-to-br from-emerald-500 to-emerald-600',
       iconBg: 'bg-emerald-100',
@@ -32,8 +31,7 @@ export default function StatsCards({ transactions, currencyRates }: StatsCardsPr
     {
       title: 'Total Expenses',
       value: format(totalExpenses),
-      change: '-8.2%',
-      changeType: 'negative',
+      subtitle: `${completedTransactions.filter(t => t.entry_type === 'debit' || t.type === 'withdrawal' || t.transaction_type === 'withdrawal').length} transactions`,
       icon: 'ri-arrow-down-circle-fill',
       bgColor: 'bg-gradient-to-br from-orange-500 to-orange-600',
       iconBg: 'bg-orange-100',
@@ -42,8 +40,7 @@ export default function StatsCards({ transactions, currencyRates }: StatsCardsPr
     {
       title: 'Active Currencies',
       value: currencyRates.length.toString(),
-      change: '+2 new',
-      changeType: 'positive',
+      subtitle: 'Supported',
       icon: 'ri-exchange-dollar-fill',
       bgColor: 'bg-gradient-to-br from-blue-500 to-blue-600',
       iconBg: 'bg-blue-100',
@@ -52,8 +49,7 @@ export default function StatsCards({ transactions, currencyRates }: StatsCardsPr
     {
       title: 'Pending Transactions',
       value: pendingTransactions.length.toString(),
-      change: 'Awaiting',
-      changeType: 'neutral',
+      subtitle: pendingTransactions.length > 0 ? 'Awaiting' : 'None',
       icon: 'ri-time-fill',
       bgColor: 'bg-gradient-to-br from-purple-500 to-purple-600',
       iconBg: 'bg-purple-100',
@@ -72,14 +68,8 @@ export default function StatsCards({ transactions, currencyRates }: StatsCardsPr
             <div className={`w-12 h-12 ${stat.iconBg} rounded-xl flex items-center justify-center`}>
               <i className={`${stat.icon} text-2xl ${stat.iconColor}`}></i>
             </div>
-            <div className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${
-              stat.changeType === 'positive' 
-                ? 'bg-emerald-100 text-emerald-700' 
-                : stat.changeType === 'negative'
-                ? 'bg-orange-100 text-orange-700'
-                : 'bg-slate-100 text-slate-700'
-            }`}>
-              {stat.change}
+            <div className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600">
+              {stat.subtitle}
             </div>
           </div>
           <div>

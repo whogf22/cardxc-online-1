@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, type ReactElement } from 'react';
 import { useCurrencyFormat } from '../../../hooks/useCurrencyFormat';
 import { useCurrency } from '../../../contexts/CurrencyContext';
 import { parseToUSD, getCurrencySymbol } from '../../../lib/currencyUtils';
@@ -163,6 +163,12 @@ export default function DepositPanel({ isOpen, onClose, onSuccess, userId, onOpe
     const amountUSD = parseToUSD(amountValue, currency, rates);
     const roundedAmountUSD = Math.round(amountUSD * 100) / 100;
 
+    if (roundedAmountUSD < 100 || roundedAmountUSD > 2500) {
+      setStep('error');
+      setErrorMessage('Amount must be between $100 and $2,500 (USD).');
+      return;
+    }
+
     setIsProcessing(true);
     setErrorMessage('');
     setDepositAmountUSD(roundedAmountUSD);
@@ -170,7 +176,7 @@ export default function DepositPanel({ isOpen, onClose, onSuccess, userId, onOpe
     try {
       const currentBalance = await fetchWalletBalance();
       setInitialBalance(currentBalance);
-      
+
       const response = await checkoutApi.createCardCheckout({
         amount: roundedAmountUSD,
         currency: 'USD',
@@ -182,11 +188,11 @@ export default function DepositPanel({ isOpen, onClose, onSuccess, userId, onOpe
         setCheckoutUrl(response.data.checkoutUrl);
         setStep('checkout');
       } else {
-        throw new Error('Failed to create checkout session');
+        throw new Error(response.error?.message || 'Failed to create checkout session');
       }
     } catch (error: any) {
       setStep('error');
-      setErrorMessage(error.response?.data?.error?.message || error.message || 'Payment failed.');
+      setErrorMessage(error?.message || 'Payment failed. Please try again.');
     } finally {
       setIsProcessing(false);
     }
@@ -194,7 +200,7 @@ export default function DepositPanel({ isOpen, onClose, onSuccess, userId, onOpe
 
   const cardType = detectCardType(cardDetails.cardNumber);
   const getCardIcon = () => {
-    const icons: Record<string, JSX.Element> = {
+    const icons: Record<string, ReactElement> = {
       visa: <span className="text-blue-600 font-bold text-xs">VISA</span>,
       mastercard: <span className="text-orange-600 font-bold text-xs">MC</span>,
       amex: <span className="text-blue-800 font-bold text-xs">AMEX</span>,
@@ -245,10 +251,10 @@ export default function DepositPanel({ isOpen, onClose, onSuccess, userId, onOpe
         {/* Content */}
         <div className="p-5 overflow-y-auto h-[calc(100%-60px)]">
           
-          {/* Step 1: Method Selection (SpentNow Style) */}
+          {/* Step 1: Method Selection (CardXC Style) */}
           {step === 'method-selection' && (
             <div className="space-y-4">
-              {/* Animated coin icons like SpentNow */}
+              {/* Animated coin icons like CardXC */}
               <div className="flex items-center justify-center gap-3 py-6">
                 <div className="w-14 h-14 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center shadow-lg">
                   <i className="ri-money-dollar-circle-line text-white text-2xl"></i>
@@ -271,7 +277,7 @@ export default function DepositPanel({ isOpen, onClose, onSuccess, userId, onOpe
 
               <h3 className="text-center text-xl font-bold text-slate-900">Deposit</h3>
               
-              {/* Deposit Methods - SpentNow Colorful Style */}
+              {/* Deposit Methods - CardXC Colorful Style */}
               <div className="space-y-3 mt-6">
                 {/* Crypto Deposit - Purple */}
                 <button
@@ -328,7 +334,7 @@ export default function DepositPanel({ isOpen, onClose, onSuccess, userId, onOpe
             </div>
           )}
 
-          {/* Step 2: Card Details (SpentNow Style) */}
+          {/* Step 2: Card Details (CardXC Style) */}
           {step === 'card-details' && (
             <div className="space-y-5">
               <p className="text-sm text-slate-600 text-center mb-6">
@@ -365,7 +371,7 @@ export default function DepositPanel({ isOpen, onClose, onSuccess, userId, onOpe
                 </div>
               </div>
 
-              {/* Expiry & CVV - SpentNow uses separate text inputs */}
+              {/* Expiry & CVV - CardXC uses separate text inputs */}
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Expiry Date</label>

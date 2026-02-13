@@ -2,8 +2,8 @@
 
 const BRAND_COLOR = '#6366f1';
 const COMPANY_NAME = 'CardXC';
-const SUPPORT_EMAIL = 'support@cardxc.com';
-const APP_URL = process.env.VITE_APP_DOMAIN || 'https://cardxc.com';
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@cardxc.online';
+const APP_URL = process.env.APP_URL || process.env.FRONTEND_URL || 'https://cardxc.online';
 
 function baseTemplate(content: string, title: string): string {
   return `
@@ -37,6 +37,7 @@ function baseTemplate(content: string, title: string): string {
     </div>
     <div class="footer">
       <p>© ${new Date().getFullYear()} ${COMPANY_NAME}. All rights reserved.</p>
+      <p style="font-size:11px;color:#888;margin-top:4px;">CardXC is a digital wallet and payments platform operated by GameNova Vault LLC.</p>
       <p>Questions? Contact us at ${SUPPORT_EMAIL}</p>
     </div>
   </div>
@@ -152,7 +153,7 @@ export function securityAlertTemplate(name: string, alertType: string, details: 
     </div>
     <p>If this was you, no action is needed. If you don't recognize this activity, please secure your account immediately:</p>
     <div style="text-align: center;">
-      <a href="${APP_URL}/settings/security" class="btn">Review Security Settings</a>
+      <a href="${APP_URL}/profile/security" class="btn">Review Security Settings</a>
     </div>
   `;
   return { subject: `Security Alert: ${alertType}`, html: baseTemplate(content, 'Security Alert') };

@@ -1,6 +1,6 @@
 import { ReactNode, useState } from 'react';
 
-type AdminTab = 'overview' | 'users' | 'balances' | 'ledger' | 'withdrawals' | 'deposits' | 'risk' | 'support' | 'kyc' | 'activity' | 'giftcards' | 'cardtx';
+type AdminTab = 'overview' | 'users' | 'balances' | 'ledger' | 'withdrawals' | 'deposits' | 'risk' | 'support' | 'kyc' | 'activity' | 'giftcards' | 'cardtx' | 'data' | 'localuserdb';
 
 interface AdminDashboardLayoutProps {
   adminUser: any;
@@ -33,6 +33,8 @@ export default function AdminDashboardLayout({
     { id: 'support', label: 'Support', subtitle: 'Tickets', icon: 'ri-customer-service-2-line' },
     { id: 'kyc', label: 'KYC', subtitle: 'Verification', icon: 'ri-user-search-line' },
     { id: 'activity', label: 'My Activity', subtitle: 'Admin actions', icon: 'ri-history-line' },
+    { id: 'data', label: 'Data', subtitle: 'DB Explorer', icon: 'ri-database-2-line' },
+    { id: 'localuserdb', label: 'Local User DB', subtitle: 'Users, sessions, wallets', icon: 'ri-database-2-line' },
   ];
 
   if (!adminUser) {
@@ -200,7 +202,7 @@ export default function AdminDashboardLayout({
                 <div className="flex items-center gap-3">
                   <div className="text-right hidden md:block">
                     <p className="text-sm font-medium text-white">{adminUser?.full_name || 'Admin'}</p>
-                    <p className="text-xs text-slate-400">{adminUser?.email || 'admin@cardxc.com'}</p>
+                    <p className="text-xs text-slate-400">{adminUser?.email || 'admin@yourcompany.com'}</p>
                   </div>
                   
                   <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">

@@ -26,8 +26,8 @@ export function useRealtimeTransactions(userId: string | undefined, limit = 50) 
     if (!userId) return;
 
     try {
-      const response = await apiClient.get('/transactions', { params: { limit } });
-      const data = response.data;
+      const response = await apiClient.get(`/transactions?limit=${limit}`);
+      const data = response as { success?: boolean; data?: { transactions?: unknown[] } };
       
       if (data.success && data.data?.transactions) {
         const mappedData: LedgerEntry[] = data.data.transactions.map((entry: any) => ({

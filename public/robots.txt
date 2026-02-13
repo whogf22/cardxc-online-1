@@ -1,7 +1,7 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://cardxc.com/sitemap.xml
+Sitemap: https://cardxc.online/sitemap.xml
 
 User-agent: Googlebot
 Allow: /

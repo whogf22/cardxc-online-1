@@ -1,19 +1,25 @@
 import { Router, Response } from 'express';
-import { body, validationResult } from 'express-validator';
+import { body, param, validationResult } from 'express-validator';
 import { query, queryOne, transaction } from '../db/pool';
 import { AppError, asyncHandler } from '../middleware/errorHandler';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { sensitiveOpLimiter } from '../middleware/rateLimit';
 import { createAuditLog } from '../services/auditService';
+import { logger } from '../middleware/logger';
+import * as fluzApi from '../services/fluzApi';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
 router.use(authenticate);
 
+// UUID validation helper
+const validateUUID = param('id').isUUID().withMessage('Invalid ID format');
+
 router.get('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const cards = await query(`
     SELECT vc.id, vc.card_name, vc.last_four, vc.card_type, vc.balance_cents, 
            vc.spending_limit_cents, vc.status, vc.is_single_use, vc.created_at,
+           vc.fluz_card_id,
            cc.frozen, cc.merchant_blocklist, cc.category_limits
     FROM virtual_cards vc
     LEFT JOIN card_controls cc ON cc.card_id = vc.id
@@ -21,7 +27,55 @@ router.get('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) =>
     ORDER BY vc.created_at DESC
   `, [req.user!.id]);
 
-  res.json({ success: true, data: { cards } });
+  const { fluz_card_id: _, ...rest } = cards[0] || {};
+  res.json({ success: true, data: { cards: cards.map(c => {
+    const { fluz_card_id, ...cardData } = c;
+    return { ...cardData, hasProviderCard: !!fluz_card_id };
+  }) } });
+}));
+
+router.get('/:id/reveal', validateUUID, sensitiveOpLimiter, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    throw new AppError('Invalid ID format', 400, 'VALIDATION_ERROR');
+  }
+
+  const id = req.params.id as string;
+  const card = await queryOne<any>(`
+    SELECT id, fluz_card_id FROM virtual_cards WHERE id = $1 AND user_id = $2
+  `, [id, req.user!.id]);
+
+  if (!card) {
+    throw new AppError('Card not found', 404, 'NOT_FOUND');
+  }
+
+  if (!card.fluz_card_id) {
+    throw new AppError('Card details not available for this card', 400, 'CARD_NOT_REVEALABLE');
+  }
+
+  if (!fluzApi.isConfigured()) {
+    throw new AppError('Card service not configured', 503, 'PROVIDER_NOT_CONFIGURED');
+  }
+
+  const revealed = await fluzApi.revealVirtualCard(card.fluz_card_id);
+
+  await createAuditLog({
+    userId: req.user!.id,
+    action: 'CARD_REVEALED',
+    entityType: 'virtual_card',
+    entityId: id,
+  });
+
+  res.json({
+    success: true,
+    data: {
+      cardNumber: revealed.cardNumber,
+      expiryMMYY: revealed.expiryMMYY,
+      cvv: revealed.cvv,
+      cardHolderName: revealed.cardHolderName,
+      billingAddress: revealed.billingAddress,
+    }
+  });
 }));
 
 router.post('/',
@@ -39,14 +93,34 @@ router.post('/',
 
     const { cardName, cardType = 'VISA', spendingLimit, isSingleUse = false, currency = 'USD' } = req.body;
     const spendingLimitCents = spendingLimit ? Math.round(spendingLimit * 100) : null;
-    const lastFour = Math.floor(1000 + Math.random() * 9000).toString();
+
+    let fluzCardId: string | null = null;
+    let lastFour = Math.floor(1000 + Math.random() * 9000).toString();
+
+    if (fluzApi.isConfigured()) {
+      try {
+        const fluzCard = await fluzApi.createVirtualCard({
+          spendLimit: spendingLimit || 1000,
+          spendLimitDuration: isSingleUse ? 'LIFETIME' : 'MONTHLY',
+          cardNickname: cardName,
+          primaryFundingSource: 'FLUZ_BALANCE',
+          lockCardNextUse: isSingleUse,
+          idempotencyKey: uuidv4(),
+        });
+        fluzCardId = fluzCard.virtualCardId;
+        lastFour = fluzCard.virtualCardLast4 || lastFour;
+        logger.info('Provider virtual card created for user', { userId: req.user!.id, providerCardId: fluzCardId, last4: lastFour });
+      } catch (err: any) {
+        logger.error('Provider card creation failed, using local card', { error: err?.message });
+      }
+    }
 
     const cardId = await transaction(async (client) => {
       const cardResult = await client.query(`
-        INSERT INTO virtual_cards (user_id, card_name, last_four, card_type, spending_limit_cents, is_single_use, currency)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO virtual_cards (user_id, card_name, last_four, card_type, spending_limit_cents, is_single_use, currency, fluz_card_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING id
-      `, [req.user!.id, cardName, lastFour, cardType, spendingLimitCents, isSingleUse, currency]);
+      `, [req.user!.id, cardName, lastFour, cardType, spendingLimitCents, isSingleUse, currency, fluzCardId]);
 
       const cardId = cardResult.rows[0].id;
 
@@ -75,15 +149,28 @@ router.post('/',
   })
 );
 
-router.post('/:id/freeze', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+router.post('/:id/freeze', validateUUID, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    throw new AppError('Invalid ID format', 400, 'VALIDATION_ERROR');
+  }
+
   const id = req.params.id as string;
 
-  const card = await queryOne(`
-    SELECT id FROM virtual_cards WHERE id = $1 AND user_id = $2
+  const card = await queryOne<any>(`
+    SELECT id, fluz_card_id FROM virtual_cards WHERE id = $1 AND user_id = $2
   `, [id, req.user!.id]);
 
   if (!card) {
     throw new AppError('Card not found', 404, 'NOT_FOUND');
+  }
+
+  if (card.fluz_card_id && fluzApi.isConfigured()) {
+    try {
+      await fluzApi.lockVirtualCard(card.fluz_card_id);
+    } catch (err: any) {
+      logger.error('Provider card lock failed', { error: err?.message });
+    }
   }
 
   await query(`UPDATE card_controls SET frozen = TRUE WHERE card_id = $1`, [id]);
@@ -99,15 +186,28 @@ router.post('/:id/freeze', asyncHandler(async (req: AuthenticatedRequest, res: R
   res.json({ success: true, message: 'Card frozen' });
 }));
 
-router.post('/:id/unfreeze', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+router.post('/:id/unfreeze', validateUUID, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    throw new AppError('Invalid ID format', 400, 'VALIDATION_ERROR');
+  }
+
   const id = req.params.id as string;
 
-  const card = await queryOne(`
-    SELECT id FROM virtual_cards WHERE id = $1 AND user_id = $2
+  const card = await queryOne<any>(`
+    SELECT id, fluz_card_id FROM virtual_cards WHERE id = $1 AND user_id = $2
   `, [id, req.user!.id]);
 
   if (!card) {
     throw new AppError('Card not found', 404, 'NOT_FOUND');
+  }
+
+  if (card.fluz_card_id && fluzApi.isConfigured()) {
+    try {
+      await fluzApi.unlockVirtualCard(card.fluz_card_id);
+    } catch (err: any) {
+      logger.error('Provider card unlock failed', { error: err?.message });
+    }
   }
 
   await query(`UPDATE card_controls SET frozen = FALSE WHERE card_id = $1`, [id]);
@@ -124,8 +224,14 @@ router.post('/:id/unfreeze', asyncHandler(async (req: AuthenticatedRequest, res:
 }));
 
 router.post('/:id/spending-limit',
+  validateUUID,
   body('limit').isFloat({ min: 0 }),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(errors.array()[0].msg, 400, 'VALIDATION_ERROR');
+    }
+
     const id = req.params.id as string;
     const { limit } = req.body;
     const limitCents = Math.round(limit * 100);
@@ -155,8 +261,14 @@ router.post('/:id/spending-limit',
 );
 
 router.post('/:id/block-merchant',
-  body('merchant').trim().notEmpty(),
+  validateUUID,
+  body('merchant').trim().notEmpty().isLength({ max: 255 }),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(errors.array()[0].msg, 400, 'VALIDATION_ERROR');
+    }
+
     const id = req.params.id as string;
     const { merchant } = req.body;
 
@@ -193,8 +305,14 @@ router.post('/:id/block-merchant',
 );
 
 router.post('/:id/unblock-merchant',
-  body('merchant').trim().notEmpty(),
+  validateUUID,
+  body('merchant').trim().notEmpty().isLength({ max: 255 }),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(errors.array()[0].msg, 400, 'VALIDATION_ERROR');
+    }
+
     const id = req.params.id as string;
     const { merchant } = req.body;
 
@@ -221,10 +339,16 @@ router.post('/:id/unblock-merchant',
 );
 
 router.post('/:id/category-limit',
+  validateUUID,
   body('category').isIn(['shopping', 'food', 'transport', 'entertainment', 'utilities', 'travel', 'other']),
   body('limit').isFloat({ min: 0 }),
   body('period').isIn(['daily', 'weekly', 'monthly']),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(errors.array()[0].msg, 400, 'VALIDATION_ERROR');
+    }
+
     const id = req.params.id as string;
     const { category, limit, period } = req.body;
     const limitCents = Math.round(limit * 100);
@@ -259,7 +383,12 @@ router.post('/:id/category-limit',
   })
 );
 
-router.get('/:id/transactions', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+router.get('/:id/transactions', validateUUID, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    throw new AppError('Invalid ID format', 400, 'VALIDATION_ERROR');
+  }
+
   const id = req.params.id as string;
 
   const card = await queryOne(`
@@ -282,10 +411,16 @@ router.get('/:id/transactions', asyncHandler(async (req: AuthenticatedRequest, r
 }));
 
 router.post('/:id/top-up',
+  validateUUID,
   sensitiveOpLimiter,
-  body('amount').isFloat({ min: 1 }),
+  body('amount').isFloat({ min: 1, max: 50000 }).withMessage('Top-up amount must be between $1 and $50,000'),
   body('currency').isIn(['USD', 'EUR', 'GBP', 'NGN']),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(errors.array()[0].msg, 400, 'VALIDATION_ERROR');
+    }
+
     const id = req.params.id as string;
     const { amount, currency } = req.body;
     const amountCents = Math.round(amount * 100);
@@ -333,7 +468,12 @@ router.post('/:id/top-up',
   })
 );
 
-router.delete('/:id', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+router.delete('/:id', validateUUID, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    throw new AppError('Invalid ID format', 400, 'VALIDATION_ERROR');
+  }
+
   const id = req.params.id as string;
 
   const card = await queryOne(`

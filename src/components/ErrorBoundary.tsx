@@ -1,5 +1,6 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
 import { logger } from '../lib/logger';
+import { SUPPORT_EMAIL } from '../lib/contactPlaceholders';
 
 interface Props {
   children: ReactNode;
@@ -113,7 +114,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
             <p className="text-sm text-slate-500 mt-8">
               If this problem persists, please{' '}
-              <a href="mailto:support@cardxc.com" className="text-sky-600 hover:underline">
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="text-sky-600 hover:underline">
                 contact support
               </a>
               .

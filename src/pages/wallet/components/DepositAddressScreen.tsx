@@ -74,7 +74,17 @@ export default function DepositAddressScreen({ asset, networks, onBack }: Deposi
         onSelect={setSelectedNetwork}
       />
 
-      {networkData && (
+      {networkData && !address && (
+        <div className="text-center py-8 px-4">
+          <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i className="ri-time-line text-3xl text-amber-600"></i>
+          </div>
+          <h3 className="text-lg font-bold text-slate-900 mb-2">Coming Soon</h3>
+          <p className="text-sm text-slate-500">Crypto deposit addresses are being configured. Please check back later or use fiat deposit instead.</p>
+        </div>
+      )}
+
+      {networkData && address && (
         <>
           <div className="flex justify-center py-4">
             <QRCodeDisplay value={address} size={180} />

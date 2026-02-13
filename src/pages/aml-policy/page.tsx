@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { COMPLIANCE_EMAIL, SUPPORT_EMAIL } from '../../lib/contactPlaceholders';
 
 export default function AMLPolicyPage() {
   useEffect(() => {
@@ -12,14 +13,14 @@ export default function AMLPolicyPage() {
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <Link to="/" className="flex items-center gap-3 cursor-pointer group">
-              <div className="w-10 h-10 bg-gradient-to-br from-cream-300 to-cream-500 rounded-xl flex items-center justify-center shadow-glow-sm group-hover:shadow-glow transition-all duration-300">
-                <i className="ri-bank-card-line text-dark-bg text-xl"></i>
+              <div className="w-10 h-10 bg-lime-500 rounded-xl flex items-center justify-center shadow-glow-sm group-hover:shadow-glow transition-all duration-300">
+                <i className="ri-bank-card-line text-black text-xl"></i>
               </div>
               <span className="text-xl font-bold text-white">CardXC</span>
             </Link>
             <Link
               to="/"
-              className="text-neutral-400 hover:text-cream-300 transition-colors cursor-pointer flex items-center gap-2"
+              className="text-neutral-400 hover:text-lime-400 transition-colors cursor-pointer flex items-center gap-2"
             >
               <i className="ri-arrow-left-line"></i>
               Back to Home
@@ -39,13 +40,13 @@ export default function AMLPolicyPage() {
               <div>
                 <h3 className="font-semibold text-primary-400 mb-1">Our Commitment to Compliance</h3>
                 <p className="text-sm text-neutral-300">
-                  CardXC is committed to maintaining the highest standards of anti-money laundering (AML) and counter-terrorism financing (CTF) compliance. We work closely with regulatory bodies and financial partners to ensure our platform is not used for illicit activities.
+                  CardXC, a digital wallet and payments platform operated by GameNova Vault LLC, is committed to maintaining the highest standards of anti-money laundering (AML) and counter-terrorism financing (CTF) compliance. We work closely with regulatory bodies and financial partners to ensure our platform is not used for illicit activities.
                 </p>
               </div>
             </div>
 
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-information-line text-cream-300"></i>
+              <i className="ri-information-line text-lime-400"></i>
               1. Introduction
             </h2>
             <p className="leading-relaxed">
@@ -55,7 +56,7 @@ export default function AMLPolicyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-user-search-line text-cream-300"></i>
+              <i className="ri-user-search-line text-lime-400"></i>
               2. Know Your Customer (KYC)
             </h2>
             <p className="leading-relaxed mb-4">
@@ -72,7 +73,7 @@ export default function AMLPolicyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-scales-3-line text-cream-300"></i>
+              <i className="ri-scales-3-line text-lime-400"></i>
               3. Risk-Based Approach
             </h2>
             <p className="leading-relaxed mb-4">
@@ -89,7 +90,7 @@ export default function AMLPolicyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-alarm-warning-line text-cream-300"></i>
+              <i className="ri-alarm-warning-line text-lime-400"></i>
               4. Suspicious Activity Detection
             </h2>
             <p className="leading-relaxed mb-4">
@@ -108,7 +109,7 @@ export default function AMLPolicyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-file-warning-line text-cream-300"></i>
+              <i className="ri-file-warning-line text-lime-400"></i>
               5. Reporting Obligations
             </h2>
             <p className="leading-relaxed mb-4">
@@ -125,7 +126,7 @@ export default function AMLPolicyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-global-line text-cream-300"></i>
+              <i className="ri-global-line text-lime-400"></i>
               6. Sanctions Compliance
             </h2>
             <p className="leading-relaxed mb-4">
@@ -142,7 +143,7 @@ export default function AMLPolicyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-government-line text-cream-300"></i>
+              <i className="ri-government-line text-lime-400"></i>
               7. Politically Exposed Persons (PEPs)
             </h2>
             <p className="leading-relaxed mb-4">
@@ -159,7 +160,7 @@ export default function AMLPolicyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-database-2-line text-cream-300"></i>
+              <i className="ri-database-2-line text-lime-400"></i>
               8. Record Keeping
             </h2>
             <p className="leading-relaxed mb-4">
@@ -177,7 +178,7 @@ export default function AMLPolicyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-graduation-cap-line text-cream-300"></i>
+              <i className="ri-graduation-cap-line text-lime-400"></i>
               9. Training & Awareness
             </h2>
             <p className="leading-relaxed">
@@ -187,7 +188,7 @@ export default function AMLPolicyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-shield-user-line text-cream-300"></i>
+              <i className="ri-shield-user-line text-lime-400"></i>
               10. Compliance Officer
             </h2>
             <p className="leading-relaxed">
@@ -197,15 +198,15 @@ export default function AMLPolicyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-customer-service-2-line text-cream-300"></i>
+              <i className="ri-customer-service-2-line text-lime-400"></i>
               11. Contact Information
             </h2>
             <p className="leading-relaxed">
               For questions about our AML policy or to report suspicious activity:
             </p>
             <ul className="mt-4 space-y-2 ml-4">
-              <li><strong>Compliance:</strong> <a href="mailto:compliance@cardxc.com" className="text-cream-300 hover:underline">compliance@cardxc.com</a></li>
-              <li><strong>General Support:</strong> <a href="mailto:support@cardxc.com" className="text-cream-300 hover:underline">support@cardxc.com</a></li>
+              <li><strong>Compliance:</strong> <a href={`mailto:${COMPLIANCE_EMAIL}`} className="text-lime-400 hover:underline">{COMPLIANCE_EMAIL}</a></li>
+              <li><strong>General Support:</strong> <a href={`mailto:${SUPPORT_EMAIL}`} className="text-lime-400 hover:underline">{SUPPORT_EMAIL}</a></li>
             </ul>
           </section>
         </div>
@@ -213,21 +214,21 @@ export default function AMLPolicyPage() {
         <div className="mt-12 flex gap-4">
           <Link
             to="/terms"
-            className="text-cream-300 hover:text-cream-200 transition-colors flex items-center gap-2"
+            className="text-lime-400 hover:text-lime-200 transition-colors flex items-center gap-2"
           >
             <i className="ri-file-text-line"></i>
             Terms of Service
           </Link>
           <Link
             to="/privacy"
-            className="text-cream-300 hover:text-cream-200 transition-colors flex items-center gap-2"
+            className="text-lime-400 hover:text-lime-200 transition-colors flex items-center gap-2"
           >
             <i className="ri-shield-keyhole-line"></i>
             Privacy Policy
           </Link>
           <Link
             to="/refund-policy"
-            className="text-cream-300 hover:text-cream-200 transition-colors flex items-center gap-2"
+            className="text-lime-400 hover:text-lime-200 transition-colors flex items-center gap-2"
           >
             <i className="ri-refund-2-line"></i>
             Refund Policy

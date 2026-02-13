@@ -1,8 +1,7 @@
-import { Router, Response } from 'express';
+import { Router } from 'express';
 import { query, queryOne } from '../db/pool';
 import { asyncHandler } from '../middleware/errorHandler';
 import { authenticate, AuthenticatedRequest, requireRole } from '../middleware/auth';
-import { subDays, format, startOfDay } from 'date-fns';
 
 const router = Router();
 router.use(authenticate);
@@ -19,7 +18,7 @@ router.get('/dashboard', asyncHandler(async (req: AuthenticatedRequest, res: Res
         COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '7 days') as new_this_week,
         COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '30 days') as new_this_month,
         COUNT(*) FILTER (WHERE account_status = 'active') as active_users,
-        COUNT(*) FILTER (WHERE kyc_status = 'APPROVED') as verified_users
+        COUNT(*) FILTER (WHERE kyc_status = 'approved') as verified_users
       FROM users
     `),
     
@@ -200,7 +199,7 @@ router.get('/pending', asyncHandler(async (req: AuthenticatedRequest, res: Respo
       FROM withdrawal_requests WHERE status = 'pending'
     `),
     queryOne<any>(`
-      SELECT COUNT(*) as count FROM users WHERE kyc_status = 'PENDING'
+      SELECT COUNT(*) as count FROM users WHERE kyc_status = 'pending'
     `),
     queryOne<any>(`
       SELECT COUNT(*) as count FROM fraud_flags WHERE status = 'active'

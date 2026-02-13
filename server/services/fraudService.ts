@@ -4,7 +4,7 @@ import { createNotification } from './notificationService';
 
 interface FraudCheckParams {
   userId: string;
-  action: 'LOGIN' | 'P2P_TRANSFER' | 'WITHDRAWAL' | 'CARD_PAYMENT' | 'CARD_CREATION';
+  action: 'LOGIN' | 'P2P_TRANSFER' | 'TRANSFER' | 'WITHDRAWAL' | 'CARD_PAYMENT' | 'CARD_CREATION';
   amount?: number;
   ipAddress?: string;
   metadata?: Record<string, any>;
@@ -30,7 +30,7 @@ export async function checkLoginVelocity(email: string, ipAddress?: string): Pro
       SELECT COUNT(*) as count FROM login_attempts
       WHERE email = $1 AND success = FALSE AND created_at > NOW() - INTERVAL '1 hour'
     `, [email]);
-    
+
     const failCount = parseInt(recentFailures?.count || '0');
     if (failCount >= 10) {
       logger.warn(`[Fraud] Login velocity check failed - too many failed attempts for email ${email}: ${failCount} failures`);
@@ -42,7 +42,7 @@ export async function checkLoginVelocity(email: string, ipAddress?: string): Pro
         SELECT COUNT(*) as count FROM login_attempts
         WHERE ip_address = $1 AND success = FALSE AND created_at > NOW() - INTERVAL '1 hour'
       `, [ipAddress]);
-      
+
       const ipFailCount = parseInt(ipFailures?.count || '0');
       if (ipFailCount >= 20) {
         logger.warn(`[Fraud] Login velocity check failed - too many failures from IP ${ipAddress}: ${ipFailCount} failures`);
@@ -70,7 +70,7 @@ export async function runFraudChecks(params: FraudCheckParams): Promise<{ passed
           SELECT COUNT(*) as count FROM login_attempts
           WHERE email = $1 AND success = FALSE AND created_at > NOW() - INTERVAL '1 hour'
         `, [user.email]);
-        
+
         const failCount = parseInt(recentFailures?.count || '0');
         if (failCount >= 5) {
           flags.push('HIGH_LOGIN_FAILURE_RATE');
@@ -87,15 +87,15 @@ export async function runFraudChecks(params: FraudCheckParams): Promise<{ passed
         WHERE user_id = $1 AND type = 'transfer_out' AND status = 'SUCCESS'
           AND created_at > NOW() - INTERVAL '1 hour'
       `, [params.userId]);
-      
+
       const hourlyTotal = parseInt(recentTransfers?.total || '0');
       const hourlyCount = parseInt(recentTransfers?.count || '0');
-      
+
       if (hourlyCount >= 10) {
         flags.push('HIGH_VELOCITY_TRANSFERS');
         riskScore += 25;
       }
-      
+
       if (hourlyTotal > 50000) { // $500 in 1 hour
         flags.push('HIGH_HOURLY_VOLUME');
         riskScore += 20;
@@ -123,7 +123,7 @@ export async function runFraudChecks(params: FraudCheckParams): Promise<{ passed
         SELECT COUNT(*) as count FROM withdrawal_requests
         WHERE user_id = $1 AND created_at > NOW() - INTERVAL '24 hours'
       `, [params.userId]);
-      
+
       if (parseInt(recentWithdrawals?.count || '0') >= 3) {
         flags.push('MULTIPLE_WITHDRAWAL_REQUESTS');
         riskScore += 20;
@@ -135,7 +135,7 @@ export async function runFraudChecks(params: FraudCheckParams): Promise<{ passed
       const accountAge = await queryOne<{ created_at: string }>(`
         SELECT created_at FROM users WHERE id = $1
       `, [params.userId]);
-      
+
       if (accountAge) {
         const daysSinceCreation = (Date.now() - new Date(accountAge.created_at).getTime()) / (1000 * 60 * 60 * 24);
         if (daysSinceCreation < 7) {
@@ -145,17 +145,39 @@ export async function runFraudChecks(params: FraudCheckParams): Promise<{ passed
       }
     }
 
-    // Check 7: Unverified account making transactions
+    // Check 7: IP/Device Mismatch Detection
+    if (params.ipAddress) {
+      const knownDevices = await query<{ ip_address: string; is_trusted: boolean }>(`
+        SELECT ip_address, is_trusted FROM user_devices WHERE user_id = $1
+      `, [params.userId]);
+
+      const isKnownIP = knownDevices.some(d => d.ip_address === params.ipAddress);
+      const hasTrustedDevices = knownDevices.some(d => d.is_trusted);
+
+      if (!isKnownIP && knownDevices.length > 0) {
+        // New IP for an existing user
+        flags.push('NEW_IP_ADDRESS');
+        riskScore += 15;
+
+        if (hasTrustedDevices) {
+          // User has trusted devices but is using a new IP
+          flags.push('UNRECOGNIZED_LOCATION');
+          riskScore += 20;
+        }
+      }
+    }
+
+    // Check 8: Unverified account making transactions
     const user = await queryOne<{ kyc_status: string; email_verified: boolean }>(`
       SELECT kyc_status, email_verified FROM users WHERE id = $1
     `, [params.userId]);
-    
+
     if (user && !user.email_verified) {
       flags.push('EMAIL_NOT_VERIFIED');
       riskScore += 15;
     }
-    
-    if (user && user.kyc_status !== 'APPROVED' && params.amount && params.amount > 50000) {
+
+    if (user && (user.kyc_status || '').toLowerCase() !== 'approved' && params.amount && params.amount > 50000) {
       flags.push('KYC_NOT_APPROVED_HIGH_VALUE');
       riskScore += 30;
     }
@@ -163,14 +185,14 @@ export async function runFraudChecks(params: FraudCheckParams): Promise<{ passed
     // Log flags if detected
     if (flags.length > 0) {
       logger.warn(`[Fraud] Flags detected for user ${params.userId}:`, { flags, riskScore, action: params.action });
-      
+
       // Create fraud flag record if high risk
       if (riskScore >= 50) {
         await query(`
           INSERT INTO fraud_flags (user_id, flag_type, risk_score, metadata, status)
           VALUES ($1, $2, $3, $4, 'active')
         `, [params.userId, flags.join(','), riskScore, JSON.stringify({ action: params.action, amount: params.amount })]);
-        
+
         // Notify user
         await createNotification({
           userId: params.userId,

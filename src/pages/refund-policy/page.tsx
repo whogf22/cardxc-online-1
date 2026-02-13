@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { DISPUTES_EMAIL, SUPPORT_EMAIL } from '../../lib/contactPlaceholders';
 
 export default function RefundPolicyPage() {
   useEffect(() => {
@@ -12,14 +13,14 @@ export default function RefundPolicyPage() {
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <Link to="/" className="flex items-center gap-3 cursor-pointer group">
-              <div className="w-10 h-10 bg-gradient-to-br from-cream-300 to-cream-500 rounded-xl flex items-center justify-center shadow-glow-sm group-hover:shadow-glow transition-all duration-300">
-                <i className="ri-bank-card-line text-dark-bg text-xl"></i>
+              <div className="w-10 h-10 bg-lime-500 rounded-xl flex items-center justify-center shadow-glow-sm group-hover:shadow-glow transition-all duration-300">
+                <i className="ri-bank-card-line text-black text-xl"></i>
               </div>
               <span className="text-xl font-bold text-white">CardXC</span>
             </Link>
             <Link
               to="/"
-              className="text-neutral-400 hover:text-cream-300 transition-colors cursor-pointer flex items-center gap-2"
+              className="text-neutral-400 hover:text-lime-400 transition-colors cursor-pointer flex items-center gap-2"
             >
               <i className="ri-arrow-left-line"></i>
               Back to Home
@@ -35,17 +36,17 @@ export default function RefundPolicyPage() {
         <div className="space-y-8 text-neutral-300">
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-refund-2-line text-cream-300"></i>
+              <i className="ri-refund-2-line text-lime-400"></i>
               1. Overview
             </h2>
             <p className="leading-relaxed">
-              CardXC is committed to providing fair and transparent refund and dispute resolution processes. This policy outlines how we handle refund requests, chargebacks, and disputes related to transactions made with your CardXC virtual payment cards. We work diligently to resolve all issues promptly and fairly.
+              CardXC, a digital wallet and payments platform operated by GameNova Vault LLC, is committed to providing fair and transparent refund and dispute resolution processes. This policy outlines how we handle refund requests, chargebacks, and disputes related to transactions made with your CardXC virtual payment cards. We work diligently to resolve all issues promptly and fairly.
             </p>
           </section>
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-exchange-funds-line text-cream-300"></i>
+              <i className="ri-exchange-funds-line text-lime-400"></i>
               2. Refund Eligibility
             </h2>
             <p className="leading-relaxed mb-4">
@@ -63,7 +64,7 @@ export default function RefundPolicyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-time-line text-cream-300"></i>
+              <i className="ri-time-line text-lime-400"></i>
               3. Timeframes
             </h2>
             <p className="leading-relaxed mb-4">
@@ -80,7 +81,7 @@ export default function RefundPolicyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-file-list-3-line text-cream-300"></i>
+              <i className="ri-file-list-3-line text-lime-400"></i>
               4. How to File a Dispute
             </h2>
             <p className="leading-relaxed mb-4">
@@ -96,13 +97,13 @@ export default function RefundPolicyPage() {
               <li>Submit your dispute for review</li>
             </ol>
             <p className="leading-relaxed mt-4">
-              Alternatively, you can contact our support team at <a href="mailto:disputes@cardxc.com" className="text-cream-300 hover:underline">disputes@cardxc.com</a> with your dispute details.
+              Alternatively, you can contact our support team at <a href={`mailto:${DISPUTES_EMAIL}`} className="text-lime-400 hover:underline">{DISPUTES_EMAIL}</a> with your dispute details.
             </p>
           </section>
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-search-eye-line text-cream-300"></i>
+              <i className="ri-search-eye-line text-lime-400"></i>
               5. Investigation Process
             </h2>
             <p className="leading-relaxed mb-4">
@@ -119,7 +120,7 @@ export default function RefundPolicyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-money-dollar-circle-line text-cream-300"></i>
+              <i className="ri-money-dollar-circle-line text-lime-400"></i>
               6. Refund Methods
             </h2>
             <p className="leading-relaxed mb-4">
@@ -137,7 +138,7 @@ export default function RefundPolicyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-close-circle-line text-cream-300"></i>
+              <i className="ri-close-circle-line text-lime-400"></i>
               7. Non-Refundable Transactions
             </h2>
             <p className="leading-relaxed mb-4">
@@ -155,7 +156,7 @@ export default function RefundPolicyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-shield-check-line text-cream-300"></i>
+              <i className="ri-shield-check-line text-lime-400"></i>
               8. Fraud Protection
             </h2>
             <p className="leading-relaxed mb-4">
@@ -172,15 +173,15 @@ export default function RefundPolicyPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-customer-service-2-line text-cream-300"></i>
+              <i className="ri-customer-service-2-line text-lime-400"></i>
               9. Contact Us
             </h2>
             <p className="leading-relaxed">
               For questions about this Refund & Dispute Policy or to file a dispute, please contact us:
             </p>
             <ul className="mt-4 space-y-2 ml-4">
-              <li><strong>Email:</strong> <a href="mailto:disputes@cardxc.com" className="text-cream-300 hover:underline">disputes@cardxc.com</a></li>
-              <li><strong>Support:</strong> <a href="mailto:support@cardxc.com" className="text-cream-300 hover:underline">support@cardxc.com</a></li>
+              <li><strong>Email:</strong> <a href={`mailto:${DISPUTES_EMAIL}`} className="text-lime-400 hover:underline">{DISPUTES_EMAIL}</a></li>
+              <li><strong>Support:</strong> <a href={`mailto:${SUPPORT_EMAIL}`} className="text-lime-400 hover:underline">{SUPPORT_EMAIL}</a></li>
               <li><strong>In-App:</strong> Use the dispute feature in your transaction history</li>
             </ul>
           </section>
@@ -189,21 +190,21 @@ export default function RefundPolicyPage() {
         <div className="mt-12 flex gap-4">
           <Link
             to="/terms"
-            className="text-cream-300 hover:text-cream-200 transition-colors flex items-center gap-2"
+            className="text-lime-400 hover:text-lime-200 transition-colors flex items-center gap-2"
           >
             <i className="ri-file-text-line"></i>
             Terms of Service
           </Link>
           <Link
             to="/privacy"
-            className="text-cream-300 hover:text-cream-200 transition-colors flex items-center gap-2"
+            className="text-lime-400 hover:text-lime-200 transition-colors flex items-center gap-2"
           >
             <i className="ri-shield-keyhole-line"></i>
             Privacy Policy
           </Link>
           <Link
             to="/aml-policy"
-            className="text-cream-300 hover:text-cream-200 transition-colors flex items-center gap-2"
+            className="text-lime-400 hover:text-lime-200 transition-colors flex items-center gap-2"
           >
             <i className="ri-scales-3-line"></i>
             AML Policy

@@ -1,6 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthContext } from '../contexts/AuthContext';
-import BottomNavigation from './BottomNavigation';
 
 interface NavItem {
   path: string;
@@ -18,6 +17,7 @@ const mainNavItems: NavItem[] = [
 ];
 
 const secondaryNavItems: NavItem[] = [
+  { path: '/dashboard/data', icon: 'ri-database-2-line', label: 'My Data' },
   { path: '/transactions', icon: 'ri-file-list-3-line', label: 'Transactions' },
   { path: '/profile', icon: 'ri-user-settings-line', label: 'Settings' },
   { path: '/support', icon: 'ri-question-line', label: 'Support' },
@@ -155,9 +155,6 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
         </main>
       </div>
 
-      <div className="lg:hidden">
-        <BottomNavigation />
-      </div>
     </div>
   );
 }

@@ -9,7 +9,7 @@ router.use(authenticate);
 
 // Get spending by category for current month
 router.get('/spending-by-category', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const monthsBack = parseInt(req.query.months as string) || 1;
+  const monthsBack = Math.min(Math.max(1, parseInt(req.query.months as string, 10) || 1), 24);
   const startDate = startOfMonth(subMonths(new Date(), monthsBack - 1));
   
   const spending = await query(`
@@ -50,7 +50,7 @@ router.get('/spending-by-category', asyncHandler(async (req: AuthenticatedReques
 
 // Get monthly spending trend
 router.get('/monthly-trend', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const months = parseInt(req.query.months as string) || 6;
+  const months = Math.min(Math.max(1, parseInt(req.query.months as string, 10) || 6), 24);
   
   const trend = await query(`
     SELECT 

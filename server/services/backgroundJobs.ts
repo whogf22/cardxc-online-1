@@ -32,7 +32,11 @@ export function initBackgroundJobs() {
 
   // Run cleanup immediately on startup
   setTimeout(async () => {
-    await cleanupExpiredData();
+    try {
+      await cleanupExpiredData();
+    } catch (error) {
+      logger.error('[BackgroundJobs] Initial cleanup failed:', error);
+    }
   }, 5000);
 
   logger.info('Background jobs scheduled');
@@ -43,7 +47,6 @@ export function initBackgroundJobs() {
  */
 async function cleanupExpiredData() {
   try {
-    // Cleanup expired sessions
     const sessionsResult = await query(`
       UPDATE sessions SET is_active = FALSE 
       WHERE is_active = TRUE AND expires_at < NOW()
@@ -51,6 +54,22 @@ async function cleanupExpiredData() {
     `);
     if (sessionsResult.length > 0) {
       logger.info(`[Cleanup] Deactivated ${sessionsResult.length} expired sessions`);
+    }
+
+    const deletedSessions = await query(`
+      DELETE FROM sessions WHERE is_active = FALSE AND expires_at < NOW() - INTERVAL '30 days'
+      RETURNING id
+    `);
+    if (deletedSessions.length > 0) {
+      logger.info(`[Cleanup] Deleted ${deletedSessions.length} old inactive sessions`);
+    }
+
+    const deletedSecurityEvents = await query(`
+      DELETE FROM security_events WHERE created_at < NOW() - INTERVAL '90 days'
+      RETURNING id
+    `);
+    if (deletedSecurityEvents.length > 0) {
+      logger.info(`[Cleanup] Deleted ${deletedSecurityEvents.length} old security events`);
     }
 
     // Cleanup old login attempts (keep 7 days)
@@ -63,11 +82,15 @@ async function cleanupExpiredData() {
       DELETE FROM password_reset_tokens WHERE expires_at < NOW()
     `);
 
-    // Cleanup expired email verification tokens (unverified only)
-    await query(`
-      DELETE FROM email_verification_tokens 
-      WHERE expires_at < NOW() AND verified_at IS NULL
-    `);
+    // Cleanup expired email verification tokens if table exists (optional feature)
+    try {
+      await query(`
+        DELETE FROM email_verification_tokens 
+        WHERE expires_at < NOW() AND verified_at IS NULL
+      `);
+    } catch {
+      // Table may not exist; ignore
+    }
 
     // Mark expired payment links
     const linksResult = await query(`
@@ -137,16 +160,33 @@ async function processRecurringTransfers() {
           continue;
         }
 
-        const recipientResult = await client.query(`
-          SELECT id FROM users WHERE email = $1
-        `, [transfer.recipient_email]);
+        const recipientId = transfer.recipient_id;
+        if (!recipientId) {
+          logger.warn(`[RecurringTransfer] Missing recipient_id for transfer ${transfer.id}`);
+          await client.query(`
+            UPDATE recurring_transfers SET status = 'failed', updated_at = NOW()
+            WHERE id = $1
+          `, [transfer.id]);
+          await client.query('COMMIT');
+          continue;
+        }
+        const recipientResult = await client.query(
+          `SELECT id FROM users WHERE id = $1`,
+          [recipientId]
+        );
         const recipient = recipientResult.rows[0];
 
         if (!recipient) {
           logger.warn(`[RecurringTransfer] Recipient not found for transfer ${transfer.id}`);
-          await client.query('ROLLBACK');
+          await client.query(`
+            UPDATE recurring_transfers SET status = 'failed', updated_at = NOW()
+            WHERE id = $1
+          `, [transfer.id]);
+          await client.query('COMMIT');
           continue;
         }
+
+        const recipientName = transfer.recipient_name || 'user';
 
         await client.query(`
           UPDATE wallets SET balance_cents = balance_cents - $1 WHERE id = $2
@@ -161,31 +201,36 @@ async function processRecurringTransfers() {
 
         await client.query(`
           INSERT INTO transactions (user_id, type, amount_cents, currency, status, description)
-          VALUES ($1, 'transfer', $2, $3, 'SUCCESS', $4)
-        `, [transfer.user_id, transfer.amount_cents, transfer.currency, `Recurring transfer to ${transfer.recipient_email}`]);
+          VALUES ($1, 'transfer_out', $2, $3, 'SUCCESS', $4)
+        `, [transfer.user_id, transfer.amount_cents, transfer.currency, `Recurring transfer to ${recipientName}`]);
 
         let nextRun: Date;
         const now = new Date();
         switch (transfer.frequency) {
           case 'daily':
-            nextRun = new Date(now.setDate(now.getDate() + 1));
+            nextRun = new Date(now.getTime());
+            nextRun.setDate(nextRun.getDate() + 1);
             break;
           case 'weekly':
-            nextRun = new Date(now.setDate(now.getDate() + 7));
+            nextRun = new Date(now.getTime());
+            nextRun.setDate(nextRun.getDate() + 7);
             break;
           case 'biweekly':
-            nextRun = new Date(now.setDate(now.getDate() + 14));
+            nextRun = new Date(now.getTime());
+            nextRun.setDate(nextRun.getDate() + 14);
             break;
           case 'monthly':
-            nextRun = new Date(now.setMonth(now.getMonth() + 1));
+            nextRun = new Date(now.getTime());
+            nextRun.setMonth(nextRun.getMonth() + 1);
             break;
           default:
-            nextRun = new Date(now.setMonth(now.getMonth() + 1));
+            nextRun = new Date(now.getTime());
+            nextRun.setMonth(nextRun.getMonth() + 1);
         }
 
         await client.query(`
           UPDATE recurring_transfers
-          SET next_run_at = $1, last_run_at = NOW(), updated_at = NOW()
+          SET next_run_at = $1, updated_at = NOW()
           WHERE id = $2
         `, [nextRun, transfer.id]);
 
@@ -281,15 +326,20 @@ async function processCashbackRewards() {
       const cashbackAmount = Math.floor(txn.amount_cents * cashbackRate);
 
       if (cashbackAmount > 0) {
+        const existing = await queryOne<{ id: string }>(
+          `SELECT id FROM reward_ledger WHERE transaction_id = $1 LIMIT 1`,
+          [txn.id]
+        );
+        if (existing) continue;
+
         const client = await pool.connect();
         try {
           await client.query('BEGIN');
 
           await client.query(`
-            INSERT INTO reward_ledger (user_id, type, amount_cents, description)
-            VALUES ($1, 'cashback', $2, $3)
-            ON CONFLICT DO NOTHING
-          `, [txn.user_id, cashbackAmount, `Cashback on purchase ${txn.id}`]);
+            INSERT INTO reward_ledger (user_id, transaction_id, cashback_cents, description, status)
+            VALUES ($1, $2, $3, $4, 'pending')
+          `, [txn.user_id, txn.id, cashbackAmount, `Cashback on purchase ${txn.id}`]);
 
           await client.query('COMMIT');
           logger.info(`[Cashback] Awarded ${cashbackAmount} cents to user ${txn.user_id}`);

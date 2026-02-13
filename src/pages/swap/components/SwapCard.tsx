@@ -3,20 +3,14 @@ import AssetSelector, { Asset } from './AssetSelector';
 import SwapConfirmModal from './SwapConfirmModal';
 
 const ASSETS: Asset[] = [
-  { symbol: 'USD', name: 'US Dollar', icon: 'ri-money-dollar-circle-line', color: 'from-green-500 to-green-600', balance: 1250.00 },
-  { symbol: 'USDT', name: 'Tether USD', icon: 'ri-money-dollar-circle-line', color: 'from-teal-500 to-teal-600', balance: 500.00 },
-  { symbol: 'BTC', name: 'Bitcoin', icon: 'ri-bit-coin-line', color: 'from-orange-500 to-orange-600', balance: 0.0234 },
-  { symbol: 'ETH', name: 'Ethereum', icon: 'ri-coin-line', color: 'from-indigo-500 to-indigo-600', balance: 0.85 },
-  { symbol: 'BNB', name: 'BNB', icon: 'ri-shape-line', color: 'from-yellow-500 to-yellow-600', balance: 2.5 },
+  { symbol: 'USD', name: 'US Dollar', icon: 'ri-money-dollar-circle-line', color: 'from-green-500 to-green-600', balance: 0 },
+  { symbol: 'USDT', name: 'Tether USD', icon: 'ri-money-dollar-circle-line', color: 'from-teal-500 to-teal-600', balance: 0 },
+  { symbol: 'BTC', name: 'Bitcoin', icon: 'ri-bit-coin-line', color: 'from-orange-500 to-orange-600', balance: 0 },
+  { symbol: 'ETH', name: 'Ethereum', icon: 'ri-coin-line', color: 'from-indigo-500 to-indigo-600', balance: 0 },
+  { symbol: 'BNB', name: 'BNB', icon: 'ri-shape-line', color: 'from-yellow-500 to-yellow-600', balance: 0 },
 ];
 
-const EXCHANGE_RATES: Record<string, Record<string, number>> = {
-  'USD': { 'USDT': 1.00, 'BTC': 0.000023, 'ETH': 0.00042, 'BNB': 0.0033 },
-  'USDT': { 'USD': 1.00, 'BTC': 0.000023, 'ETH': 0.00042, 'BNB': 0.0033 },
-  'BTC': { 'USD': 43478.26, 'USDT': 43478.26, 'ETH': 18.5, 'BNB': 145.0 },
-  'ETH': { 'USD': 2380.95, 'USDT': 2380.95, 'BTC': 0.054, 'BNB': 7.8 },
-  'BNB': { 'USD': 303.03, 'USDT': 303.03, 'BTC': 0.0069, 'ETH': 0.128 },
-};
+const EXCHANGE_RATES: Record<string, Record<string, number>> = {};
 
 const SWAP_FEE = 0.003;
 
@@ -57,6 +51,7 @@ export default function SwapCard() {
   const priceImpact = useMemo(() => {
     if (!fromAmount || isNaN(parseFloat(fromAmount))) return '0.00';
     const amount = parseFloat(fromAmount);
+    if (fromAsset.balance <= 0) return '0.01';
     const impact = (amount / fromAsset.balance) * 0.1;
     return Math.min(impact, 5).toFixed(2);
   }, [fromAmount, fromAsset.balance]);
@@ -95,7 +90,12 @@ export default function SwapCard() {
   };
 
   const handleConfirmSwap = async () => {
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    } catch (error) {
+      console.error('[SwapCard] Swap failed:', error);
+      throw error;
+    }
   };
 
   const isValidSwap = fromAmount && parseFloat(fromAmount) > 0 && parseFloat(fromAmount) <= fromAsset.balance && rate > 0;

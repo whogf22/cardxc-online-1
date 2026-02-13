@@ -32,18 +32,21 @@ export default function KYCManagementTab() {
 
   const toast = useToastContext();
 
-  const loadUsers = useCallback(async () => {
+  const loadUsers = useCallback(async (cacheBust = false) => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await apiClient.get('/admin/users?limit=100');
-      
+      const url = cacheBust
+        ? `/admin/users?limit=100&_t=${Date.now()}`
+        : '/admin/users?limit=100';
+      const response = await apiClient.get(url);
+
       if (response.success) {
         const usersData = response.data?.users || [];
         setUsers(usersData.map((u: any) => ({
           ...u,
-          kyc_status: u.kyc_status || 'not_started',
+          kyc_status: (u.kyc_status || 'not_started').toLowerCase(),
         })));
       }
     } catch (err: any) {
@@ -61,15 +64,24 @@ export default function KYCManagementTab() {
   const handleUpdateKYCStatus = async (userId: string, newStatus: string) => {
     try {
       setUpdating(userId);
-      
+      const normalizedStatus = newStatus.toLowerCase() as UserKYC['kyc_status'];
+
       await apiClient.put(`/admin/users/${userId}/kyc-status`, {
         status: newStatus,
       });
 
       toast.success(`KYC status updated to ${newStatus}`);
-      await loadUsers();
+
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === userId ? { ...u, kyc_status: normalizedStatus } : u
+        )
+      );
+
+      await loadUsers(true);
     } catch (err: any) {
       toast.error(err.message || 'Failed to update KYC status');
+      await loadUsers(true);
     } finally {
       setUpdating(null);
     }
@@ -113,8 +125,8 @@ export default function KYCManagementTab() {
           <h2 className="text-2xl font-bold text-white">KYC Management</h2>
           <p className="text-slate-400 mt-1">Review and manage user verification</p>
         </div>
-        <button 
-          onClick={loadUsers}
+        <button
+          onClick={() => loadUsers(true)}
           disabled={loading}
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all duration-200 font-medium border border-slate-700 hover:border-slate-600"
         >
@@ -173,11 +185,10 @@ export default function KYCManagementTab() {
               <button
                 key={status}
                 onClick={() => setFilterStatus(status)}
-                className={`px-4 py-2.5 rounded-xl font-medium transition-all duration-200 cursor-pointer whitespace-nowrap ${
-                  filterStatus === status
+                className={`px-4 py-2.5 rounded-xl font-medium transition-all duration-200 cursor-pointer whitespace-nowrap ${filterStatus === status
                     ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
                     : 'bg-slate-900/50 text-slate-400 hover:text-white border border-slate-700 hover:border-slate-600'
-                }`}
+                  }`}
               >
                 {status === 'all' ? 'All' : status.replace('_', ' ').charAt(0).toUpperCase() + status.replace('_', ' ').slice(1)}
               </button>
@@ -213,11 +224,10 @@ export default function KYCManagementTab() {
                 filteredUsers.map((user, index) => {
                   const statusConfig = KYC_STATUS_CONFIG[user.kyc_status as keyof typeof KYC_STATUS_CONFIG] || KYC_STATUS_CONFIG.not_started;
                   return (
-                    <tr 
-                      key={user.id} 
-                      className={`border-b border-slate-700/30 hover:bg-slate-700/20 transition-colors ${
-                        index % 2 === 0 ? 'bg-slate-800/20' : 'bg-transparent'
-                      }`}
+                    <tr
+                      key={user.id}
+                      className={`border-b border-slate-700/30 hover:bg-slate-700/20 transition-colors ${index % 2 === 0 ? 'bg-slate-800/20' : 'bg-transparent'
+                        }`}
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -242,13 +252,12 @@ export default function KYCManagementTab() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex px-3 py-1.5 rounded-lg text-xs font-semibold border ${
-                          user.account_status === 'active' 
-                            ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' 
-                            : user.account_status === 'suspended' 
-                              ? 'bg-red-500/20 text-red-400 border-red-500/30' 
+                        <span className={`inline-flex px-3 py-1.5 rounded-lg text-xs font-semibold border ${user.account_status === 'active'
+                            ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                            : user.account_status === 'suspended'
+                              ? 'bg-red-500/20 text-red-400 border-red-500/30'
                               : 'bg-slate-500/20 text-slate-400 border-slate-500/30'
-                        }`}>
+                          }`}>
                           {user.account_status || 'active'}
                         </span>
                       </td>

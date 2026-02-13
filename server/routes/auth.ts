@@ -42,7 +42,7 @@ const SESSION_DURATION_HOURS = 24;
 
 function getClientInfo(req: Request) {
   return {
-    ipAddress: req.ip || req.connection.remoteAddress || 'unknown',
+    ipAddress: req.ip || req.socket.remoteAddress || 'unknown',
     userAgent: req.get('user-agent') || 'unknown',
   };
 }
@@ -161,7 +161,7 @@ router.post('/signin',
     }
 
     const user = await queryOne<any>(`
-      SELECT id, email, password_hash, full_name, role, account_status, locked_until, 
+      SELECT id, email, password_hash, full_name, role, account_status, kyc_status, locked_until, 
              failed_login_attempts, two_factor_enabled
       FROM users WHERE email = $1
     `, [email]);
@@ -231,7 +231,7 @@ router.post('/signin',
     }
 
     await query(`
-      UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = $1
+      UPDATE users SET failed_login_attempts = 0, locked_until = NULL, last_login_at = NOW(), login_count = COALESCE(login_count, 0) + 1 WHERE id = $1
     `, [user.id]);
 
     const token = await createSession(user.id, req);
@@ -260,21 +260,37 @@ router.post('/signin',
     res.json({
       success: true,
       data: {
-        user: { id: user.id, email: user.email, fullName: user.full_name, role: user.role },
+        user: {
+          id: user.id,
+          email: user.email,
+          fullName: user.full_name,
+          role: user.role,
+          kyc_status: (user.kyc_status || 'pending').toLowerCase(),
+          account_status: (user.account_status || 'active').toLowerCase(),
+        },
         token,
       }
     });
   })
 );
 
-router.post(['/signout', '/logout'], authenticate, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  if (req.user) {
-    await query('UPDATE sessions SET is_active = FALSE WHERE id = $1', [req.user.sessionId]);
-    await createAuditLog({
-      userId: req.user.id,
-      action: 'USER_LOGOUT',
-      ...getClientInfo(req),
-    });
+// Logout doesn't require authentication - always clear cookie even with expired/invalid token
+router.post(['/signout', '/logout'], asyncHandler(async (req: Request, res: Response) => {
+  // Try to get token and invalidate session if valid
+  const token = req.cookies.auth_token || req.headers.authorization?.replace('Bearer ', '');
+  
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; sessionId: string };
+      await query('UPDATE sessions SET is_active = FALSE WHERE id = $1', [decoded.sessionId]);
+      await createAuditLog({
+        userId: decoded.userId,
+        action: 'USER_LOGOUT',
+        ...getClientInfo(req),
+      });
+    } catch {
+      // Token invalid/expired - still clear cookie, just don't log audit
+    }
   }
   
   res.clearCookie('auth_token', {
@@ -544,20 +560,21 @@ router.post('/password-reset/confirm',
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const BOOTSTRAP_ADMIN_EMAIL = 'siyamhasan4@gmail.com';
+const BOOTSTRAP_ADMIN_EMAIL = process.env.BOOTSTRAP_SUPER_ADMIN_EMAIL ?? '';
 
-const PRODUCTION_DOMAIN = 'cardxc.online';
-const REPLIT_APP_DOMAIN = 'cardxc-online.replit.app';
+const PRODUCTION_DOMAIN = process.env.APP_DOMAIN || 'cardxc.online';
+const REPLIT_APP_DOMAIN = process.env.REPLIT_APP_DOMAIN || '';
 
 function getGoogleCallbackUrl(req?: Request): string {
-  const host = req?.get('host') || '';
+  const host = (req?.get('host') || '').replace(/:.*$/, '').trim();
   
   if (host.includes(PRODUCTION_DOMAIN)) {
     return `https://${PRODUCTION_DOMAIN}/api/auth/google/callback`;
   }
   
   if (host.includes('replit.app') || host.includes('replit.dev')) {
-    return `https://${REPLIT_APP_DOMAIN}/api/auth/google/callback`;
+    const replitHost = (REPLIT_APP_DOMAIN && REPLIT_APP_DOMAIN.trim()) ? REPLIT_APP_DOMAIN.trim().replace(/:.*$/, '') : host;
+    return `https://${replitHost}/api/auth/google/callback`;
   }
   
   if (process.env.NODE_ENV === 'production') {
@@ -703,7 +720,7 @@ router.get('/google/callback', asyncHandler(async (req: Request, res: Response) 
       FROM users WHERE email = $1
     `, [email]);
 
-    const isBootstrapAdmin = email.toLowerCase() === BOOTSTRAP_ADMIN_EMAIL.toLowerCase();
+    const isBootstrapAdmin = !!BOOTSTRAP_ADMIN_EMAIL && email.toLowerCase() === BOOTSTRAP_ADMIN_EMAIL.toLowerCase();
     const userRole = isBootstrapAdmin ? 'SUPER_ADMIN' : 'USER';
 
     if (!user) {
@@ -784,6 +801,35 @@ router.get('/google/callback', asyncHandler(async (req: Request, res: Response) 
   } catch (err: any) {
     logger.error('Google OAuth callback error', { error: err.message, stack: err.stack });
     return res.redirect('/signin?error_description=' + encodeURIComponent('An error occurred during Google login'));
+  }
+}));
+
+router.post('/verify-phone', authenticate, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { phone, code } = req.body;
+  
+  if (!phone || !code) {
+    return res.status(400).json({ success: false, message: 'Phone number and verification code are required' });
+  }
+
+  if (code.length !== 6 || !/^\d{6}$/.test(code)) {
+    return res.status(400).json({ success: false, message: 'Invalid verification code format' });
+  }
+
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ success: false, message: 'Authentication required' });
+  }
+
+  try {
+    await query(
+      'UPDATE users SET phone = $1, updated_at = NOW() WHERE id = $2',
+      [phone, userId]
+    );
+
+    res.json({ success: true, message: 'Phone number verified successfully' });
+  } catch (err: any) {
+    logger.error('Phone verification error', { error: err.message, userId });
+    res.status(500).json({ success: false, message: 'Failed to verify phone number' });
   }
 }));
 

@@ -7,6 +7,7 @@ import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/a
 import { createAuditLog, getAuditLogs, exportAuditLogsToCSV } from '../services/auditService';
 import { getFraudFlags } from '../services/fraudService';
 import { isStripeConfigured, createPaymentIntent, getPaymentIntent } from '../services/stripeService';
+import { isFluzConfigured } from '../services/fluzClient';
 import { getSecurityEvents, getSecurityEventsByType, getSecurityEventsByIP } from '../middleware/securityLogger';
 import { getRateLimitViolations, clearRateLimitViolations } from '../middleware/rateLimit';
 
@@ -31,9 +32,44 @@ router.get('/wallets', asyncHandler(async (req: AuthenticatedRequest, res: Respo
   });
 }));
 
+router.get('/local-user-db', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const [users, sessions, wallets] = await Promise.all([
+      query<any>(`
+        SELECT id, email, full_name, phone, country, role, kyc_status, account_status,
+               email_verified, two_factor_enabled, failed_login_attempts, locked_until,
+               referral_code, referred_by, created_at, updated_at
+        FROM users ORDER BY created_at DESC LIMIT 500
+      `),
+      query<any>(`
+        SELECT id, user_id, token_hash, ip_address, user_agent, device_info, is_active,
+               created_at, last_used_at, expires_at
+        FROM sessions ORDER BY last_used_at DESC NULLS LAST LIMIT 500
+      `),
+      query<any>(`
+        SELECT id, user_id, currency, balance_cents, reserved_cents, usdt_balance_cents, created_at, updated_at
+        FROM wallets ORDER BY updated_at DESC LIMIT 500
+      `),
+    ]);
+    res.json({
+      success: true,
+      data: { users, sessions, wallets },
+    });
+  } catch (err: any) {
+    if (err.code === '42P01') {
+      res.status(503).json({
+        success: false,
+        error: 'Local user DB tables (users, sessions, wallets) not found. Run local-user-schema.sql.',
+      });
+      return;
+    }
+    throw err;
+  }
+}));
+
 router.get('/users/:userId/balance', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { userId } = req.params;
-  
+
   const wallet = await queryOne<any>(`
     SELECT balance_cents FROM wallets WHERE user_id = $1 AND currency = 'USD'
   `, [userId]);
@@ -45,7 +81,7 @@ router.get('/users/:userId/balance', asyncHandler(async (req: AuthenticatedReque
 }));
 
 router.get('/overview', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const [userStats, transactionStats, pendingWithdrawals, fraudFlags] = await Promise.all([
+  const [userStats, transactionStats, pendingWithdrawals, fraudFlags, transactionHistory] = await Promise.all([
     queryOne<any>(`
       SELECT 
         COUNT(*) as total_users,
@@ -62,30 +98,43 @@ router.get('/overview', asyncHandler(async (req: AuthenticatedRequest, res: Resp
     `),
     queryOne<any>('SELECT COUNT(*) as count FROM withdrawal_requests WHERE status = $1', ['pending']),
     queryOne<any>('SELECT COUNT(*) as count FROM fraud_flags WHERE status = $1', ['active']),
+    query<{ day: string, total: string }>(`
+      SELECT 
+        TO_CHAR(created_at, 'YYYY-MM-DD') as day,
+        COUNT(*) as total
+      FROM transactions
+      WHERE created_at > NOW() - INTERVAL '7 days'
+      GROUP BY day
+      ORDER BY day ASC
+    `),
   ]);
 
-    res.json({
-      success: true,
-      data: {
-        users: {
-          total: parseInt(userStats?.total_users || '0'),
-          active: parseInt(userStats?.active_users || '0'),
-          verified: parseInt(userStats?.verified_users || '0'),
-        },
-        transactions: {
-          total: parseInt(transactionStats?.total_transactions || '0'),
-          totalDeposits: (Number(transactionStats?.total_deposits || 0)) / 100,
-          totalWithdrawals: (Number(transactionStats?.total_withdrawals || 0)) / 100,
-        },
-        pendingWithdrawals: parseInt(pendingWithdrawals?.count || '0'),
-        activeFraudFlags: parseInt(fraudFlags?.count || '0'),
-      }
-    });
+  res.json({
+    success: true,
+    data: {
+      users: {
+        total: parseInt(userStats?.total_users || '0'),
+        active: parseInt(userStats?.active_users || '0'),
+        verified: parseInt(userStats?.verified_users || '0'),
+      },
+      transactions: {
+        total: parseInt(transactionStats?.total_transactions || '0'),
+        totalDeposits: (Number(transactionStats?.total_deposits || 0)) / 100,
+        totalWithdrawals: (Number(transactionStats?.total_withdrawals || 0)) / 100,
+        history: (transactionHistory || []).map((h: any) => ({
+          day: h.day,
+          count: parseInt(h.total)
+        })),
+      },
+      pendingWithdrawals: parseInt(pendingWithdrawals?.count || '0'),
+      activeFraudFlags: parseInt(fraudFlags?.count || '0'),
+    }
+  });
 }));
 
 router.get('/users', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
-  const offset = parseInt(req.query.offset as string) || 0;
+  const limit = Math.min(parseInt(req.query.limit as string, 10) || 50, 100);
+  const offset = Math.max(0, parseInt(req.query.offset as string, 10) || 0);
   const search = req.query.search as string;
 
   let whereClause = '1=1';
@@ -105,6 +154,35 @@ router.get('/users', asyncHandler(async (req: AuthenticatedRequest, res: Respons
   `, [...params, limit, offset]);
 
   res.json({ success: true, data: { users } });
+}));
+
+function escapeCsvCell(val: any): string {
+  if (val == null) return '';
+  const s = String(val);
+  if (s.includes('"') || s.includes(',') || s.includes('\n') || s.includes('\r')) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+router.get('/users/export', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const limit = Math.min(parseInt(req.query.limit as string, 10) || 10000, 50000);
+  const users = await query<any>(`
+    SELECT id, email, full_name, role, account_status, created_at
+    FROM users
+    ORDER BY created_at DESC
+    LIMIT $1
+  `, [limit]);
+
+  const header = ['id', 'email', 'full_name', 'role', 'account_status', 'created_at'];
+  const rows = users.map((u: any) =>
+    header.map((h) => escapeCsvCell(u[h])).join(',')
+  );
+  const csv = [header.join(','), ...rows].join('\n');
+
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename=users-export.csv');
+  res.send(csv);
 }));
 
 router.post('/users',
@@ -158,7 +236,7 @@ router.post('/users',
 
 router.get('/users/:userId', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { userId } = req.params;
-  
+
   const user = await queryOne(`
     SELECT id, email, full_name, phone, country, role, kyc_status, account_status, 
            two_factor_enabled, failed_login_attempts, locked_until, created_at, updated_at
@@ -192,7 +270,11 @@ router.put('/users/:userId/status',
       throw new AppError('Cannot modify SUPER_ADMIN users', 403, 'FORBIDDEN');
     }
 
-    await query('UPDATE users SET account_status = $1, updated_at = NOW() WHERE id = $2', [status, userId]);
+    if (status === 'active') {
+      await query('UPDATE users SET account_status = $1, failed_login_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = $2', [status, userId]);
+    } else {
+      await query('UPDATE users SET account_status = $1, updated_at = NOW() WHERE id = $2', [status, userId]);
+    }
 
     await createAuditLog({
       userId: req.user!.id,
@@ -243,8 +325,8 @@ router.put('/users/:userId/password',
 );
 
 router.get('/my-activity', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
-  const offset = parseInt(req.query.offset as string) || 0;
+  const limit = Math.min(parseInt(req.query.limit as string, 10) || 50, 100);
+  const offset = Math.max(0, parseInt(req.query.offset as string, 10) || 0);
 
   const logs = await query(`
     SELECT id, action, entity_type, entity_id, old_values, new_values, ip_address, created_at
@@ -329,7 +411,7 @@ router.put('/users/:userId/role',
 
 router.get('/withdrawals', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const status = req.query.status as string || 'pending';
-  
+
   const withdrawals = await query(`
     SELECT w.*, u.email as user_email, u.full_name as user_name
     FROM withdrawal_requests w
@@ -477,7 +559,7 @@ router.post('/adjustments',
 
         const adjustmentId = result.rows[0].id;
         const balanceChange = type === 'credit' ? amountCents : -amountCents;
-        
+
         await client.query(`
           INSERT INTO wallets (user_id, currency, balance_cents)
           VALUES ($1, $2, $3)
@@ -500,9 +582,9 @@ router.post('/adjustments',
         newValues: { userId, type, amount: amountCents, currency, reason, autoApproved: true },
       });
 
-      res.status(201).json({ 
-        success: true, 
-        data: { 
+      res.status(201).json({
+        success: true,
+        data: {
           status: 'SUCCESS',
         },
         message: 'Adjustment applied successfully'
@@ -515,7 +597,7 @@ router.post('/adjustments',
 
 router.get('/adjustments', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const status = req.query.status as string || 'PENDING';
-  
+
   const adjustments = await query(`
     SELECT a.*, 
            u.email as user_email,
@@ -557,7 +639,7 @@ router.post('/adjustments/:adjustmentId/approve',
       `, [req.user!.id, adjustmentId]);
 
       const balanceChange = adjustment.type === 'credit' ? adjustment.amount_cents : -adjustment.amount_cents;
-      
+
       await client.query(`
         INSERT INTO wallets (user_id, currency, balance_cents)
         VALUES ($1, $2, $3)
@@ -610,8 +692,8 @@ router.post('/adjustments/:adjustmentId/reject',
 );
 
 router.get('/transactions', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
-  const offset = parseInt(req.query.offset as string) || 0;
+  const limit = Math.min(parseInt(req.query.limit as string, 10) || 50, 200);
+  const offset = Math.max(0, parseInt(req.query.offset as string, 10) || 0);
   const userId = req.query.userId as string;
   const type = req.query.type as string;
   const status = req.query.status as string;
@@ -664,8 +746,8 @@ router.get('/audit-logs', asyncHandler(async (req: AuthenticatedRequest, res: Re
     entityType: req.query.entityType as string,
     startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
     endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
-    limit: parseInt(req.query.limit as string) || 100,
-    offset: parseInt(req.query.offset as string) || 0,
+    limit: Math.min(parseInt(req.query.limit as string, 10) || 100, 500),
+    offset: Math.max(0, parseInt(req.query.offset as string, 10) || 0),
   };
 
   const logs = await getAuditLogs(filters);
@@ -694,7 +776,7 @@ router.get('/fraud-flags', asyncHandler(async (req: AuthenticatedRequest, res: R
     userId: req.query.userId as string,
     status: req.query.status as string || 'active',
     severity: req.query.severity as string,
-    limit: parseInt(req.query.limit as string) || 100,
+    limit: Math.min(parseInt(req.query.limit as string, 10) || 100, 500),
   });
 
   res.json({ success: true, data: { flags } });
@@ -820,10 +902,10 @@ router.post('/card-deposit/confirm',
         action: 'CARD_DEPOSIT_VALIDATION_FAILED',
         entityType: 'card_deposit',
         entityId: paymentIntentId,
-        newValues: { 
-          requestedUserId: userId, 
+        newValues: {
+          requestedUserId: userId,
           metadataUserId: metadata.user_id,
-          error: 'User ID mismatch' 
+          error: 'User ID mismatch'
         },
       });
       throw new AppError('Payment verification failed: user mismatch', 403, 'USER_MISMATCH');
@@ -835,10 +917,10 @@ router.post('/card-deposit/confirm',
         action: 'CARD_DEPOSIT_VALIDATION_FAILED',
         entityType: 'card_deposit',
         entityId: paymentIntentId,
-        newValues: { 
-          requestedAdminId: req.user!.id, 
+        newValues: {
+          requestedAdminId: req.user!.id,
           metadataAdminId: metadata.admin_id,
-          error: 'Admin ID mismatch' 
+          error: 'Admin ID mismatch'
         },
       });
       throw new AppError('Payment verification failed: admin mismatch', 403, 'ADMIN_MISMATCH');
@@ -865,10 +947,10 @@ router.post('/card-deposit/confirm',
       action: 'CARD_DEPOSIT_COMPLETED',
       entityType: 'card_deposit',
       entityId: paymentIntentId,
-      newValues: { 
-        userId, 
-        amount: amountCents, 
-        reason, 
+      newValues: {
+        userId,
+        amount: amountCents,
+        reason,
         stripePaymentIntentId: paymentIntentId,
         verifiedMetadata: { user_id: metadata.user_id, admin_id: metadata.admin_id }
       },
@@ -887,16 +969,14 @@ router.post('/card-deposit/confirm',
 );
 
 router.get('/payment-provider-status', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const configured = !!(process.env.FLUZ_AUTH_BASIC);
-
   res.json({
     success: true,
-    data: { configured }
+    data: { configured: isFluzConfigured() },
   });
 }));
 
 router.get('/gift-card-requests', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
+  const limit = Math.min(parseInt(req.query.limit as string, 10) || 100, 500);
   const status = req.query.status as string;
   const type = req.query.type as string;
 
@@ -915,6 +995,7 @@ router.get('/gift-card-requests', asyncHandler(async (req: AuthenticatedRequest,
 
   const requests = await query(`
     SELECT gcr.id, gcr.user_id, gcr.type, gcr.brand, gcr.amount_cents, gcr.currency, 
+           gcr.rate, gcr.cost_cents, gcr.profit_cents, gcr.market_rate, gcr.our_rate,
            gcr.status, gcr.card_code, gcr.created_at, gcr.updated_at,
            u.email as user_email, u.full_name as user_name
     FROM gift_card_requests gcr
@@ -990,12 +1071,65 @@ router.post('/gift-card-requests/:requestId/reject',
   })
 );
 
+// Gift card profit analytics
+router.get('/gift-cards/analytics', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const days = Math.min(parseInt(req.query.days as string, 10) || 30, 365);
+
+  const analytics = await query(`
+    SELECT 
+      COUNT(*) FILTER (WHERE type = 'buy' AND status = 'completed') as total_sales,
+      COUNT(*) FILTER (WHERE type = 'sell' AND status = 'completed') as total_purchases,
+      COALESCE(SUM(profit_cents) FILTER (WHERE status = 'completed'), 0) as total_profit_cents,
+      COALESCE(SUM(cost_cents) FILTER (WHERE status = 'completed'), 0) as total_cost_cents,
+      COALESCE(SUM(amount_cents) FILTER (WHERE type = 'buy' AND status = 'completed'), 0) as revenue_cents,
+      COUNT(DISTINCT brand) as unique_brands,
+      AVG(profit_cents) FILTER (WHERE status = 'completed' AND profit_cents > 0) as avg_profit_per_transaction
+    FROM gift_card_requests
+    WHERE created_at > NOW() - INTERVAL '${days} days'
+  `);
+
+  const topBrands = await query(`
+    SELECT 
+      brand,
+      COUNT(*) as transaction_count,
+      SUM(profit_cents) as total_profit_cents,
+      AVG(profit_cents) as avg_profit_cents,
+      SUM(amount_cents) as total_volume_cents
+    FROM gift_card_requests
+    WHERE status = 'completed' AND created_at > NOW() - INTERVAL '${days} days'
+    GROUP BY brand
+    ORDER BY total_profit_cents DESC NULLS LAST
+    LIMIT 10
+  `);
+
+  const profitByDay = await query(`
+    SELECT 
+      DATE(created_at) as date,
+      COUNT(*) as transactions,
+      SUM(profit_cents) as profit_cents,
+      SUM(cost_cents) as cost_cents
+    FROM gift_card_requests
+    WHERE status = 'completed' AND created_at > NOW() - INTERVAL '${days} days'
+    GROUP BY DATE(created_at)
+    ORDER BY date DESC
+  `);
+
+  res.json({
+    success: true,
+    data: {
+      summary: analytics[0],
+      topBrands,
+      profitByDay
+    }
+  });
+}));
+
 // Security monitoring endpoints
 router.get('/security/events', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
+  const limit = Math.min(parseInt(req.query.limit as string, 10) || 100, 500);
   const type = req.query.type as string;
   const ip = req.query.ip as string;
-  
+
   let events;
   if (type) {
     events = getSecurityEventsByType(type, limit);
@@ -1004,7 +1138,7 @@ router.get('/security/events', asyncHandler(async (req: AuthenticatedRequest, re
   } else {
     events = getSecurityEvents(limit);
   }
-  
+
   res.json({
     success: true,
     data: { events, count: events.length }
@@ -1014,7 +1148,7 @@ router.get('/security/events', asyncHandler(async (req: AuthenticatedRequest, re
 router.get('/security/rate-limits', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const violations = getRateLimitViolations();
   const violationsArray = Array.from(violations.entries()).map(([ip, count]) => ({ ip, violations: count }));
-  
+
   res.json({
     success: true,
     data: { violations: violationsArray, count: violations.size }
@@ -1024,19 +1158,19 @@ router.get('/security/rate-limits', asyncHandler(async (req: AuthenticatedReques
 router.post('/security/rate-limits/clear', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const ip = req.body.ip as string | undefined;
   clearRateLimitViolations(ip);
-  
+
   await createAuditLog({
     userId: req.user!.id,
     action: 'SECURITY_RATE_LIMIT_CLEARED',
     entityType: 'security',
     newValues: { ip: ip || 'all' },
   });
-  
+
   res.json({ success: true, message: ip ? `Rate limit cleared for ${ip}` : 'All rate limits cleared' });
 }));
 
 router.get('/card-transactions', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
+  const limit = Math.min(parseInt(req.query.limit as string, 10) || 100, 500);
   const status = req.query.status as string;
 
   let whereClause = '1=1';

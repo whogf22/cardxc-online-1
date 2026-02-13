@@ -278,6 +278,12 @@ export default function DepositModal({ isOpen, onClose, onSuccess, userId, onOpe
     const amountUSD = parseToUSD(amountValue, currency, rates);
     const roundedAmountUSD = Math.round(amountUSD * 100) / 100;
 
+    if (roundedAmountUSD < 100 || roundedAmountUSD > 2500) {
+      setStep('error');
+      setErrorMessage('Amount must be between $100 and $2,500 (USD).');
+      return;
+    }
+
     setIsProcessing(true);
     setErrorMessage('');
     setDepositAmountUSD(roundedAmountUSD);
@@ -297,12 +303,12 @@ export default function DepositModal({ isOpen, onClose, onSuccess, userId, onOpe
         setCheckoutUrl(response.data.checkoutUrl);
         setStep('checkout');
       } else {
-        throw new Error('Failed to create checkout session');
+        throw new Error(response.error?.message || 'Failed to create checkout session');
       }
     } catch (error: any) {
       console.error('[DepositModal] Checkout error:', error);
       setStep('error');
-      setErrorMessage(error.response?.data?.error?.message || error.message || 'Payment failed. Please try again.');
+      setErrorMessage(error?.message || 'Payment failed. Please try again.');
     } finally {
       setIsProcessing(false);
     }

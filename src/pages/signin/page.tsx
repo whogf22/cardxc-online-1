@@ -104,8 +104,8 @@ export default function SignInPage() {
     return (
       <div className="min-h-screen bg-dark-bg flex flex-col relative overflow-hidden">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/4 -left-40 w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-[120px] animate-pulse-soft"></div>
-          <div className="absolute bottom-1/4 -right-40 w-[500px] h-[500px] bg-cream-400/10 rounded-full blur-[140px]"></div>
+          <div className="absolute top-1/4 -left-40 w-[600px] h-[600px] bg-lime-500/[0.07] rounded-full blur-[120px] animate-pulse-soft"></div>
+          <div className="absolute bottom-1/4 -right-40 w-[500px] h-[500px] bg-lime-500/[0.07] rounded-full blur-[140px]"></div>
         </div>
 
         <div className="flex-1 flex flex-col px-6 pt-12 pb-8 relative z-10">
@@ -118,8 +118,8 @@ export default function SignInPage() {
 
           <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full">
             <div className="flex items-center gap-3 mb-8">
-              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/25">
-                <i className="ri-shield-keyhole-line text-white text-2xl"></i>
+              <div className="w-12 h-12 bg-lime-500 rounded-xl flex items-center justify-center shadow-lg shadow-glow">
+                <i className="ri-shield-keyhole-line text-black text-2xl"></i>
               </div>
               <span className="text-2xl font-bold text-white">2FA Verification</span>
             </div>
@@ -152,7 +152,7 @@ export default function SignInPage() {
                   maxLength={6}
                   pattern="[0-9]{6}"
                   autoComplete="one-time-code"
-                  className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-center text-2xl tracking-widest"
+                  className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent transition-all text-center text-2xl tracking-widest"
                   placeholder="000000"
                 />
               </div>
@@ -160,7 +160,7 @@ export default function SignInPage() {
               <button
                 type="submit"
                 disabled={loading || twoFactorToken.length !== 6}
-                className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/25"
+                className="w-full py-4 bg-lime-500 hover:bg-lime-400 text-black font-bold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-glow"
               >
                 {loading ? (
                   <>
@@ -181,13 +181,13 @@ export default function SignInPage() {
   return (
     <div className="min-h-screen bg-dark-bg flex flex-col relative overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-40 w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-[120px] animate-pulse-soft"></div>
-        <div className="absolute bottom-1/4 -right-40 w-[500px] h-[500px] bg-cream-400/10 rounded-full blur-[140px]"></div>
+        <div className="absolute top-1/4 -left-40 w-[600px] h-[600px] bg-lime-500/[0.07] rounded-full blur-[120px] animate-pulse-soft"></div>
+        <div className="absolute bottom-1/4 -right-40 w-[500px] h-[500px] bg-lime-500/[0.07] rounded-full blur-[140px]"></div>
       </div>
 
       <div className="absolute inset-0 opacity-10">
         <div className="absolute inset-0" style={{
-          backgroundImage: `radial-gradient(circle at 2px 2px, rgba(247, 220, 204, 0.15) 1px, transparent 0)`,
+          backgroundImage: `radial-gradient(circle at 2px 2px, rgba(132, 204, 22, 0.15) 1px, transparent 0)`,
           backgroundSize: '64px 64px'
         }}></div>
       </div>
@@ -204,8 +204,8 @@ export default function SignInPage() {
           <div className="relative">
             <div className="relative z-10 p-8 rounded-3xl bg-white/[0.03] backdrop-blur-xl border border-white/10 shadow-2xl">
               <div className="flex items-center gap-3 mb-8">
-                <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/25">
-                  <i className="ri-bank-card-line text-white text-2xl"></i>
+                <div className="w-12 h-12 bg-lime-500 rounded-xl flex items-center justify-center shadow-lg shadow-glow">
+                  <i className="ri-bank-card-line text-black text-2xl"></i>
                 </div>
                 <span className="text-2xl font-bold text-white">CardXC</span>
               </div>
@@ -236,7 +236,7 @@ export default function SignInPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     autoComplete="email"
-                    className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent transition-all"
                     placeholder="Enter email address"
                   />
                 </div>
@@ -253,7 +253,7 @@ export default function SignInPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       autoComplete="current-password"
-                      className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all pr-12"
+                      className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent transition-all pr-12"
                       placeholder="Enter password"
                     />
                     <button
@@ -272,7 +272,7 @@ export default function SignInPage() {
                     onClick={handleBiometricLogin}
                     className={`flex items-center gap-2 text-sm transition-colors ${
                       biometricAvailable 
-                        ? 'text-emerald-400 hover:text-emerald-300 cursor-pointer' 
+                        ? 'text-lime-400 hover:text-lime-300 cursor-pointer' 
                         : 'text-neutral-500 cursor-not-allowed'
                     }`}
                   >
@@ -281,7 +281,7 @@ export default function SignInPage() {
                   </button>
                   <Link
                     to="/forgot-password"
-                    className="text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors"
+                    className="text-sm font-medium text-lime-400 hover:text-lime-300 transition-colors"
                   >
                     Forgot Password?
                   </Link>
@@ -290,7 +290,7 @@ export default function SignInPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:-translate-y-0.5"
+                  className="w-full py-4 bg-lime-500 hover:bg-lime-400 text-black font-bold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-glow hover:shadow-glow hover:-translate-y-0.5"
                 >
                   {loading ? (
                     <>
@@ -337,7 +337,7 @@ export default function SignInPage() {
 
           <p className="text-center text-neutral-400 mt-8">
             Don't have an account?{' '}
-            <Link to="/signup" className="font-semibold text-emerald-400 hover:text-emerald-300 transition-colors">
+            <Link to="/signup" className="font-semibold text-lime-400 hover:text-lime-300 transition-colors">
               Create Account
             </Link>
           </p>

@@ -16,8 +16,7 @@ export default function AdminRoute({ children }: AdminRouteProps) {
       if (!isAuthenticated) {
         navigate('/signin', { replace: true });
       } else if (!isAdmin) {
-        console.log('[AdminRoute] Non-admin user, redirecting to home');
-        navigate('/', { replace: true });
+        navigate('/dashboard', { replace: true });
       }
     }
   }, [loading, roleLoading, roleError, isAuthenticated, isAdmin, navigate]);

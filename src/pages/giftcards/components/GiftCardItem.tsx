@@ -18,7 +18,7 @@ export default function GiftCardItem({ card, onSelect }: GiftCardItemProps) {
   return (
     <button
       onClick={() => onSelect(card)}
-      className="group bg-dark-card rounded-2xl border border-dark-border p-4 hover:border-cream-300/30 hover:shadow-lg transition-all duration-300 text-left cursor-pointer"
+      className="group bg-dark-card rounded-2xl border border-dark-border p-4 hover:border-lime-400/30 hover:shadow-lg transition-all duration-300 text-left cursor-pointer"
     >
       <div className="flex flex-col gap-3">
         <div 

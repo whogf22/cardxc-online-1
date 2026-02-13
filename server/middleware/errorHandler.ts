@@ -36,16 +36,17 @@ export function errorHandler(err: Error | AppError, req: Request, res: Response,
   const statusCode = (err as AppError).statusCode || 500;
   const isOperational = (err as AppError).isOperational || false;
   
+  const isProduction = process.env.NODE_ENV === 'production';
   logger.error('Error occurred', {
     message: err.message,
-    stack: err.stack,
+    ...(isProduction ? {} : { stack: err.stack }),
     statusCode,
     path: req.path,
     method: req.method,
     ip: req.ip,
     isOperational,
   });
-  
+
   if (isOperational) {
     res.status(statusCode).json({
       success: false,

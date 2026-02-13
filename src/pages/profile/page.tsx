@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../../contexts/AuthContext';
-import BottomNavigation from '../../components/BottomNavigation';
 
 interface ProfileData {
   id: string;
@@ -194,8 +193,6 @@ export default function ProfilePage() {
           Logout
         </button>
       </div>
-
-      <BottomNavigation />
     </div>
   );
 }

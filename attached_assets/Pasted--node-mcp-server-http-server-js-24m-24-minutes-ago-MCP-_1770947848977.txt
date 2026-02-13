@@ -1,0 +1,97 @@
+
+node mcp-server/http-server.js
+24m
+ • 
+24 minutes ago
+MCP HTTP Server running on port 8080
+Features: JWT Auth, API Key Auth, Gemini AI, Database, File Ops, Rate Limiting
+Tools: 16 available
+Cursor MCP: use URL http://localhost:8080/mcp (Streamable HTTP)
+ 
+ 
+npm run dev
+16m
+ • 
+16 minutes ago
+ 
+> react@0.0.0 dev
+ 
+  VITE v7.3.1  ready in 553 ms
+ 
+  ➜  Local:   http://localhost:5000/
+  ➜  Network: http://172.31.79.66:5000/
+  ➜  press h + enter to show help
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
+info: Development mode: using port 3001 for API so Vite can use 5000 {"service":"cardxc-api","timestamp":"2026-02-13T01:41:09.345Z"}
+info: Serving frontend from /home/runner/workspace/dist {"service":"cardxc-api","timestamp":"2026-02-13T01:41:09.354Z"}
+info: No bootstrap admin configured (set BOOTSTRAP_SUPER_ADMIN_EMAIL and BOOTSTRAP_SUPER_ADMIN_PASSWORD) {"service":"cardxc-api","timestamp":"2026-02-13T01:41:09
+.560Z"}
+info: Database schema initialized {"service":"cardxc-api","timestamp":"2026-02-13T01:41:09.589Z"}
+info: Database initialized successfully {"service":"cardxc-api","timestamp":"2026-02-13T01:41:09.590Z"}
+info: Initializing background jobs {"service":"cardxc-api","timestamp":"2026-02-13T01:41:09.590Z"}
+info: Background jobs scheduled {"service":"cardxc-api","timestamp":"2026-02-13T01:41:09.627Z"}
+info: Background jobs initialized {"service":"cardxc-api","timestamp":"2026-02-13T01:41:09.628Z"}
+info: Server running on port 3001 {"service":"cardxc-api","timestamp":"2026-02-13T01:41:09.632Z"}
+info: API documentation available at /api-docs {"service":"cardxc-api","timestamp":"2026-02-13T01:41:09.632Z"}
+info: SMTP connection verified successfully {"host":"smtp.hostinger.com","port":465,"secure":true,"service":"cardxc-api","timestamp":"2026-02-13T01:41:09.972Z","
+user":"adm***@cardxc.online"}
+info: Request completed {"duration":"11ms","ip":"10.83.8.154","method":"GET","service":"cardxc-api","status":200,"timestamp":"2026-02-13T01:41:15.311Z","url":"/a
+pi/auth/session","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0."}
+info: Request completed {"duration":"1ms","ip":"127.0.0.1","method":"GET","service":"cardxc-api","status":200,"timestamp":"2026-02-13T01:41:17.605Z","url":"/api/
+auth/session","userAgent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.0.0 Safa"}
+info: Request completed {"duration":"1ms","ip":"127.0.0.1","method":"GET","service":"cardxc-api","status":200,"timestamp":"2026-02-13T01:41:17.798Z","url":"/api/
+auth/google-status","userAgent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.0.0 Safa"}
+info: Request completed {"duration":"2ms","ip":"127.0.0.1","method":"GET","service":"cardxc-api","status":304,"timestamp":"2026-02-13T01:41:17.805Z","url":"/api/
+auth/google-status","userAgent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.0.0 Safa"}
+info: Request completed {"duration":"2ms","ip":"10.83.8.154","method":"GET","service":"cardxc-api","status":304,"timestamp":"2026-02-13T01:41:38.218Z","url":"/ap
+i/auth/google-status","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0."}
+info: Request completed {"duration":"1ms","ip":"10.83.8.154","method":"GET","service":"cardxc-api","status":304,"timestamp":"2026-02-13T01:41:38.498Z","url":"/ap
+i/auth/google-status","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0."}
+info: Request completed {"duration":"57ms","ip":"10.83.8.154","method":"GET","service":"cardxc-api","status":304,"timestamp":"2026-02-13T01:41:39.139Z","url":"/a
+pi/user/transactions?limit=100","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0."}
+info: Card provider: getWallet {"service":"cardxc-api","timestamp":"2026-02-13T01:41:39.159Z"}
+info: Card provider: generating new access token {"service":"cardxc-api","timestamp":"2026-02-13T01:41:39.159Z"}
+info: Request completed {"duration":"3ms","ip":"10.83.10.15","method":"GET","service":"cardxc-api","status":200,"timestamp":"2026-02-13T01:41:39.185Z","url":"/ap
+i/auth/session","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0."}
+error: Card provider GraphQL HTTP error {"errorPreview":"{\"error\":\"Error verifying API basic token\"}","operationName":"generateUserAccessToken","service":"ca
+rdxc-api","status":401,"timestamp":"2026-02-13T01:41:39.319Z"}
+error: Card provider auth failed - will retry after cooldown {"cooldownMs":60000,"service":"cardxc-api","timestamp":"2026-02-13T01:41:39.319Z"}
+error: Failed to fetch Fluz balance {"error":"Card service request failed. Please try again later.","service":"cardxc-api","timestamp":"2026-02-13T01:41:39.320Z"
+}
+info: Request completed {"duration":"237ms","ip":"10.83.8.154","method":"GET","service":"cardxc-api","status":304,"timestamp":"2026-02-13T01:41:39.321Z","url":"/
+api/user/wallets","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0."}
+info: Request completed {"duration":"6ms","ip":"10.83.8.154","method":"GET","service":"cardxc-api","status":304,"timestamp":"2026-02-13T01:41:39.429Z","url":"/ap
+i/user/transactions?limit=100","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0."}
+info: Card provider: getWallet {"service":"cardxc-api","timestamp":"2026-02-13T01:41:39.618Z"}
+error: Failed to fetch Fluz balance {"error":"Card service temporarily unavailable","service":"cardxc-api","timestamp":"2026-02-13T01:41:39.618Z"}
+info: Request completed {"duration":"9ms","ip":"10.83.8.154","method":"GET","service":"cardxc-api","status":304,"timestamp":"2026-02-13T01:41:39.619Z","url":"/ap
+i/user/wallets","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0."}
+info: Request completed {"duration":"8ms","ip":"10.83.10.15","method":"GET","service":"cardxc-api","status":304,"timestamp":"2026-02-13T01:41:39.621Z","url":"/ap
+i/user/transactions?limit=10","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0."}
+info: Request completed {"duration":"6ms","ip":"10.83.10.15","method":"GET","service":"cardxc-api","status":304,"timestamp":"2026-02-13T01:41:39.909Z","url":"/ap
+i/user/transactions?limit=10","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0."}
+info: Request completed {"duration":"2ms","ip":"10.83.8.154","method":"GET","service":"cardxc-api","status":200,"timestamp":"2026-02-13T01:41:47.069Z","url":"/ap
+i/auth/session","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0."}
+info: Request completed {"duration":"7ms","ip":"10.83.10.15","method":"GET","service":"cardxc-api","status":304,"timestamp":"2026-02-13T01:41:48.231Z","url":"/ap
+i/user/transactions?limit=100","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0."}
+info: Card provider: getWallet {"service":"cardxc-api","timestamp":"2026-02-13T01:41:48.235Z"}
+error: Failed to fetch Fluz balance {"error":"Card service temporarily unavailable","service":"cardxc-api","timestamp":"2026-02-13T01:41:48.235Z"}
+info: Request completed {"duration":"8ms","ip":"10.83.8.154","method":"GET","service":"cardxc-api","status":304,"timestamp":"2026-02-13T01:41:48.236Z","url":"/ap
+i/user/wallets","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0."}
+info: Request completed {"duration":"6ms","ip":"10.83.10.15","method":"GET","service":"cardxc-api","status":304,"timestamp":"2026-02-13T01:41:48.518Z","url":"/ap
+i/user/transactions?limit=100","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0."}
+info: Card provider: getWallet {"service":"cardxc-api","timestamp":"2026-02-13T01:41:48.521Z"}
+Databases
+Development Database
+31.9MB / 10GB
+Production Database
+31.45MB / 100GB
+Billing Period
+Renews monthly, 14 Feb
+Hours of Compute Used
+0 hours
+/
+
+Learn more about configuring Workflows
+Unsupported state: your index is currently locked. This can happen if multiple git processes are running operations at the same time.
+Please resolve the issue by ending those git operations. If you are sure you do not have git operations running, you can delete your .git/index.lock file.

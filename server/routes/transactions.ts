@@ -11,35 +11,42 @@ import { v4 as uuidv4 } from 'uuid';
 const router = Router();
 router.use(authenticate);
 
+const MAX_PAGE_SIZE = 100;
+const MAX_OFFSET = 10000;
+const safeLimit = (v: unknown) => Math.min(MAX_PAGE_SIZE, Math.max(1, Number(v) || 50));
+const safeOffset = (v: unknown) => Math.max(0, Math.min(MAX_OFFSET, Number(v) || 0));
+
 router.get('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { limit = 50, offset = 0, type, status } = req.query;
-  
+  const limitNum = safeLimit(limit);
+  const offsetNum = safeOffset(offset);
+
   let whereClause = 'WHERE user_id = $1';
   const params: any[] = [req.user!.id];
   let paramIndex = 2;
-  
+
   if (type) {
     whereClause += ` AND type = $${paramIndex++}`;
     params.push(type);
   }
-  
+
   if (status) {
     whereClause += ` AND status = $${paramIndex++}`;
     params.push(status);
   }
-  
+
   const transactions = await query(`
     SELECT id, type, status, amount_cents, currency, reference, description, merchant_name, merchant_display_name, created_at, updated_at
     FROM transactions
     ${whereClause}
     ORDER BY created_at DESC
     LIMIT $${paramIndex++} OFFSET $${paramIndex}
-  `, [...params, Number(limit), Number(offset)]);
-  
+  `, [...params, limitNum, offsetNum]);
+
   const countResult = await queryOne<{ count: string }>(`
     SELECT COUNT(*) as count FROM transactions ${whereClause}
   `, params);
-  
+
   res.json({
     success: true,
     data: {
@@ -49,15 +56,15 @@ router.get('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) =>
         merchantDisplayName: tx.merchant_display_name || tx.merchant_name || null,
       })),
       total: parseInt(countResult?.count || '0'),
-      limit: Number(limit),
-      offset: Number(offset),
+      limit: limitNum,
+      offset: offsetNum,
     }
   });
 }));
 
 router.post('/deposit',
   financialOpLimiter,
-  body('amount').isFloat({ min: 1 }),
+  body('amount').isFloat({ min: 1, max: 100000 }).withMessage('Deposit amount must be between $1 and $100,000'),
   body('currency').isIn(['USD', 'EUR', 'GBP', 'NGN']),
   body('idempotencyKey').optional().isUUID(),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -75,13 +82,13 @@ router.post('/deposit',
     `, [key]);
 
     if (existingTx) {
-      return res.json({ 
-        success: true, 
-        data: { 
+      return res.json({
+        success: true,
+        data: {
           transactionId: existingTx.id,
           status: existingTx.status,
           message: 'Duplicate request - returning existing transaction',
-        } 
+        }
       });
     }
 
@@ -116,12 +123,12 @@ router.post('/deposit',
       newValues: { amount: amountCents, currency },
     });
 
-    res.status(201).json({ 
-      success: true, 
-      data: { 
+    res.status(201).json({
+      success: true,
+      data: {
         transactionId: result,
         status: 'SUCCESS',
-      } 
+      }
     });
   })
 );
@@ -129,7 +136,7 @@ router.post('/deposit',
 router.post('/transfer',
   sensitiveOpLimiter,
   body('recipientEmail').isEmail().normalizeEmail(),
-  body('amount').isFloat({ min: 0.01 }),
+  body('amount').isFloat({ min: 0.01, max: 50000 }).withMessage('Transfer amount must be between $0.01 and $50,000'),
   body('currency').isIn(['USD', 'EUR', 'GBP', 'NGN']),
   body('description').optional().trim().isLength({ max: 255 }),
   body('idempotencyKey').optional().isUUID(),
@@ -152,13 +159,13 @@ router.post('/transfer',
     `, [key]);
 
     if (existingTx) {
-      return res.json({ 
-        success: true, 
-        data: { 
+      return res.json({
+        success: true,
+        data: {
           transactionId: existingTx.id,
           status: existingTx.status,
           message: 'Duplicate request - returning existing transaction',
-        } 
+        }
       });
     }
 
@@ -231,13 +238,13 @@ router.post('/transfer',
       newValues: { recipientEmail, amount: amountCents, currency },
     });
 
-    res.status(201).json({ 
-      success: true, 
-      data: { 
+    res.status(201).json({
+      success: true,
+      data: {
         transactionId: result,
         status: 'SUCCESS',
         fraudFlags: fraudCheck.flags,
-      } 
+      }
     });
   })
 );
@@ -255,15 +262,15 @@ router.get('/:transactionId', asyncHandler(async (req: AuthenticatedRequest, res
     throw new AppError('Transaction not found', 404, 'NOT_FOUND');
   }
 
-  res.json({ 
-    success: true, 
-    data: { 
+  res.json({
+    success: true,
+    data: {
       transaction: {
         ...tx,
         amount: Number(tx.amount_cents) / 100,
         merchantDisplayName: tx.merchant_display_name || tx.merchant_name || null,
       }
-    } 
+    }
   });
 }));
 

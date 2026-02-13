@@ -1,56 +1,37 @@
-import { trustBadges } from '../../../mocks/trust';
+const badges = [
+  { icon: 'ri-shield-check-fill', title: 'Bank-Level Security', description: '256-bit SSL encryption protects all your data' },
+  { icon: 'ri-lock-fill', title: 'PCI Compliant', description: 'Level 1 PCI DSS certified payment processing' },
+  { icon: 'ri-fingerprint-fill', title: '2FA Protection', description: 'Two-factor authentication on all accounts' },
+  { icon: 'ri-eye-off-fill', title: '24/7 Monitoring', description: 'Real-time fraud detection and prevention' }
+];
 
 export default function TrustSection() {
   return (
-    <section id="features" className="relative py-24 bg-dark-card">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="text-center mb-16">
-          <div className="inline-flex items-center space-x-2 px-4 py-2 bg-cream-300/10 rounded-full border border-cream-300/20 mb-6">
-            <span className="text-cream-300 text-sm font-medium">Trusted Platform</span>
+    <section className="py-24 bg-[#030303]">
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="text-center mb-14">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/[0.08] rounded-full border border-emerald-500/20 mb-6">
+            <i className="ri-shield-check-fill text-emerald-400 text-sm"></i>
+            <span className="text-emerald-400 text-xs font-semibold uppercase tracking-wider">Security</span>
           </div>
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
-            Your Security is
-            <span className="block gradient-text mt-2">Our Priority</span>
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4 tracking-tight">
+            Your Money is Safe
           </h2>
-          <p className="text-xl text-neutral-400 max-w-2xl mx-auto">
-            Protected by 256-bit SSL encryption, PCI DSS Level 1 certified, with 24/7 fraud monitoring
+          <p className="text-lg text-neutral-400 max-w-xl mx-auto">
+            Enterprise-grade security for your peace of mind
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-          {trustBadges.map((badge, index) => (
-            <div 
-              key={index}
-              className="group dark-card-interactive p-6 text-center"
-            >
-              <div className="w-16 h-16 bg-cream-300/10 group-hover:bg-cream-300/20 rounded-2xl flex items-center justify-center mx-auto mb-4 transition-all">
-                <i className={`${badge.icon} text-3xl text-cream-300`}></i>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {badges.map((badge, index) => (
+            <div key={index} className="text-center p-6 bg-[#0d0d0d] rounded-2xl border border-white/[0.06] hover:border-emerald-500/20 transition-colors group">
+              <div className="w-14 h-14 mx-auto mb-4 bg-emerald-500/[0.08] rounded-xl flex items-center justify-center border border-emerald-500/10 group-hover:border-emerald-500/20 group-hover:shadow-[0_0_20px_rgba(16,185,129,0.15)] transition-all">
+                <i className={`${badge.icon} text-2xl text-emerald-400`}></i>
               </div>
-              <h3 className="text-lg font-bold text-white mb-2">{badge.title}</h3>
-              <p className="text-neutral-400 text-sm">{badge.description}</p>
+              <h3 className="text-base font-semibold text-white mb-2">{badge.title}</h3>
+              <p className="text-sm text-neutral-400 leading-relaxed">{badge.description}</p>
             </div>
           ))}
-        </div>
-
-        <div className="p-8 bg-gradient-to-br from-cream-300/10 to-cream-300/5 rounded-3xl border border-cream-300/20">
-          <div className="text-center max-w-3xl mx-auto">
-            <div className="w-16 h-16 bg-cream-300/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <i className="ri-bank-line text-3xl text-cream-300"></i>
-            </div>
-            <h3 className="text-2xl font-bold text-white mb-4">
-              Trusted by Major Nigerian Banks
-            </h3>
-            <p className="text-neutral-400 mb-8">
-              We work with GTBank, Zenith Bank, UBA, First Bank, Access Bank, and more to ensure instant and secure payments
-            </p>
-            <div className="flex flex-wrap justify-center gap-8 items-center opacity-60">
-              <div className="text-white font-bold text-xl">GTBank</div>
-              <div className="text-white font-bold text-xl">Zenith</div>
-              <div className="text-white font-bold text-xl">UBA</div>
-              <div className="text-white font-bold text-xl">First Bank</div>
-              <div className="text-white font-bold text-xl">Access</div>
-            </div>
-          </div>
         </div>
       </div>
     </section>

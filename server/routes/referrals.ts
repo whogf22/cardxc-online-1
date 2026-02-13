@@ -4,6 +4,7 @@ import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { createNotification } from '../services/notificationService';
 import { createAuditLog } from '../services/auditService';
+import { logger } from '../middleware/logger';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
@@ -79,7 +80,7 @@ router.get('/list', asyncHandler(async (req: AuthenticatedRequest, res: Response
 
 // Validate referral code (used during signup)
 router.get('/validate/:code', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const { code } = req.params;
+  const code = req.params.code as string;
   
   const referrer = await queryOne<any>(`
     SELECT id, full_name FROM users WHERE referral_code = $1
@@ -167,7 +168,7 @@ export async function completeReferral(referredUserId: string): Promise<boolean>
 
     return true;
   } catch (err) {
-    console.error('[Referral] Error completing referral:', err);
+    logger.error('[Referral] Error completing referral', { error: err instanceof Error ? err.message : 'Unknown error' });
     return false;
   }
 }
@@ -194,7 +195,7 @@ export async function createReferralPending(referredUserId: string, referralCode
 
     return true;
   } catch (err) {
-    console.error('[Referral] Error creating pending referral:', err);
+    logger.error('[Referral] Error creating pending referral', { error: err instanceof Error ? err.message : 'Unknown error' });
     return false;
   }
 }

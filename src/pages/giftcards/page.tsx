@@ -32,7 +32,7 @@ export default function GiftCardsPage() {
               </div>
             </div>
             <div className="w-10 h-10 rounded-xl bg-dark-elevated border border-dark-border flex items-center justify-center">
-              <i className="ri-gift-2-line text-cream-300"></i>
+              <i className="ri-gift-2-line text-lime-400"></i>
             </div>
           </div>
         </div>
@@ -46,7 +46,7 @@ export default function GiftCardsPage() {
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all ${
                 activeTab === tab.id
-                  ? 'bg-cream-300 text-dark-bg'
+                  ? 'bg-lime-500 text-black'
                   : 'text-neutral-400 hover:text-white'
               }`}
             >

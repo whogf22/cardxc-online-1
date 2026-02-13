@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import BottomNavigation from '../../../components/BottomNavigation';
 
 interface ProfileData {
   id: string;
@@ -82,8 +81,6 @@ export default function PersonalInformationPage() {
           </div>
         </div>
       </div>
-
-      <BottomNavigation />
     </div>
   );
 }

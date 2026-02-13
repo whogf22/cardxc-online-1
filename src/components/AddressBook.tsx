@@ -27,26 +27,22 @@ const NETWORKS = [
   { id: 'trx-trc20', name: 'Tron (TRC-20)', coin: 'TRX', icon: 'ri-flashlight-line', color: 'from-red-500 to-red-600' },
 ];
 
-const MOCK_SAVED_ADDRESSES: SavedAddress[] = [
-  { id: '1', label: 'My Binance', address: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e', network: 'eth-erc20', coin: 'ETH', lastUsed: '2026-01-25', createdAt: '2026-01-01' },
-  { id: '2', label: 'Cold Wallet', address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh', network: 'btc-native', coin: 'BTC', lastUsed: '2026-01-20', createdAt: '2025-12-15' },
-  { id: '3', label: 'Tron Trading', address: 'TN3W4H6rK2ce4vX9YnFQHwKENnHjoxb3m9', network: 'usdt-trc20', coin: 'USDT', lastUsed: '2026-01-22', createdAt: '2026-01-10' },
-];
-
-const MOCK_RECENT_ADDRESSES: SavedAddress[] = [
-  { id: 'r1', label: '', address: '0x1234567890abcdef1234567890abcdef12345678', network: 'eth-erc20', coin: 'ETH', lastUsed: '2026-01-26', createdAt: '2026-01-26' },
-  { id: 'r2', label: '', address: 'TNpXp4SFRF67dKNTxHgbJoC1E2PqG9iP2v', network: 'usdt-trc20', coin: 'USDT', lastUsed: '2026-01-25', createdAt: '2026-01-25' },
-  { id: 'r3', label: '', address: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq', network: 'btc-native', coin: 'BTC', lastUsed: '2026-01-24', createdAt: '2026-01-24' },
-];
 
 export default function AddressBook({ isModal = false, onClose, onSelectAddress, filterNetwork }: AddressBookProps) {
-  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>(MOCK_SAVED_ADDRESSES);
-  const [recentAddresses] = useState<SavedAddress[]>(MOCK_RECENT_ADDRESSES);
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [recentAddresses] = useState<SavedAddress[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedNetwork, setSelectedNetwork] = useState<string>(filterNetwork || 'all');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingAddress, setEditingAddress] = useState<SavedAddress | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const generateId = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+  };
 
   const [newAddress, setNewAddress] = useState({
     label: '',
@@ -99,7 +95,7 @@ export default function AddressBook({ isModal = false, onClose, onSelectAddress,
 
     const networkInfo = getNetworkInfo(newAddress.network);
     const newEntry: SavedAddress = {
-      id: Date.now().toString(),
+      id: generateId(),
       label: newAddress.label,
       address: newAddress.address,
       network: newAddress.network,

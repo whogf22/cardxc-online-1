@@ -145,7 +145,7 @@ export default function CurrencyConverter({ currencyRates }: CurrencyConverterPr
         <div className="flex items-center justify-between text-sm">
           <span className="text-slate-600">Exchange Rate:</span>
           <span className="font-medium text-slate-900">
-            1 {fromCurrency} = {(parseFloat(convertedAmount) / parseFloat(amount || '1')).toFixed(4)} {toCurrency}
+            1 {fromCurrency} = {(parseFloat(amount || '0') > 0 ? (parseFloat(convertedAmount) / parseFloat(amount)).toFixed(4) : '0.0000')} {toCurrency}
           </span>
         </div>
       </div>

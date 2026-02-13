@@ -126,8 +126,8 @@ router.delete('/devices/:deviceId', asyncHandler(async (req: AuthenticatedReques
 
 // Get activity log
 router.get('/activity', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
-  const offset = parseInt(req.query.offset as string) || 0;
+  const limit = Math.min(parseInt(req.query.limit as string, 10) || 50, 200);
+  const offset = Math.max(0, parseInt(req.query.offset as string, 10) || 0);
   
   const logs = await query(`
     SELECT id, action, entity_type, entity_id, ip_address, created_at

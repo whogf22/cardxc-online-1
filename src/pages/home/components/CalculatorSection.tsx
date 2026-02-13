@@ -1,15 +1,43 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { fetchExchangeRates, getConversionRate } from '../../../lib/exchangeRateService';
 
 export default function CalculatorSection() {
   const [amount, setAmount] = useState<string>('100');
+  const [highlighted, setHighlighted] = useState(false);
+
+  useEffect(() => {
+    if (window.location.hash === '#calculator') {
+      setHighlighted(true);
+      const t = setTimeout(() => setHighlighted(false), 2500);
+      return () => clearTimeout(t);
+    }
+  }, []);
   const [fromCurrency, setFromCurrency] = useState<'USD' | 'NGN'>('USD');
   const [toCurrency, setToCurrency] = useState<'USD' | 'NGN'>('NGN');
-  const [rate] = useState(820);
+  const [rate, setRate] = useState(0);
+  const [rateLoading, setRateLoading] = useState(true);
+
+  useEffect(() => {
+    const loadRate = async () => {
+      try {
+        await fetchExchangeRates();
+        const ngnRate = getConversionRate('USD', 'NGN');
+        setRate(ngnRate);
+      } catch (error) {
+        console.error('[Calculator] Failed to load rate:', error);
+        setRate(0);
+      } finally {
+        setRateLoading(false);
+      }
+    };
+    loadRate();
+  }, []);
 
   const currencies = ['USD', 'NGN'];
 
   const calculateConversion = () => {
     const numAmount = parseFloat(amount) || 0;
+    if (rate === 0) return '0.00';
     if (fromCurrency === 'USD' && toCurrency === 'NGN') {
       return (numAmount * rate).toFixed(2);
     } else if (fromCurrency === 'NGN' && toCurrency === 'USD') {
@@ -19,17 +47,20 @@ export default function CalculatorSection() {
   };
 
   const numAmount = parseFloat(amount) || 0;
-  const fee = numAmount * 0.01;
+  const fee = rate > 0 ? numAmount * 0.01 : 0;
   const convertedAmount = parseFloat(calculateConversion());
   const received = convertedAmount - (convertedAmount * 0.01);
   const bankFee = numAmount * 0.04;
   const savings = bankFee - fee;
 
   return (
-    <section id="calculator" className="py-16 sm:py-20 lg:py-28 bg-dark-elevated">
+    <section
+      id="calculator"
+      className={`py-16 sm:py-20 lg:py-28 bg-dark-elevated scroll-mt-24 transition-all duration-500 ${highlighted ? 'ring-4 ring-lime-400/40 ring-offset-4 ring-offset-dark-bg rounded-2xl' : ''}`}
+    >
       <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
         <div className="text-center mb-12 sm:mb-16 lg:mb-20 space-y-4 sm:space-y-6">
-          <div className="inline-flex items-center gap-2 bg-cream-300/10 text-cream-300 px-5 py-2.5 rounded-full text-sm sm:text-base font-semibold touch-target border border-cream-300/20">
+          <div className="inline-flex items-center gap-2 bg-lime-400/10 text-lime-400 px-5 py-2.5 rounded-full text-sm sm:text-base font-semibold touch-target border border-lime-400/20">
             <i className="ri-calculator-line text-lg"></i>
             Fee Calculator
           </div>
@@ -105,13 +136,13 @@ export default function CalculatorSection() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
                 <div className="space-y-4 sm:space-y-6 p-6 rounded-2xl bg-dark-card border border-dark-border">
                   <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
-                    <i className="ri-wallet-3-line text-cream-300"></i>
+                    <i className="ri-wallet-3-line text-lime-400"></i>
                     CardXC
                   </h3>
                   <div className="space-y-3 sm:space-y-4">
                     <div className="flex items-center justify-between">
                       <span className="text-neutral-400">Exchange Rate</span>
-                      <span className="text-white font-semibold">₦{rate.toLocaleString()}</span>
+                      <span className="text-white font-semibold">{rateLoading ? '...' : `₦${rate.toLocaleString()}`}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-neutral-400">Fee (1%)</span>
@@ -119,7 +150,7 @@ export default function CalculatorSection() {
                     </div>
                     <div className="pt-4 border-t border-dark-border flex items-center justify-between">
                       <span className="text-neutral-300 font-semibold">They Receive</span>
-                      <span className="text-2xl sm:text-3xl font-bold text-cream-300">
+                      <span className="text-2xl sm:text-3xl font-bold text-lime-400">
                         {toCurrency === 'NGN' ? '₦' : '$'}{received.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
@@ -134,7 +165,7 @@ export default function CalculatorSection() {
                   <div className="space-y-3 sm:space-y-4">
                     <div className="flex items-center justify-between">
                       <span className="text-neutral-400">Exchange Rate</span>
-                      <span className="text-white font-semibold">₦{(rate * 0.95).toLocaleString()}</span>
+                      <span className="text-white font-semibold">{rateLoading ? '...' : `₦${(rate * 0.95).toLocaleString()}`}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-neutral-400">Fee (4%)</span>

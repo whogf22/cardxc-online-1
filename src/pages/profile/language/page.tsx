@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import BottomNavigation from '../../../components/BottomNavigation';
 
 const languages = [
   { code: 'en', name: 'English', native: 'English' },
@@ -51,8 +50,6 @@ export default function LanguagePage() {
           ))}
         </div>
       </div>
-
-      <BottomNavigation />
     </div>
   );
 }

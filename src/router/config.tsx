@@ -7,6 +7,7 @@ const Home = lazy(() => import('../pages/home/page'));
 const SignIn = lazy(() => import('../pages/signin/page'));
 const SignUp = lazy(() => import('../pages/signup/page'));
 const Dashboard = lazy(() => import('../pages/dashboard/page'));
+const MyDataPage = lazy(() => import('../pages/dashboard/MyDataPage'));
 const Wallet = lazy(() => import('../pages/wallet/page'));
 const Transactions = lazy(() => import('../pages/transactions/page'));
 const Cards = lazy(() => import('../pages/cards/page'));
@@ -29,6 +30,11 @@ const AdminOperations = lazy(() => import('../pages/admin-operations/page'));
 const AddressBook = lazy(() => import('../pages/address-book/page'));
 const Swap = lazy(() => import('../pages/swap/page'));
 
+const FluzTransactions = lazy(() => import('../pages/transactions/FluzTransactionsPage'));
+const MerchantSearch = lazy(() => import('../pages/merchants/MerchantSearchPage'));
+const ReferralDashboard = lazy(() => import('../pages/referral/ReferralDashboardPage'));
+const FluzAddressBook = lazy(() => import('../pages/address/AddressBookPage'));
+
 const AuthCallback = lazy(() => import('../pages/auth/callback/page'));
 const Terms = lazy(() => import('../pages/terms/page'));
 const Privacy = lazy(() => import('../pages/privacy/page'));
@@ -37,24 +43,21 @@ const AMLPolicy = lazy(() => import('../pages/aml-policy/page'));
 const ResetPassword = lazy(() => import('../pages/reset-password/page'));
 const ForgotPassword = lazy(() => import('../pages/forgot-password/page'));
 const VerifyEmail = lazy(() => import('../pages/verify-email/page'));
-// const NotFound = lazy(() => import('../pages/NotFound'));
-const NotFound = () => (
-  <div className="min-h-screen bg-dark-bg flex items-center justify-center p-4">
-    <div className="text-center">
-      <h1 className="text-4xl font-black text-white mb-4">404</h1>
-      <p className="text-neutral-500">Page not found</p>
-    </div>
-  </div>
-);
+const NotFound = lazy(() => import('../pages/NotFound'));
 const Notifications = lazy(() => import('../pages/notifications/page'));
 const Support = lazy(() => import('../pages/support/page'));
+const Calculator = lazy(() => import('../pages/calculator/page'));
+const FeatureDetail = lazy(() => import('../pages/feature/page'));
 const AdminLogin = lazy(() => import('../pages/admin-login/page'));
+const CheckoutSimulatePage = lazy(() => import('../pages/checkout/CheckoutSimulatePage'));
 
 const routes: RouteObject[] = [
   { path: '/', element: <Home /> },
-  { path: '/rates', element: <Navigate to="/#rates" replace /> },
+  { path: '/rates', element: <Navigate to="/calculator" replace /> },
   { path: '/about', element: <Navigate to="/#about" replace /> },
   { path: '/features', element: <Navigate to="/#features" replace /> },
+  { path: '/features/:featureId', element: <FeatureDetail /> },
+  { path: '/calculator', element: <Calculator /> },
   { path: '/signin', element: <SignIn /> },
   { path: '/signup', element: <SignUp /> },
   { path: '/sign-in', element: <Navigate to="/signin" replace /> },
@@ -66,10 +69,15 @@ const routes: RouteObject[] = [
   { path: '/verify-email', element: <VerifyEmail /> },
   { path: '/auth/callback', element: <AuthCallback /> },
   { path: '/onboarding', element: <Onboarding /> },
+  { path: '/checkout/simulate/:id', element: <CheckoutSimulatePage /> },
 
   {
     path: '/dashboard',
     element: <ProtectedRoute><Dashboard /></ProtectedRoute>,
+  },
+  {
+    path: '/dashboard/data',
+    element: <ProtectedRoute><MyDataPage /></ProtectedRoute>,
   },
   {
     path: '/wallet',
@@ -150,6 +158,22 @@ const routes: RouteObject[] = [
   {
     path: '/swap',
     element: <ProtectedRoute><Swap /></ProtectedRoute>,
+  },
+  {
+    path: '/fluz/transactions',
+    element: <ProtectedRoute><FluzTransactions /></ProtectedRoute>,
+  },
+  {
+    path: '/fluz/merchants',
+    element: <ProtectedRoute><MerchantSearch /></ProtectedRoute>,
+  },
+  {
+    path: '/fluz/referral',
+    element: <ProtectedRoute><ReferralDashboard /></ProtectedRoute>,
+  },
+  {
+    path: '/fluz/addresses',
+    element: <ProtectedRoute><FluzAddressBook /></ProtectedRoute>,
   },
 
   { path: '/customer-dashboard', element: <Navigate to="/dashboard" replace /> },

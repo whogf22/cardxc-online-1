@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
 import { userApi, authApi } from '../../lib/api';
 import WalletHeader from './components/WalletHeader';
 import BalanceCards from './components/BalanceCards';
@@ -8,8 +7,14 @@ import QuickActions from './components/QuickActions';
 import RecentTransactions from './components/RecentTransactions';
 import DepositModal from './components/DepositModal';
 import WithdrawModal from './components/WithdrawModal';
-import CryptoDepositModal from './components/CryptoDepositModal';
-import CryptoWithdrawModal from './components/CryptoWithdrawModal';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from 'recharts';
 
 interface WalletBalance {
   currency: string;
@@ -29,76 +34,41 @@ interface Transaction {
   status: string;
 }
 
-interface CryptoBalance {
-  symbol: string;
-  name: string;
-  balance: number;
-  icon: string;
-  color: string;
-  usdValue: number;
-}
-
-const CRYPTO_ASSETS: CryptoBalance[] = [
-  { symbol: 'BTC', name: 'Bitcoin', balance: 0.00000000, icon: 'ri-bit-coin-line', color: 'from-orange-500 to-orange-600', usdValue: 0 },
-  { symbol: 'ETH', name: 'Ethereum', balance: 0.00000000, icon: 'ri-coin-line', color: 'from-indigo-500 to-indigo-600', usdValue: 0 },
-  { symbol: 'USDT', name: 'Tether USD', balance: 0.00000000, icon: 'ri-money-dollar-circle-line', color: 'from-teal-500 to-teal-600', usdValue: 0 },
-  { symbol: 'BNB', name: 'BNB', balance: 0.00000000, icon: 'ri-shape-line', color: 'from-yellow-500 to-yellow-600', usdValue: 0 },
-  { symbol: 'TRX', name: 'Tron', balance: 0.00000000, icon: 'ri-flashlight-line', color: 'from-red-500 to-red-600', usdValue: 0 },
-];
-
 export default function WalletPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [balances, setBalances] = useState<WalletBalance[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [cryptoBalances, setCryptoBalances] = useState<CryptoBalance[]>(CRYPTO_ASSETS);
+
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-  const [showCryptoDepositModal, setShowCryptoDepositModal] = useState(false);
-  const [showCryptoWithdrawModal, setShowCryptoWithdrawModal] = useState(false);
   const [selectedCurrency, setSelectedCurrency] = useState('NGN');
-  const [selectedCryptoAsset, setSelectedCryptoAsset] = useState<string | undefined>();
+
+  const balanceChartData = useMemo(() => {
+    if (transactions.length === 0) return [];
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dayTotals: Record<string, number> = {};
+    days.forEach(d => { dayTotals[d] = 0; });
+    transactions.forEach(tx => {
+      const day = days[new Date(tx.created_at).getDay()];
+      const amt = tx.entry_type === 'credit' ? tx.amount : -tx.amount;
+      dayTotals[day] = (dayTotals[day] || 0) + Math.abs(amt);
+    });
+    return days.map(day => ({ day, amount: Math.round(dayTotals[day] * 100) / 100 }));
+  }, [transactions]);
 
   useEffect(() => {
     checkAuthAndLoadData();
-    
-    const balanceSubscription = supabase
-      .channel('wallet_balances_changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'wallet_balances' },
-        () => {
-          loadBalances();
-        }
-      )
-      .subscribe();
-
-    const ledgerSubscription = supabase
-      .channel('ledger_entries_changes')
-      .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'ledger_entries' },
-        () => {
-          loadTransactions();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      balanceSubscription.unsubscribe();
-      ledgerSubscription.unsubscribe();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkAuthAndLoadData = async () => {
     try {
       const sessionResult = await authApi.getSession();
-      
       if (!sessionResult.success || !sessionResult.data?.user) {
         navigate('/signin');
         return;
       }
-
       setUser(sessionResult.data.user);
       await Promise.all([loadBalances(), loadTransactions()]);
     } catch (error) {
@@ -111,246 +81,148 @@ export default function WalletPage() {
 
   const loadBalances = async () => {
     try {
-      const result = await userApi.getWallets();
+      // Fetch combined wallet data (USD + USDT)
+      const response = await fetch('/api/user/wallet', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await response.json();
 
-      if (!result.success) throw new Error(result.error?.message || 'Failed to load balances');
+      if (data.success && data.data) {
+        const walletData = data.data;
 
-      const transformedBalances = (result.data?.wallets || []).map((balance: any) => ({
-        currency: balance.currency,
-        available_balance: balance.available_balance || 0,
-        reserved_balance: balance.reserved_balance || 0,
-        total_balance: (balance.available_balance || 0) + (balance.reserved_balance || 0)
-      }));
-
-      setBalances(transformedBalances);
-    } catch (error) {
-      console.error('[WalletPage] Failed to load balances:', error);
+        // Format as expected by BalanceCards
+        setBalances([{
+          currency: walletData.currency || 'USD',
+          available_balance: (walletData.balance || 0) / 100,
+          reserved_balance: (walletData.reserved_cents || 0) / 100,
+          total_balance: ((walletData.balance || 0) + (walletData.reserved_cents || 0)) / 100,
+        }]);
+      } else {
+        // Fallback to existing API method if dedicated endpoint fails
+        const result = await userApi.getWallets();
+        if (result.success) {
+          setBalances(result.data.wallets.map((w: any) => ({
+            currency: w.currency,
+            available_balance: w.available_balance || 0,
+            reserved_balance: w.reserved_balance || 0,
+            total_balance: (w.available_balance || 0) + (w.reserved_balance || 0)
+          })));
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load balances', e);
     }
   };
 
   const loadTransactions = async () => {
     try {
-      const result = await userApi.getTransactions({ limit: 20 });
-
-      if (!result.success) throw new Error(result.error?.message || 'Failed to load transactions');
-
-      setTransactions(result.data?.transactions || []);
-    } catch (error) {
-      console.error('[WalletPage] Failed to load transactions:', error);
+      const result = await userApi.getTransactions({ limit: 10 });
+      if (result.success) setTransactions(result.data.transactions);
+    } catch (e) {
+      console.error('[WalletPage] Failed to load transactions:', e);
     }
   };
 
-  const handleDepositClick = (currency: string) => {
-    setSelectedCurrency(currency);
-    setShowDepositModal(true);
-  };
-
-  const handleWithdrawClick = (currency: string) => {
-    setSelectedCurrency(currency);
-    setShowWithdrawModal(true);
-  };
-
-  const handleCryptoDepositClick = (symbol?: string) => {
-    setSelectedCryptoAsset(symbol);
-    setShowCryptoDepositModal(true);
-  };
-
-  const handleCryptoWithdrawClick = (symbol?: string) => {
-    setSelectedCryptoAsset(symbol);
-    setShowCryptoWithdrawModal(true);
-  };
-
-  const handleTransactionSuccess = () => {
-    loadBalances();
-    loadTransactions();
-  };
-
-  const getCryptoBalancesMap = () => {
-    return cryptoBalances.reduce((acc, asset) => {
-      acc[asset.symbol] = asset.balance;
-      return acc;
-    }, {} as Record<string, number>);
-  };
-
-  const totalCryptoValue = cryptoBalances.reduce((sum, asset) => sum + asset.usdValue, 0);
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-700 font-semibold text-lg">Loading your payment account...</p>
+          <div className="w-16 h-16 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-400 font-medium">Loading Wallet...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50">
+    <div className="min-h-screen bg-slate-950 text-slate-50">
       <WalletHeader user={user} />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Your Payment Account</h1>
-          <p className="text-slate-600">Manage your funds across multiple currencies</p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <div className="lg:col-span-2">
-            <BalanceCards 
-              balances={balances}
-              onDeposit={handleDepositClick}
-              onWithdraw={handleWithdrawClick}
-            />
-          </div>
-          <div>
-            <QuickActions
-              onDeposit={() => handleDepositClick('NGN')}
-              onWithdraw={() => handleWithdrawClick('NGN')}
-            />
-          </div>
-        </div>
-
-        <div className="mb-8">
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
-            <div className="p-6 border-b border-slate-100">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <main className="max-w-7xl mx-auto px-4 py-12 space-y-12">
+        {/* Hero Section with Glassmorphism */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="relative overflow-hidden bg-gradient-to-br from-emerald-600/20 to-teal-600/20 rounded-3xl border border-white/10 p-8 backdrop-blur-xl">
+              <div className="relative z-10 flex justify-between items-start">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900">Crypto Assets</h2>
-                  <p className="text-sm text-slate-500">Manage your cryptocurrency holdings</p>
+                  <h1 className="text-4xl font-extrabold tracking-tight mb-2">My Balance</h1>
+                  <p className="text-slate-400 font-medium">Global Multi-Currency Account</p>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <button
-                    onClick={() => handleCryptoDepositClick()}
-                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-semibold rounded-xl transition-all cursor-pointer shadow-lg shadow-emerald-500/30"
-                  >
-                    <i className="ri-add-circle-line"></i>
-                    <span>Deposit</span>
-                  </button>
-                  <button
-                    onClick={() => handleCryptoWithdrawClick()}
-                    className="flex items-center space-x-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded-xl transition-all cursor-pointer border-2 border-slate-200 hover:border-emerald-500"
-                  >
-                    <i className="ri-arrow-up-circle-line"></i>
-                    <span>Withdraw</span>
-                  </button>
+                <div className="bg-white/10 p-4 rounded-2xl border border-white/10">
+                  <i className="ri-safe-2-line text-3xl text-emerald-400"></i>
                 </div>
+              </div>
+
+              <div className="mt-12">
+                <BalanceCards
+                  balances={balances}
+                  onDeposit={(curr) => { setSelectedCurrency(curr); setShowDepositModal(true); }}
+                  onWithdraw={(curr) => { setSelectedCurrency(curr); setShowWithdrawModal(true); }}
+                />
               </div>
             </div>
 
-            <div className="p-6">
-              <div className="mb-6 p-4 bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl text-white">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-400 mb-1">Total Crypto Value</p>
-                    <p className="text-2xl font-bold">${totalCryptoValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            {/* Dynamic Chart Integration */}
+            <div className="bg-slate-900/50 rounded-3xl border border-slate-800 p-6">
+              <div className="flex items-center justify-between mb-8">
+                <h3 className="text-xl font-bold">Balance Analytics</h3>
+                <span className="text-xs font-bold text-slate-500 bg-slate-500/10 px-3 py-1 rounded-full uppercase">Weekly</span>
+              </div>
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={balanceChartData}>
+                    <defs>
+                      <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
+                    <XAxis dataKey="day" stroke="#475569" fontSize={12} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '16px' }}
+                    />
+                    <Area type="monotone" dataKey="amount" stroke="#10b981" fillOpacity={1} fill="url(#colorAmount)" strokeWidth={3} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <QuickActions
+              onDeposit={() => { setSelectedCurrency('USD'); setShowDepositModal(true); }}
+              onWithdraw={() => { setSelectedCurrency('USD'); setShowWithdrawModal(true); }}
+            />
+
+            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-8 text-white shadow-2xl shadow-blue-500/20">
+              <h3 className="text-xl font-bold mb-4">Security Insights</h3>
+              <div className="space-y-4">
+                <div className="flex gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+                    <i className="ri-shield-check-line"></i>
                   </div>
-                  <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center">
-                    <i className="ri-coin-fill text-2xl text-emerald-400"></i>
-                  </div>
+                  <p className="text-sm opacity-90">Your account is secured with advanced encryption and monitoring.</p>
                 </div>
-              </div>
-
-              <div className="space-y-3">
-                {cryptoBalances.map((asset) => (
-                  <div
-                    key={asset.symbol}
-                    className="flex items-center justify-between p-4 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/30 transition-all group"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br ${asset.color} rounded-xl flex items-center justify-center shadow-lg flex-shrink-0`}>
-                        <i className={`${asset.icon} text-white text-lg sm:text-xl`}></i>
-                      </div>
-                      <div>
-                        <p className="font-bold text-slate-900">{asset.symbol}</p>
-                        <p className="text-sm text-slate-500">{asset.name}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      <div className="text-right">
-                        <p className="font-bold text-slate-900">{asset.balance.toFixed(8)}</p>
-                        <p className="text-sm text-slate-500">${asset.usdValue.toFixed(2)}</p>
-                      </div>
-                      <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => handleCryptoDepositClick(asset.symbol)}
-                          className="w-8 h-8 rounded-lg bg-emerald-100 hover:bg-emerald-200 flex items-center justify-center transition-colors cursor-pointer"
-                          title={`Deposit ${asset.symbol}`}
-                        >
-                          <i className="ri-add-line text-emerald-600"></i>
-                        </button>
-                        <button
-                          onClick={() => handleCryptoWithdrawClick(asset.symbol)}
-                          className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors cursor-pointer"
-                          title={`Withdraw ${asset.symbol}`}
-                        >
-                          <i className="ri-arrow-up-line text-slate-600"></i>
-                        </button>
-                      </div>
-                    </div>
+                <div className="flex gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+                    <i className="ri-earth-line"></i>
                   </div>
-                ))}
-              </div>
-
-              <div className="mt-6 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
-                <div className="flex items-start space-x-3">
-                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-                    <i className="ri-information-line text-white"></i>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900 mb-1">Crypto Deposits</p>
-                    <p className="text-xs text-slate-600">
-                      Deposit crypto assets directly to your wallet using the deposit addresses. 
-                      Make sure to select the correct network to avoid loss of funds.
-                    </p>
-                  </div>
+                  <p className="text-sm opacity-90">All transactions are monitored for suspicious activity.</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <RecentTransactions transactions={transactions} />
+        <div className="pt-8">
+          <RecentTransactions transactions={transactions} />
+        </div>
       </main>
 
-      {showDepositModal && (
-        <DepositModal
-          currency={selectedCurrency}
-          onClose={() => setShowDepositModal(false)}
-          onSuccess={handleTransactionSuccess}
-        />
-      )}
-
-      {showWithdrawModal && (
-        <WithdrawModal
-          currency={selectedCurrency}
-          availableBalance={balances.find(b => b.currency === selectedCurrency)?.available_balance || 0}
-          onClose={() => setShowWithdrawModal(false)}
-          onSuccess={handleTransactionSuccess}
-        />
-      )}
-
-      {showCryptoDepositModal && (
-        <CryptoDepositModal
-          initialAsset={selectedCryptoAsset}
-          onClose={() => {
-            setShowCryptoDepositModal(false);
-            setSelectedCryptoAsset(undefined);
-          }}
-        />
-      )}
-
-      {showCryptoWithdrawModal && (
-        <CryptoWithdrawModal
-          initialAsset={selectedCryptoAsset}
-          cryptoBalances={getCryptoBalancesMap()}
-          onClose={() => {
-            setShowCryptoWithdrawModal(false);
-            setSelectedCryptoAsset(undefined);
-          }}
-          onSuccess={handleTransactionSuccess}
-        />
-      )}
+      {/* Modals Mapping */}
+      {showDepositModal && <DepositModal currency={selectedCurrency} onClose={() => setShowDepositModal(false)} onSuccess={() => { loadBalances(); loadTransactions(); }} />}
+      {showWithdrawModal && <WithdrawModal currency={selectedCurrency} availableBalance={balances.find(b => b.currency === selectedCurrency)?.available_balance || 0} onClose={() => setShowWithdrawModal(false)} onSuccess={() => { loadBalances(); loadTransactions(); }} />}
     </div>
   );
 }

@@ -126,9 +126,10 @@ export default function SwapConfirmModal({
 
               <button
                 onClick={handleConfirm}
-                className="w-full py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold rounded-xl transition-all cursor-pointer shadow-lg shadow-emerald-500/30"
+                disabled={loading}
+                className="w-full py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold rounded-xl transition-all cursor-pointer shadow-lg shadow-emerald-500/30 disabled:opacity-50"
               >
-                Confirm Swap
+                {loading ? 'Processing...' : 'Confirm Swap'}
               </button>
             </div>
           )}

@@ -1,0 +1,125 @@
+#!/usr/bin/env node
+/**
+ * Check database connection (PostgreSQL) using DATABASE_URL.
+ * Use from Cursor or local: npm run check:db
+ * For Replit: run on Replit Shell (DATABASE_URL is set by Replit), or from Cursor
+ * with Replit's DATABASE_URL in .env to verify connectivity.
+ * Does NOT print the full connection string (only masked hint).
+ */
+
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = path.resolve(__dirname, '..');
+const envPath = path.join(PROJECT_ROOT, '.env');
+if (fs.existsSync(envPath)) {
+  const buf = fs.readFileSync(envPath, 'utf-8');
+  for (const line of buf.split('\n')) {
+    const m = line.match(/^([^#=]+)=(.*)$/);
+    if (m && !process.env[m[1].trim()]) {
+      const val = m[2].trim().replace(/^["']|["']$/g, '');
+      process.env[m[1].trim()] = val;
+    }
+  }
+}
+
+const DATABASE_URL = process.env.DATABASE_URL;
+
+function maskUrl(url) {
+  if (!url || url.length < 20) return '(not set or too short)';
+  try {
+    const u = new URL(url);
+    const host = u.hostname;
+    const hasReplit = host.includes('replit');
+    return `${u.protocol}//***@${host}${u.pathname || '/'} (${hasReplit ? 'Replit' : 'custom'})`;
+  } catch {
+    return '(invalid URL)';
+  }
+}
+
+async function main() {
+  console.log('--- Database connection check ---\n');
+
+  if (!DATABASE_URL) {
+    console.log('DATABASE_URL: not set');
+    console.log('\nFix:');
+    console.log('  - Local: set DATABASE_URL in .env (e.g. postgresql://localhost:5432/cardxc)');
+    console.log('  - Replit: add PostgreSQL in Tools → PostgreSQL → Create database (Replit sets DATABASE_URL)');
+    process.exit(1);
+  }
+
+  console.log('DATABASE_URL: set', maskUrl(DATABASE_URL));
+  const isReplit = (DATABASE_URL || '').includes('replit');
+  if (isReplit) {
+    console.log('(SSL is enabled automatically for Replit in server/db/pool.ts)');
+  }
+  console.log('');
+
+  let client;
+  try {
+    const { Client } = await import('pg');
+    client = new Client({
+      connectionString: DATABASE_URL,
+      connectionTimeoutMillis: 10000,
+      ssl: isReplit || process.env.NODE_ENV === 'production'
+        ? (process.env.DATABASE_SSL === 'false' ? false : { rejectUnauthorized: false })
+        : false,
+    });
+    await client.connect();
+
+    const start = Date.now();
+    const ping = await client.query('SELECT 1 as ok');
+    const latency = Date.now() - start;
+
+    if (ping.rows?.[0]?.ok !== 1) {
+      throw new Error('SELECT 1 did not return expected row');
+    }
+
+    console.log('Connection: OK');
+    console.log('Latency:   ', latency, 'ms');
+
+    try {
+      const users = await client.query('SELECT COUNT(*)::int as n FROM users');
+      const n = users.rows?.[0]?.n ?? '?';
+      console.log('Users:     ', n, 'rows (users table exists)');
+    } catch (e) {
+      if (e.message?.includes('does not exist') || e.code === '42P01') {
+        console.log('Users:     table "users" does not exist — run npm run db:schema (or start server once)');
+      } else {
+        console.log('Users:     (check failed:', e.message, ')');
+      }
+    }
+
+    console.log('\nDatabase connection is healthy.');
+    process.exit(0);
+  } catch (err) {
+    console.log('Connection: FAILED');
+    console.log('Error:     ', err.message || err);
+    if (err.code) console.log('Code:      ', err.code);
+    console.log('\nCommon fixes:');
+    if (err.code === 'ECONNREFUSED' || err.message?.includes('refused')) {
+      console.log('  - Postgres not running or wrong host/port (e.g. localhost:5432)');
+    }
+    if (err.code === 'ETIMEDOUT' || err.message?.includes('timeout')) {
+      console.log('  - Replit: ensure Repl is awake and Postgres is running (Tools → PostgreSQL)');
+      console.log('  - Try DATABASE_SSL=false in Secrets if Replit URL does not use SSL');
+    }
+    if (err.message?.includes('password') || err.code === '28P01') {
+      console.log('  - Wrong username/password in DATABASE_URL');
+    }
+    if (isReplit) {
+      console.log('  - On Replit: run this in Replit Shell so DATABASE_URL is set by Replit');
+    }
+    process.exit(1);
+  } finally {
+    if (client) {
+      try {
+        await client.end();
+      } catch (_) {}
+    }
+  }
+}
+
+main();

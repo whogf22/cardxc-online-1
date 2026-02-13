@@ -22,6 +22,7 @@ export default function WithdrawalsTab() {
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<'pending' | 'approved' | 'rejected'>('pending');
+  const [searchTerm, setSearchTerm] = useState('');
   const [processing, setProcessing] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState<string | null>(null);
@@ -32,7 +33,7 @@ export default function WithdrawalsTab() {
       setLoading(true);
 
       const response = await apiClient.get(`/admin/withdrawals?status=${statusFilter}`);
-      
+
       if (response.success) {
         setWithdrawals(response.data?.withdrawals || []);
       }
@@ -51,9 +52,9 @@ export default function WithdrawalsTab() {
   const handleApprove = async (withdrawalId: string) => {
     try {
       setProcessing(withdrawalId);
-      
+
       await apiClient.post(`/admin/withdrawals/${withdrawalId}/approve`);
-      
+
       toast.success('Withdrawal approved successfully');
       loadWithdrawals();
     } catch (err: any) {
@@ -68,11 +69,11 @@ export default function WithdrawalsTab() {
 
     try {
       setProcessing(showRejectModal);
-      
+
       await apiClient.post(`/admin/withdrawals/${showRejectModal}/reject`, {
         reason: rejectReason,
       });
-      
+
       toast.success('Withdrawal rejected');
       setShowRejectModal(null);
       setRejectReason('');
@@ -90,6 +91,18 @@ export default function WithdrawalsTab() {
       currency: currency,
     }).format(amount);
   };
+
+  const filteredWithdrawals = withdrawals.filter(w => {
+    const search = searchTerm.toLowerCase();
+    return (
+      w.user_email?.toLowerCase().includes(search) ||
+      w.user_name?.toLowerCase().includes(search) ||
+      w.bank_name?.toLowerCase().includes(search) ||
+      w.account_number?.includes(search) ||
+      w.amount?.toString().includes(search) ||
+      (w.amount_cents / 100).toString().includes(search)
+    );
+  });
 
   if (loading && withdrawals.length === 0) {
     return (
@@ -113,7 +126,7 @@ export default function WithdrawalsTab() {
           <h2 className="text-2xl font-bold text-white">Withdrawal Requests</h2>
           <p className="text-slate-400 mt-1">Review and process withdrawal requests</p>
         </div>
-        <button 
+        <button
           onClick={loadWithdrawals}
           disabled={loading}
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all duration-200 font-medium border border-slate-700 hover:border-slate-600"
@@ -123,44 +136,55 @@ export default function WithdrawalsTab() {
         </button>
       </div>
 
-      <div className="flex gap-2 flex-wrap">
-        {(['pending', 'approved', 'rejected'] as const).map((status) => (
-          <button
-            key={status}
-            onClick={() => setStatusFilter(status)}
-            className={`px-4 py-2.5 rounded-xl font-medium transition-all duration-200 cursor-pointer ${
-              statusFilter === status
-                ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
-                : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700 hover:border-slate-600'
-            }`}
-          >
-            {status.charAt(0).toUpperCase() + status.slice(1)}
-            {status === 'pending' && withdrawals.length > 0 && statusFilter === 'pending' && (
-              <span className="ml-2 px-2 py-0.5 bg-amber-500/30 text-amber-300 text-xs rounded-full font-semibold">
-                {withdrawals.length}
-              </span>
-            )}
-          </button>
-        ))}
+      <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 space-y-4">
+        <div className="relative">
+          <i className="ri-search-line absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+          <input
+            type="text"
+            placeholder="Search by email, name, bank or amount..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-slate-900/50 border border-slate-700 rounded-xl pl-11 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all font-medium"
+          />
+        </div>
+
+        <div className="flex gap-2 flex-wrap">
+          {(['pending', 'approved', 'rejected'] as const).map((status) => (
+            <button
+              key={status}
+              onClick={() => setStatusFilter(status)}
+              className={`px-4 py-2.5 rounded-xl font-medium transition-all duration-200 cursor-pointer ${statusFilter === status
+                  ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
+                  : 'bg-slate-900/50 text-slate-400 hover:text-white border border-slate-700 hover:border-slate-600'
+                }`}
+            >
+              {status.charAt(0).toUpperCase() + status.slice(1)}
+              {status === 'pending' && withdrawals.length > 0 && statusFilter === 'pending' && (
+                <span className="ml-2 px-2 py-0.5 bg-amber-500/30 text-amber-300 text-xs rounded-full font-semibold">
+                  {withdrawals.length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="bg-slate-800/50 rounded-2xl border border-slate-700/50 overflow-hidden">
-        {withdrawals.length === 0 ? (
+        {filteredWithdrawals.length === 0 ? (
           <div className="p-16 text-center">
             <div className="w-16 h-16 bg-slate-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
               <i className="ri-exchange-funds-line text-3xl text-slate-500"></i>
             </div>
-            <p className="text-slate-400 font-medium">No {statusFilter} withdrawals</p>
-            <p className="text-slate-500 text-sm mt-1">All clear for now</p>
+            <p className="text-slate-400 font-medium">No {statusFilter} withdrawals found</p>
+            <p className="text-slate-500 text-sm mt-1">Try adjusting your search or filters</p>
           </div>
         ) : (
           <div className="divide-y divide-slate-700/50">
-            {withdrawals.map((withdrawal, index) => (
-              <div 
-                key={withdrawal.id} 
-                className={`p-6 hover:bg-slate-700/20 transition-colors ${
-                  index % 2 === 0 ? 'bg-slate-800/20' : 'bg-transparent'
-                }`}
+            {filteredWithdrawals.map((withdrawal, index) => (
+              <div
+                key={withdrawal.id}
+                className={`p-6 hover:bg-slate-700/20 transition-colors ${index % 2 === 0 ? 'bg-slate-800/20' : 'bg-transparent'
+                  }`}
               >
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                   <div className="flex items-start gap-4">
@@ -190,7 +214,7 @@ export default function WithdrawalsTab() {
                     <p className="text-sm text-slate-400">
                       {new Date(withdrawal.created_at).toLocaleString()}
                     </p>
-                    
+
                     {statusFilter === 'pending' && (
                       <div className="flex gap-2 mt-2">
                         <button

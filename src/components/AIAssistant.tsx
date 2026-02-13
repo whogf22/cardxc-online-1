@@ -139,7 +139,9 @@ export function AIAssistant() {
               if (data.error) {
                 console.error('AI Error:', data.error);
               }
-            } catch (e) {}
+            } catch (e) {
+              console.error('Failed to parse SSE data:', e);
+            }
           }
         }
       }

@@ -1,0 +1,4776 @@
+App details
+API Key-ZGZiZTg1YzAtZjNjYy00MjVhLWJjMDEtZGY2NjE1N2VmYzMxOmE0ZmY2YzY2NDQxNmY3NjJkMjU5YTkyYjk5MjJlY2E4
+User ID-a3ba7743-9285-48f7-9b4c-88883812e59a
+Business Account ID-22af1e15-7428-4e45-92a4-6a1caed57887
+
+API reference
+Authorization
+
+API Key
+User Access Token
+Queries
+
+Mutations
+
+SCALAR
+
+INPUT_OBJECT
+
+ENUM
+
+OBJECT
+
+UNION
+
+Authorization
+API Key
+Used for securing application management endpoints.
+Find your API Key in the Developer console. It will also be included automatically when you open the Explorer.
+Authorization: Basic <API_KEY>
+User Access Token
+Used for securing user operations.
+Generated from generateAccessToken mutation. Read more about the operations in Explorer.
+Authorization: Bearer <TOKEN>
+Queries
+getAccountsByUserId
+Get the user's available accounts and seats.
+Response
+Returns
+[Account]
+
+Query
+  query getAccountsByUserId($userId: UUID!) {
+    getAccountsByUserId(userId: $userId) {
+      accountId
+      type
+      accountName
+      seats {
+        ...SeatFragment
+      }
+      user {
+        ...UserFragment
+      }
+      business {
+        ...BusinessFragment
+      }
+    }
+  }
+Variables
+  {
+    "userId": "fca6a3c5-1aad-4bf7-af25-9fcbc1bfb54d"
+  }
+  
+Response
+  {
+    "data": {
+      "getAccountsByUserId": [
+          {
+            "accountId": "a2c02ec6-357b-41cf-9229-4da34e727019",
+            "type": "CONSUMER",
+            "accountName": "abc123",
+            "seats": [Seat],
+            "user": User,
+            "business": Business
+          }
+      ]
+    }
+  }
+  
+getApplicationScopes
+Get the allowed scopes of the application using 'Basic '.
+Response
+Returns
+[ScopeType]
+
+Query
+   query getApplicationScopes {
+    getApplicationScopes
+  }
+Response
+  {
+    "data": {
+        "getApplicationScopes": ["LIST_PAYMENT"]
+    }
+  }
+  
+getApplicationUsers
+Get the users who have granted scopes to the application using 'Basic '.
+Response
+Returns
+[ApplicationUser]
+
+Arguments
+Description
+
+paginate:
+OffsetInput
+
+
+Query
+  query getApplicationUsers($paginate: OffsetInput) {
+    getApplicationUsers(paginate: $paginate) {
+      userId
+      scopes
+    }
+  }
+  
+Variables
+{"paginate": OffsetInput}
+Response
+  {
+    data: {
+      getApplicationUsers: [
+        {
+          userId: "8c8cf345-3f20-4708-9a78-eac27d54a535",
+          scopes: ["LIST_PAYMENT"],
+        },
+      ],
+    },
+  }
+getGiftCards
+Retrieves the user's gift cards. Requires LIST_PURCHASES scope.
+Response
+Returns
+[GiftCard]
+
+Arguments
+Description
+
+status:
+[GiftCardStatus]
+
+
+
+paginate:
+OffsetInput
+
+
+Query
+  query getGiftCards(
+    $status: [GiftCardStatus],
+    $paginate: OffsetInput
+  ) {
+    getGiftCards(
+      status: $status,
+      paginate: $paginate
+    ) {
+      giftCardId
+      purchaserUserId
+      endDate
+      status
+      createdAt
+      merchant {
+        ...MerchantFragment
+      }
+    }
+  }
+  
+Variables
+  {
+    "status": ["ACTIVE"],
+    "paginate": OffsetInput
+  }
+  
+Response
+  {
+    "data": {
+      "getGiftCards": [
+        {
+          "giftCardId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+          "purchaserUserId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+          "endDate": "2007-12-03T10:15:30Z",
+          "status": "ACTIVE",
+          "createdAt": "2007-12-03T10:15:30Z",
+          "merchant": Merchant
+        }
+      ]
+    }
+  }
+  
+getMccList
+Query for listing merchant category codes. Requires MAKE_DEPOSIT scope.
+Response
+Returns
+[MerchantCategoryCode]
+
+Arguments
+Description
+
+paginate:
+OffsetInput
+
+
+Query
+  query getMccList(
+    $paginate: OffsetInput
+  ) {
+    getMccList(
+      paginate: $paginate
+    ) {
+      code
+      displayDescription
+      description
+    }
+  }
+  
+Variables
+  {
+    "paginate": OffsetInput
+  }
+  
+Response
+  {
+    "data": {
+      "getMccList": [
+        {
+          "code": "abc123",
+          "displayDescription": "xyz789",
+          "description": "abc123"
+        }
+      ]
+    }
+  }
+  
+getReferralUrl
+Get the referral url for a merchant.
+Response
+Returns
+String
+
+Arguments
+Description
+
+merchant:
+MerchantInput
+
+
+Query
+  query getReferralUrl($merchant: MerchantInput) {
+    getReferralUrl(
+      merchant: $merchant
+    ) 
+  }
+  
+Variables
+{"merchant": MerchantInput}
+Response
+  {
+    "data": {
+      "getReferralUrl": "http://fluz.app/store/CVS?referred_by=ABC123"
+    }
+  }
+  
+getMerchants
+Get the active merchant catalog. Requires LIST_OFFERS scope.
+Response
+Returns
+[Merchant]
+
+Arguments
+Description
+
+name:
+String
+
+
+
+paginate:
+OffsetInput
+
+
+
+offerTypes:
+OfferTypesInput
+
+
+
+filterBy:
+FilterByInput
+
+
+Query
+  query getMerchants(
+    $name: String,
+    $paginate: OffsetInput,
+    $offerTypes: OfferTypesInput
+    $filterBy: FilterByInput
+  ) {
+    getMerchants(
+      name: $name,
+      paginate: $paginate
+      offerTypes: $offerTypes
+      filterBy: $filterBy
+    ) {
+      merchantId
+      name
+      slug
+      offers {
+        ...OfferFragment
+      }
+    }
+  }
+  
+Variables
+  {
+    "name": "CVS",
+    "paginate": OffsetInput,
+    "offerTypes": OfferTypesInput
+    "filterBy": FilterByInput
+  }
+  
+Response
+  {
+    "data": {
+      "getMerchants": [
+        {
+          "merchantId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+          "name": "CVS",
+          "slug": "cvs",
+          "offers": [Offer]
+        }
+      ]
+    }
+  }
+  
+getOfferQuote
+Get the best offer for merchant based on matching arguments. Requires LIST_OFFERS scope. This requires Fluz to confirm the inventory, response time varies by vendors.
+Response
+Returns
+[Offer]
+
+Arguments
+Description
+
+GetOfferQuoteInput!
+
+Input type for getOfferQuote query.
+Query
+  query getOfferQuote($input: GetOfferQuoteInput!) {
+    getOfferQuote(input: $input) {
+      offeringMerchantId
+      offerId
+      type
+      hasStockInfo
+      offerRates {
+        ...OfferRateFragment
+      }
+      denominationsType
+      stockInfo
+    }
+  }
+  
+Variables
+{"input": GetOfferQuoteInput}
+Response
+  {
+    "data": {
+      "getOfferQuote": {
+        "offeringMerchantId": "7c57c381-4b19-49e4-bbb0-404a45166ee4",
+        "offerId": "7c57c381-4b19-49e4-bbb0-404a45166ee4",
+        "type": "GIFT_CARD_OFFER",
+        "hasStockInfo": true,
+        "offerRates": [OfferRate],
+        "denominationsType": "VARIABLE",
+        "stockInfo": [StockInfoVariableType]
+      }
+    }
+  }
+  
+getUserAddresses
+getUserAddresses returns the user's addresses.
+Response
+Returns
+[UserAddress]
+
+Arguments
+Description
+
+paginate:
+OffsetInput
+
+
+Query
+  query getUserAddresses($paginate: OffsetInput) {
+    getUserAddresses(paginate: $paginate) {
+      userAddressId
+      streetAddressLine1
+      streetAddressLine2
+      country
+      city
+      state
+      postalCode
+    }
+  }
+  
+Variables
+{"paginate": OffsetInput}
+Response
+  {
+    "data": {
+      "getUserAddresses": [
+        {
+          "userAddressId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+          "streetAddressLine1": "351 Mueller Keys",
+          "streetAddressLine2": null,
+          "country": "United States",
+          "city": "Dover",
+          "state": "Delaware",
+          "postalCode": "11223"
+        }
+      ]
+    }
+  }
+  
+getUserPurchases
+Retrieves the user's purchase history. Supports token-scoped filtering via scope flags (default [TOKEN_USER]). Requires LIST_PURCHASES scope.
+Response
+Returns
+[UserPurchase]
+
+Arguments
+Description
+
+filter:
+UserPurchaseFilterInput
+
+
+
+paginate:
+OffsetInput
+
+
+Query
+query getUserPurchases($filter: UserPurchaseFilterInput, $paginate: OffsetInput) {
+    getUserPurchases(filter: $filter, paginate: $paginate) {
+      purchaseId
+      purchaseDisplayId
+      purchaseBankCardId
+      bankAccountId
+      purchaseAmount
+      fluzpayAmount
+      seatRewardValue
+      paypalVaultId
+      createdAt
+      accountId
+      purchaserUserId
+      giftCard {
+        ...GiftCardFragment
+      }
+      virtualCard {
+        ...VirtualCardFragment
+      }
+    }
+  }
+  
+Variables
+{
+    "filter": UserPurchaseFilterInput,
+    "paginate": OffsetInput
+  }
+Response
+  {
+    "data": {
+      "getUserPurchases": [
+        {
+          "purchaseId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+          "purchaseDisplayId": "1002405",
+          "purchaseBankCardId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+          "bankAccountId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+          "purchaseAmount": 123.45,
+          "fluzpayAmount": 987.65,
+          "seatRewardValue": 987.65,
+          "paypalVaultId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+          "createdAt": "2007-12-03T10:15:30Z",
+          "accountId": "a2c02ec6-357b-41cf-9229-4da34e727019",
+          "purchaserUserId": "b2a03ec6-357b-41cf-9229-4da34e727019",
+          "giftCard": GiftCard,
+          "virtualCard": VirtualCard
+        }
+      ]
+    }
+  }
+  
+getWallet
+getWallet returns the user's wallet balance and payment methods.
+Response
+Returns
+GetWalletResponse
+
+Query
+  query getWallet {
+    getWallet {
+      bankCards {
+        ...BankCardFragment
+      }
+      bankAccounts {
+        ...BankAccountFragment
+      }
+      paypalAccounts {
+        ...PaypalFragment
+      }
+      blockedPaymentTypes
+      balances {
+        ...UserBalancesFragment
+      }
+    }
+  }
+  
+Response
+  {
+    "data": {
+      "getWallet": {
+        "bankCards": [BankCard],
+        "bankAccounts": [BankAccount],
+        "paypalAccounts": [Paypal],
+        "blockedPaymentTypes": ["BANK_CARD"],
+        "balances": UserBalances
+      }
+    }
+  }
+  
+getVirtualCardOffers
+Get virtual card offers. Requires CREATE_VIRTUALCARD scope.
+Response
+Returns
+[VirtualCardOffer]
+
+Arguments
+Description
+
+GetVirtualCardOffersInput!
+
+Input type for getVirtualCardOffers query.
+Query
+    query getVirtualCardOffers {
+      getVirtualCardOffers(
+          input: { cardBrandLocked: true, cardType: DEBIT, cardNetwork: MASTERCARD }
+      ) {
+          offerId
+          bin
+          bankName
+          rewardValue
+          programLimits {
+              dailyLimit
+              weeklyLimit
+              monthlyLimit
+          }
+          programName
+      }
+  }
+  
+Variables
+{"input": GetVirtualCardOffersInput}
+Response
+  {
+    "data": {
+      "getVirtualCardOffers": [
+        {
+            "offerId": "e0fb2c5f-6a75-498f-95f6-37359a64cb0f",
+            "bin": "123456",
+            "bankName": "Example Bank - Mastercard",
+            "rewardValue": "1.5%",
+            "programLimits": {
+                "dailyLimit": "100000",
+                "weeklyLimit": "700000",
+                "monthlyLimit": "3100000"
+            },
+            "programName": "Brand Locked Virtual Card - Mastercard Debit"
+        },
+        {
+            "offerId": "f9199d75-7235-4016-9b80-ad83a614a48a",
+            "bin": "789012",
+            "bankName": "Example Bank 2 - Visa",
+            "rewardValue": "1.5%",
+            "programLimits": {
+                "dailyLimit": "100000",
+                "weeklyLimit": "700000",
+                "monthlyLimit": "3100000"
+            },
+            "programName": "Brand Locked Virtual Card - Mastercard Debit"
+        }
+      ]
+    }
+  }
+  
+getVirtualCardBulkOrderStatus
+Checks bulk virtual card order status. Requires REVEAL_VIRTUALCARD scopes and PCI_COMPLIANCE from the developer.
+Response
+Returns
+VirtualCardBulkOrder
+
+Arguments
+Description
+
+GetVirtualCardBulkOrderStatusInput!
+
+Input type for getVirtualCardBulkOrderStatus query.
+Query
+    query GetVirtualCardBulkOrderStatus {
+        getVirtualCardBulkOrderStatus(
+            input: {
+                orderId: "MTFkYjIxNTYtNTEwOS00ODNxLTkwMTYtYjA5A2E2NTEyMjU5fDIzMjIxODRhLTEzMjgtNDkwYy05Mzc1LTZlOWM4MWIwMjkzZA=="
+            }
+        ) {
+        orderStatus
+        orderId
+        virtualCards {
+            cardNumber
+            expiryMMYY
+            cvv
+            cardHolderName
+            virtualCardId
+            billingAddress {
+                city
+            }
+        }
+        successfulCardCreations
+        failedCardCreations
+        totalCards
+    }
+}
+
+  
+Variables
+{"input": GetVirtualCardBulkOrderStatusInput}
+Response
+  {
+    "data": {
+        "getVirtualCardBulkOrderStatus": {
+            "orderStatus": "COMPLETED",
+            "orderId": "MTFkYjIxNTYtNTEwOS00ODNxLTkwMTYtYjA5A2E2NTEyMjU5fDIzMjIxODRhLTEzMjgtNDkwYy05Mzc1LTZlOWM4MWIwMjkzZA==",
+            "virtualCards": [
+                {
+                    "cardNumber": "5111142487759818",
+                    "expiryMMYY": "08/29",
+                    "cvv": "479",
+                    "cardHolderName": "Test",
+                    "virtualCardId": "c8a1e101-8d69-4b16-997c-bfd6bcda500a",
+                    "billingAddress": {
+                        "city": "San Jose"
+                    }
+                },
+                {
+                    "cardNumber": "5111141637519304",
+                    "expiryMMYY": "08/29",
+                    "cvv": "291",
+                    "cardHolderName": "Test",
+                    "virtualCardId": "dd971968-c233-433a-a015-c2abe2759f31",
+                    "billingAddress": {
+                        "city": "San Jose"
+                    }
+                },
+                {
+                    "cardNumber": "5111143840238441",
+                    "expiryMMYY": "08/29",
+                    "cvv": "251",
+                    "cardHolderName": "Test",
+                    "virtualCardId": "da3d5ff5-cb93-4870-9335-64f7d77893c8",
+                    "billingAddress": {
+                        "city": "San Jose"
+                    }
+                }
+            ],
+            "successfulCardCreations": 3,
+            "failedCardCreations": 0,
+            "totalCards": 3
+        }
+    }
+}
+  
+getVirtualCardTransactions
+Get transactions for multiple virtual cards with filters. Requires PCI_COMPLIANCE and REVEAL_VIRTUALCARD scope.
+Response
+Returns
+[VirtualCardTransactions!]!
+
+Arguments
+Description
+
+input:
+GetVirtualCardTransactionsInput!
+
+Input parameters for fetching virtual card transactions.
+Query
+    query GetVirtualCardTransactions($input: GetVirtualCardTransactionsInput!) {
+      getVirtualCardTransactions(input: $input) {
+        virtualCardId
+        transactions {
+          transactionDate
+          transactionType
+          transactionAmount
+          transactionApproval
+          transactionResponseCode
+          transactionStatus
+          merchantName
+          paymentMethod
+        }
+      }
+    }
+  
+Variables
+{
+  "input": {
+    "virtualCardIds": ["07df5653-43a8-4532-9881-3ab5857bbe11"],
+    "filters": {
+      "transactionTypes": ["PURCHASE", "REFUND"]
+    },
+    "paginate": {
+      "offset": 0,
+      "limit": 10
+    }
+  }
+}
+Response
+{
+  "data": {
+    "getVirtualCardTransactions": [
+      {
+        "virtualCardId": "07df5653-43a8-4532-9881-3ab5857bbe11",
+        "transactions": [
+          {
+            "transactionDate": "2023-09-24T10:00:00Z",
+            "transactionType": "PURCHASE",
+            "transactionAmount": 50.00,
+            "transactionApproval": "123456",
+            "transactionResponseCode": "00",
+            "transactionStatus": "Approved",
+            "merchantName": "Example Store",
+            "paymentMethod": "Card Present"
+          }
+        ]
+      }
+    ]
+  }
+}
+getVirtualCardBalance
+Get balance for multiple virtual cards. Requires PCI_COMPLIANCE and REVEAL_VIRTUALCARD scope.
+Response
+Returns
+[VirtualCardBalance!]!
+
+Arguments
+Description
+
+input:
+GetVirtualCardBalanceInput!
+
+Input parameters for fetching virtual card balances.
+Query
+    query GetVirtualCardBalance($input: GetVirtualCardBalanceInput!) {
+      getVirtualCardBalance(input: $input) {
+        virtualCardId
+        spentAmount
+        remainingBalance
+        spendLimit
+        spendLimitDuration
+      }
+    }
+  
+Variables
+{
+  "input": {
+    "virtualCardIds": ["07df5653-43a8-4532-9881-3ab5857bbe11"]
+  }
+}
+Response
+{
+  "data": {
+    "getVirtualCardBalance": [
+      {
+        "virtualCardId": "07df5653-43a8-4532-9881-3ab5857bbe11",
+        "spentAmount": 50.00,
+        "remainingBalance": 450.00,
+        "spendLimit": 500.00,
+        "spendLimitDuration": "LIFETIME"
+      }
+    ]
+  }
+}
+Mutations
+addBankCard
+addBankCard adds a bank card to the user's wallet. Requires PCI_COMPLIANCE from the developer and MANAGE_PAYMENT scope. PERSONAL/Private applications are exempt from PCI_COMPLIANCE requirement.
+Response
+Returns
+BankCard
+
+Arguments
+Description
+
+input:
+AddBankCardInput!
+
+
+Query
+  mutation addBankCard($input: AddBankCardInput!) {
+    addBankCard(input: $input) {
+      bankCardId
+      ownerAccountId
+      addedUserId
+      cardType
+      cardProcessor
+      cardholderName
+      lastFourDigits
+      expirationMonth
+      expirationYear
+      cardStatus
+      billingAddressId
+      nickname
+    }
+  }
+    
+Variables
+{"input": AddBankCardInput}
+Response
+  {
+    "data": {
+      "addBankCard": {
+        "bankCardId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+        "ownerAccountId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+        "addedUserId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+        "cardType": "DEBIT",
+        "cardProcessor": "MASTERCARD",
+        "cardholderName": "John Doe",
+        "lastFourDigits": "1122",
+        "expirationMonth": "11",
+        "expirationYear": "2025",
+        "cardStatus": "ACTIVE",
+        "billingAddressId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+        "nickname": "My Business Card"
+      }
+    }
+  }
+  
+createVirtualCard
+Initiates virtual card creation. Requires CREATE_VIRTUALCARD scope.
+Response
+Returns
+VirtualCard
+
+Arguments
+Description
+
+input:
+CreateVirtualCardInput!
+
+Input type for createVirtualCard query.
+Query
+  mutation createVirtualCard($input: CreateVirtualCardInput!) {
+    createVirtualCard(input: $input) {
+        virtualCardId
+        userId
+        cardholderName
+        expiryMonth
+        expiryYear
+        virtualCardLast4
+        status
+        cardType
+        initialAmount
+        usedAmount
+        createdAt
+    }
+  }
+    
+Variables
+{"input": CreateVirtualCardInput}
+Response
+  {
+    "data": {
+      "createVirtualCard": {
+        "virtualCardId": "26e1b80a-98d3-4f15-bed1-bee66dd9cb11",
+        "userId": "6e209973-d4d6-4361-92fc-7b3e312379dc",
+        "cardholderName": "Example",
+        "expiryMonth": "07",
+        "expiryYear": "29",
+        "virtualCardLast4": "1234",
+        "status": "ACTIVE",
+        "cardType": "MULTI_USE",
+        "initialAmount": 100,
+        "usedAmount": 0,
+        "createdAt": "2024-10-10T10:10:10.000Z"
+        }
+    }
+  }
+  
+createVirtualCardBulkOrder
+Initiates bulk virtual card creation. Requires CREATE_VIRTUALCARD scope.
+Response
+Returns
+VirtualCardBulkOrder
+
+Arguments
+Description
+
+input:
+CreateVirtualCardBulkOrderInput!
+
+Input type for createVirtualCardBulkOrder mutation.
+Query
+  mutation CreateVirtualCardBulkOrder {
+    createVirtualCardBulkOrder(
+        input: {
+            offerId: "592c394e-26cc-44ac-a145-a5f81301fe77"
+            orderItems: [
+                {
+                    quantity: 10
+                    spendLimit: 100
+                    spendLimitDuration: DAILY
+                    lockCardNextUse: true
+                    cardNickname: "Test nickname"
+                    primaryFundingSource: FLUZ_BALANCE
+                }
+            ]
+        }
+    ) {
+        orderId
+        orderStatus
+    }
+  } 
+    
+Variables
+{"input": CreateVirtualCardBulkOrderInput}
+Response
+  {
+    "data": {
+        "createVirtualCardBulkOrder": {
+            "orderId": "MTFkYjIxNTYtNTEwOS00ODNmLTkwMTYtYjA5N2V2NTEyMjU5fDIzMjIxODRhLTEzMjgtNDkwYy05Mzc1LTZlOWM4MWIwMjkzZA==",
+            "orderStatus": "PENDING"
+        }
+    }
+  }
+  
+deleteBankCard
+deleteBankCard sets a bank card's status to INACTIVE. Requires MANAGE_PAYMENT scope.
+Response
+Returns
+BankCard
+
+Arguments
+Description
+
+input:
+DeleteBankCardInput!
+
+
+Query
+  mutation deleteBankCard($input: DeleteBankCardInput!) {
+    deleteBankCard(input: $input) {
+      bankCardId
+      ownerAccountId
+      addedUserId
+      cardType
+      cardProcessor
+      cardholderName
+      lastFourDigits
+      expirationMonth
+      expirationYear
+      cardStatus
+      billingAddressId
+      nickname
+    }
+  }
+    
+Variables
+{
+  "input": {
+    "bankCardId": "8c8cf345-3f20-4708-9a78-eac27d54a535"
+  }
+}
+Response
+  {
+    "data": {
+      "deleteBankCard": {
+        "bankCardId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+        "ownerAccountId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+        "addedUserId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+        "cardType": "DEBIT",
+        "cardProcessor": "MASTERCARD",
+        "cardholderName": "John Doe",
+        "lastFourDigits": "1122",
+        "expirationMonth": "11",
+        "expirationYear": "2025",
+        "cardStatus": "INACTIVE",
+        "billingAddressId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+        "nickname": "My Business Card"
+      }
+    }
+  }
+  
+depositCashBalance
+Mutation for depositing into a cash balance. Requires MAKE_DEPOSIT scope.
+Response
+Returns
+DepositCashBalanceResponse!
+
+Arguments
+Description
+
+input:
+DepositCashBalanceInput!
+
+
+Query
+  mutation depositCashBalance($input: DepositCashBalanceInput!) {
+    depositCashBalance(input: $input) {
+      cashBalanceDeposits {
+        ...CashBalanceDepositFragment
+      }
+      balances {
+        ...UserBalancesFragment
+      }
+    }
+  }
+    
+Variables
+{"input": DepositCashBalanceInput}
+Response
+  {
+    "data": {
+      "depositCashBalance": {
+        "cashBalanceDeposits": [CashBalanceDeposit],
+        "balances": UserBalances
+      }
+    }
+  }
+  
+editVirtualCard
+Mutation to edit virtual cards. Requires EDIT_VIRTUALCARD scope.
+Response
+Returns
+VirtualCard!
+
+Arguments
+Description
+
+input:
+EditVirtualCardInput!
+
+
+Query
+  mutation editVirtualCard($input: EditVirtualCardInput!) {
+    editVirtualCard(input: $input) {
+        virtualCardId
+        userId
+        cardholderName
+        expiryMonth
+        expiryYear
+        virtualCardLast4
+        status
+        cardType
+        initialAmount
+        usedAmount
+        createdAt
+    }
+  }
+    
+Variables
+{"input": EditVirtualCardInput}
+Response
+  {
+    "data": {
+        "editVirtualCard": {
+            "virtualCardId": "1f6f63d3-f152-44a9-b0cd-40f4725a74f4",
+            "userId": "862e3fcb-1bb3-4530-8005-aba6cbbda768",
+            "cardholderName": "Example",
+            "expiryMonth": "07",
+            "expiryYear": "29",
+            "virtualCardLast4": "1234",
+            "status": "ACTIVE",
+            "cardType": "MULTI_USE",
+            "initialAmount": 100,
+            "usedAmount": 0,
+            "createdAt": "2025-01-01T10:10:10.100Z"
+        }
+    }
+  }
+  
+generateUserAccessToken
+Generate a user token using 'Basic '. The token will be associated with the user_id and will have the specified scopes.
+Response
+Returns
+GenerateUserAccessTokenResponse
+
+Arguments
+Description
+
+userId:
+UUID!
+
+The userId that will be associated with the token.
+
+accountId:
+UUID!
+
+The accountId that will be associated with the token.
+
+scopes:
+[ScopeType!]!
+
+The scopes that the token will have access to.
+
+seatId:
+UUID
+
+The seatId will be used to make transactions, default to the most recently created if not provided.
+Query
+  mutation generateUserAccessToken(
+    $userId: UUID!,
+    $accountId: UUID!,
+    $scopes: [ScopeType!]!,
+    $seatId: UUID
+  ) {
+    generateUserAccessToken(
+      userId: $userId,
+      accountId: $accountId,
+      scopes: $scopes,
+      seatId: $seatId
+    ) {
+      token
+      scopes
+    }
+  }
+    
+Variables
+  {
+    "userId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "accountId": "a2c02ec6-357b-41cf-9229-4da34e727019",
+    "scopes": ["LIST_PAYMENT"],
+    "seatId": "8c8cf345-3f20-4708-9a78-eac27d54a535"
+  }
+  
+Response
+  {
+    "data": {
+      "generateUserAccessToken": {
+        "token": "xyz789",
+        "scopes": ["LIST_PAYMENT"]
+      }
+    }
+  }
+  
+lockVirtualCard
+Mutation to lock virtual cards. Requires EDIT_VIRTUALCARD scope.
+Response
+Returns
+LockVirtualCardResponse
+
+Arguments
+Description
+
+input:
+LockVirtualCardInput!
+
+
+Query
+    mutation lockVirtualCard {
+        lockVirtualCard(
+            input: { virtualCardId: "08ba9aa4-2015-4b6d-ab25-f872e031f999" }
+        ) {
+            virtualCardId
+            locked
+        }
+    }
+    
+Variables
+{"input": LockVirtualCardInput}
+Response
+ {
+    "data": {
+        "lockVirtualCard": {
+            "virtualCardId": "0a0b156b-d87e-4d73-98f3-fe5a8b6d286b",
+            "locked": true
+        }
+    }
+  }
+  
+purchaseGiftCard
+Initiates a gift card purchase transaction. Requires PURCHASE_GIFTCARD scope.
+Response
+Returns
+UserPurchase
+
+Arguments
+Description
+
+input:
+PurchaseGiftCardInput!
+
+
+Query
+  mutation purchaseGiftCard($input: PurchaseGiftCardInput!) {
+    purchaseGiftCard(input: $input) {
+      purchaseId
+      purchaseDisplayId
+      purchaseBankCardId
+      bankAccountId
+      purchaseAmount
+      fluzpayAmount
+      seatRewardValue
+      paypalVaultId
+      createdAt
+      giftCard {
+        ...GiftCardFragment
+      }
+      virtualCard {
+        ...VirtualCardFragment
+      }
+    }
+  }
+    
+Variables
+{"input": PurchaseGiftCardInput}
+Response
+  {
+    "data": {
+      "purchaseGiftCard": {
+        "purchaseId": "7c57c381-4b19-49e4-bbb0-404a45166ee4",
+        "purchaseDisplayId": "1002405",
+        "purchaseBankCardId": "7c57c381-4b19-49e4-bbb0-404a45166ee4",
+        "bankAccountId": "7c57c381-4b19-49e4-bbb0-404a45166ee4",
+        "purchaseAmount": 987.65,
+        "fluzpayAmount": 987.65,
+        "seatRewardValue": 123.45,
+        "paypalVaultId": "7c57c381-4b19-49e4-bbb0-404a45166ee4",
+        "createdAt": "2007-12-03T10:15:30Z",
+        "giftCard": GiftCard,
+        "virtualCard": VirtualCard
+      }
+    }
+  }
+  
+revealGiftCardByGiftCardId
+Reveals the Gift Card Code. It has an irreversible effect on the Gift Card status. Requires REVEAL_GIFTCARD scope.
+Response
+Returns
+GiftCardCode
+
+Arguments
+Description
+
+giftCardId:
+UUID!
+
+
+Query
+  mutation revealGiftCardByGiftCardId($giftCardId: UUID!) {
+    revealGiftCardByGiftCardId(giftCardId: $giftCardId) {
+      code
+      pin
+      url
+    }
+  }
+    
+Variables
+  {
+    "giftCardId": "8c8cf345-3f20-4708-9a78-eac27d54a535"
+  }
+  
+Response
+  {
+    "data": {
+      "revealGiftCardByGiftCardId": {
+        "code": "9877890000000000",
+        "pin": "2014",
+        "url": "null"
+      }
+    }
+  }
+  
+revealVirtualCardByVirtualCardId
+Reveals the full card number and CVV of a virtual card, along with its billing details. Requires PCI_COMPLIANCE from the developer and REVEAL_VIRTUALCARD scope. PERSONAL/Private applications are exempt from PCI_COMPLIANCE requirement.
+Response
+Returns
+VirtualCardDetails
+
+Arguments
+Description
+
+virtualCardId:
+UUID!
+
+
+Query
+  mutation revealVirtualCardByVirtualCardId($virtualCardId: UUID!) {
+    revealVirtualCardByVirtualCardId(virtualCardId: $virtualCardId) {
+      cardNumber
+      expiryMMYY
+      cvv
+      cardHolderName
+      billingAddress {
+        ...VirtualCardAddressInfoFragment
+      }
+      authorizationSetting{
+        ...VirtualCardAuthorizationSetting
+     }
+    }
+  }
+    
+Variables
+  {
+    "virtualCardId": "8c8cf345-3f20-4708-9a78-eac27d54a535"
+  }
+  
+Response
+  {
+    "data": {
+      "revealVirtualCardByVirtualCardId": {
+        "cardNumber": "4111111560324603",
+        "expiryMMYY": "02/2023",
+        "cvv": "486",
+        "cardHolderName": "Susan Jones",
+        "billingAddress": VirtualCardAddressInfo,
+        "authorizationSetting": VirtualCardAuthorizationSetting
+      }
+    }
+  }
+  
+updateBankCardNickname
+updateBankCardNickname updates the nickname of a bank card. Requires MANAGE_PAYMENT scope.
+Response
+Returns
+BankCard
+
+Arguments
+Description
+
+input:
+UpdateBankCardNicknameInput!
+
+
+Query
+  mutation updateBankCardNickname($input: UpdateBankCardNicknameInput!) {
+    updateBankCardNickname(input: $input) {
+      bankCardId
+      ownerAccountId
+      addedUserId
+      cardType
+      cardProcessor
+      cardholderName
+      lastFourDigits
+      expirationMonth
+      expirationYear
+      cardStatus
+      billingAddressId
+      nickname
+    }
+  }
+    
+Variables
+{
+  "input": {
+    "bankCardId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "nickname": "My Travel Card"
+  }
+}
+Response
+  {
+    "data": {
+      "updateBankCardNickname": {
+        "bankCardId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+        "ownerAccountId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+        "addedUserId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+        "cardType": "DEBIT",
+        "cardProcessor": "MASTERCARD",
+        "cardholderName": "John Doe",
+        "lastFourDigits": "1122",
+        "expirationMonth": "11",
+        "expirationYear": "2025",
+        "cardStatus": "ACTIVE",
+        "billingAddressId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+        "nickname": "My Travel Card"
+      }
+    }
+  }
+  
+updateBankCardPreferredMerchantCategoryCode
+updateBankCardPreferredMerchantCategoryCode updates the preferred merchant category code (MCC) for a bank card. Requires MANAGE_PAYMENT scope.
+Response
+Returns
+BankCard
+
+Arguments
+Description
+
+input:
+UpdateBankCardPreferredMerchantCategoryCodeInput!
+
+
+Query
+  mutation updateBankCardPreferredMerchantCategoryCode($input: UpdateBankCardPreferredMerchantCategoryCodeInput!) {
+    updateBankCardPreferredMerchantCategoryCode(input: $input) {
+      bankCardId
+      ownerAccountId
+      addedUserId
+      cardType
+      cardProcessor
+      cardholderName
+      lastFourDigits
+      expirationMonth
+      expirationYear
+      cardStatus
+      billingAddressId
+      nickname
+    }
+  }
+    
+Variables
+{
+  "input": {
+    "bankCardId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "preferredMerchantCategoryCode": "5411"
+  }
+}
+Response
+  {
+    "data": {
+      "updateBankCardPreferredMerchantCategoryCode": {
+        "bankCardId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+        "ownerAccountId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+        "addedUserId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+        "cardType": "DEBIT",
+        "cardProcessor": "MASTERCARD",
+        "cardholderName": "John Doe",
+        "lastFourDigits": "1122",
+        "expirationMonth": "11",
+        "expirationYear": "2025",
+        "cardStatus": "ACTIVE",
+        "billingAddressId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+        "nickname": "My Business Card"
+      }
+    }
+  }
+  
+SCALAR
+Boolean
+The Boolean scalar type represents true or false.
+Example
+true
+DateTime
+A date-time string at UTC, such as 2007-12-03T10:15:30Z, compliant with the date-time format outlined in section 5.6 of the RFC 3339 profile of the ISO 8601 standard for representation of dates and times using the Gregorian calendar.
+Example
+"2007-12-03T10:15:30Z"
+Float
+The Float scalar type represents signed double-precision fractional values as specified by IEEE 754.
+Example
+987.65
+Int
+The Int scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+Example
+987
+String
+The String scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+Example
+"xyz789"
+UUID
+A version 4 UUID is randomly generated. 4 bits are used to indicate version 4, and 2 or 3 bits to indicate the variant (102 or 1102 for variants 1 and 2 respectively)
+Example
+"8c8cf345-3f20-4708-9a78-eac27d54a535"
+INPUT_OBJECT
+AddBankCardInput
+Input type for adding a bank card to the user's wallet.
+Input Field
+Description
+
+cardNumber:
+String!
+
+The card number.
+
+expirationMonth:
+String!
+
+The expiration month in the format MM.
+
+expirationYear:
+String!
+
+The expiration year in the format YYYY.
+
+cvv:
+String!
+
+The three- or four-digit security numbers.
+
+cardholderName:
+String!
+
+The name of the cardholder.
+
+billingAddress:
+UserAddressInput
+
+Create the card with a new address.
+
+userAddressId:
+UUID
+
+Create the card with an existing user address.
+
+nickname:
+String
+
+Optional nickname for the card (e.g., "My Travel Card").
+
+preferredMerchantCategoryCode:
+String
+
+Optional merchant category code (MCC) for the card.
+Example
+  {
+    "cardNumber": "4111111560324603",
+    "expirationMonth": "02",
+    "expirationYear": "2025",
+    "cvv": "xyz789",
+    "cardholderName": "John Doe",
+    "billingAddress": UserAddressInput,
+    "userAddressId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "nickname": "My Business Card",
+    "preferredMerchantCategoryCode": "5411"
+  }
+  }
+    
+CreateVirtualCardBulkOrderInput
+Input type for creating bulk virtual card order.
+Input Field
+Description
+
+offerId:
+UUID!
+
+The Offer Id of Virtual Card Offer. This offer will be applied to all cards created in this order.
+
+orderItems:
+[VirtualCardOrderItemInput!]!
+
+A list of configurations for the virtual cards to be created. Each item in this list represents a group of one or more cards with identical settings. The total number of cards across all items cannot exceed 100.
+Example
+  {
+    "offerId": "94edb6a7-66e6-4553-bede-fb1ae53d53ea",
+    "orderItems": [VirtualCardOrderItemInput!]!
+  }
+    
+CreateVirtualCardInput
+Input type for creating virtual cards.
+Input Field
+Description
+
+idempotencyKey:
+UUID!
+
+The unique client generated UUID value used to identify a request and ensure that it is only executed once.
+
+spendLimit:
+Float!
+
+The maximum amount that you can charge to the card. You will only be charged for the amount you actually used.
+
+spendLimitDuration:
+VirtualCardSpendLimitDuration
+
+Card limit duration type. Default Lifetime.
+
+lockDate:
+String
+
+The date when the card will be locked. The default is 47 months. Format: YYYY-MM-DD.
+
+lockCardNextUse:
+Boolean
+
+The setting to lock the card after next use. The default is false.
+
+cardNickname:
+String
+
+The card's nickname.
+
+primaryFundingSource:
+VirtualCardFundingSource
+
+Primary Funding Source for Virtual Card.
+
+bankAccountId:
+UUID
+
+The unique identifier for the bank account.
+
+offerId:
+UUID
+
+The Offer Id of Virtual Card Offer. Use getVirtualCardOffers to fetch a list of active offers.
+
+userCashBalanceId:
+UUID
+
+The unique identifier for the user Cash Balance.
+Example
+  {
+    "idempotencyKey": "07df5653-43a8-4532-9881-3ab5857bbe11",
+    "spendLimit": 123.45,
+    "spendLimitDuration": "DAILY",
+    "lockDate": "2007-12-03T10:15:30Z",
+    "lockCardNextUse": true,
+    "cardNickname": "xyz789",
+    "primaryFundingSource": "FLUZ_BALANCE",
+    "bankAccountId": "31a46879-0926-424a-9932-259b8a015a7a",
+    "offerId": "94edb6a7-66e6-4553-bede-fb1ae53d53ea"
+  }
+    
+DeleteBankCardInput
+Input type for deleting (soft delete) a bank card.
+Input Field
+Description
+
+bankCardId:
+UUID!
+
+The ID of the bank card to delete.
+Example
+  {
+    "bankCardId": "8c8cf345-3f20-4708-9a78-eac27d54a535"
+  }
+    
+DepositCashBalanceInput
+Input type for depositing cash balance, specifying the amount and deposit type.
+Input Field
+Description
+
+idempotencyKey:
+UUID!
+
+The unique client generated UUID value used to identify a request and ensure that it is only executed once.
+
+amount:
+Float!
+
+The amount deposited.
+
+depositType:
+CashBalanceDepositType
+
+Type of the deposit being made.
+
+merchantCategoryCode:
+Int
+
+A four-digit number that classifies a business by the type of products or services it offers.
+
+bankAccountId:
+UUID!
+
+Identifier of the bank account for the deposit.
+
+bankCardId:
+UUID
+
+Identifier of the bank card for the deposit.
+
+paypalVaultId:
+UUID
+
+Identifier of the PayPal ID for the deposit.
+Example
+  {
+    "idempotencyKey": "h0dffffb-26cf-4773-ada6-5564eb92a1e7",
+    "amount": 123.45,
+    "depositType": "CASH_BALANCE",
+    "bankAccountId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "merchantCategoryCode": 5555,
+    "bankCardId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "paypalVaultId": "8c8cf345-3f20-4708-9a78-eac27d54a535"
+  }
+    
+EditVirtualCardInput
+Input type for edit virtual card.
+Input Field
+Description
+
+virtualCardId:
+UUID!
+
+The virtual card to update. [REQUIRED]
+
+spendLimit:
+Float
+
+The maximum amount that you can charge to the card. You will only be charged for the amount you actually used.
+
+spendLimitDuration:
+VirtualCardSpendLimitDuration
+
+Card limit duration type.
+
+lockDate:
+String
+
+The date when the card will be locked.
+
+lockCardNextUse:
+Boolean
+
+The setting to lock the card after next use.
+
+cardNickname:
+String
+
+The card's nickname
+
+bankAccountId:
+UUID
+
+The bank account ID.
+
+primaryFundingSource:
+VirtualCardFundingSource
+
+Primary Funding Source for Virtual Card.
+Example
+  {
+    virtualCardId: "d94008ee-c3d1-4dd2-ba63-ed805013d12c"
+    primaryFundingSource: FLUZ_BALANCE
+    spendLimit: 200
+    spendLimitDuration: LIFETIME
+    lockDate: "2030-10-10"
+    lockCardNextUse: true
+    cardNickname: "Example"
+    bankAccountId: "432bff1b-89b2-4df8-8298-0b6ae5e92945"
+  }
+    
+FilterByInput
+Input for applying fine-grained filters on offer attributes. This will filter the offers *within* a merchant. If all of a merchant's offers are filtered out, the merchant itself will be excluded.
+Input Field
+Description
+
+deliveryFormat:
+DeliveryFormatType
+
+Filters gift card offers by their delivery format.
+Example
+  {
+    "deliveryFormat": "CODES"
+  }
+    
+GetOfferQuoteInput
+Input type for getOfferQuote query.
+Input Field
+Description
+
+merchantSlug:
+String!
+
+Human readable unique identifier for merchant. Can be found in merchant list.
+
+denomination:
+Float!
+
+The purchase amount.
+
+paymentMethod:
+PaymentMethodType
+
+The payment method to be used for the purchase. Default is FLUZPAY.
+Example
+  {
+    "merchantSlug": "cvs",
+    "denomination": 987.65,
+    "paymentMethod": "BANK_CARD"
+  }
+    
+GetVirtualCardBulkOrderStatusInput
+Input type for GetVirtualCardBulkOrderStatusInput query.
+Input Field
+Description
+
+orderId:
+String!
+
+Order ID received from createVirtualCardBulkOrder mutation.
+Example
+  {
+    "orderId": "MTFkYjIxNTYtNTEwOS00ODNmLTkwMTYtYjA5N2E2NTEyMjU5fDIzMjIxODRhLTEzMjgtNDkwYy05Mzc1LTZlOWM4MWIwMjkzZA=="
+  }
+    
+GetVirtualCardOffersInput
+Input type for GetVirtualCardOffers query.
+Input Field
+Description
+
+cardBrandLocked:
+Boolean
+
+Specify if virtual card offers are brand locked.
+
+cardType:
+VirtualCardOfferType
+
+Specify virtual card network type.
+
+cardNetwork:
+VirtualCardNetwork
+
+Specify virtual card network type.
+Example
+  {
+    "cardBrandLocked": true,
+    "cardType": "DEBIT",
+    "cardNetwork": "MASTERCARD"
+  }
+    
+LockVirtualCardInput
+Input type for LockVirtualCard mutation.
+Input Field
+Description
+
+virtualCardId:
+UUID!
+
+The virtual card to update.
+Example
+  {
+    "virtualCardId": "4d1c4b79-e77f-44f9-bf89-06541cb1540a",
+  }
+    
+MerchantInput
+Input type for getReferralUrl query.
+Input Field
+Description
+
+id:
+UUID
+
+The unique identifier for the merchant.
+
+slug:
+String
+
+Human readable unique identifier for merchant. Can be found in merchant list.
+
+name:
+String
+
+Merchant name.
+Example
+  {
+    "id": "f37cff96-6ca7-4197-b4ff-32ce94433455",
+    "slug": "xyz789",
+    "name": "xyz789"
+  }
+    
+OfferTypesInput
+Input type for getMerchants query.
+Input Field
+Description
+
+giftCardOffer:
+Boolean
+
+Flag to fetch Gift Card Offers. Default = true
+
+cardLinkedOffer:
+Boolean
+
+Flag to fetch Card Linked Offers. Default = false
+Example
+  {
+    "giftCardOffer": true,
+    "cardLinkedOffer": false
+  }
+    
+OffsetInput
+The page info.
+Input Field
+Description
+
+limit:
+Int
+
+The number of items to return per page. The maximum for limit is 20. Default = 20
+
+offset:
+Int
+
+The number of items to skip. Default = 0
+Example
+  {
+    "limit": 987,
+    "offset": 123
+  }
+    
+PurchaseGiftCardInput
+Input type for purchase gift card.
+Input Field
+Description
+
+idempotencyKey:
+UUID!
+
+The unique client generated UUID value used to identify a request and ensure that it is only executed once.
+
+offerId:
+UUID!
+
+The unique identifier for the offer.
+
+amount:
+Float!
+
+The amount to purchase.
+
+balanceAmount:
+Float
+
+The balance amount.
+
+bankAccountId:
+UUID
+
+The unique identifier for the bank account.
+
+bankCardId:
+UUID
+
+The unique identifier of the bank card.
+
+paypalVaultId:
+UUID
+
+The unique identifier of the PayPal account.
+
+exclusiveRateId:
+UUID
+
+The unique identifier of the exclusive rate.
+
+merchantSlug:
+String
+
+Human readable unique identifier for merchant. Can be found in merchant list.
+
+defaultToBalance:
+Boolean
+
+Use balance as the fallback payment method if the primary payment method fails. Defaults to true.
+
+minRewardRate:
+Float
+
+Set minimum reward rate when purchasing using merchantSLug option. If offerId is provided this field will be ignored
+
+userCashBalanceId:
+UUID
+
+The unique identifier for the user Cash Balance.
+Example
+  {
+    "idempotencyKey": "h0dffffb-26cf-4773-ada6-5564eb92a1e7",
+    "offerId": "7c57c381-4b19-49e4-bbb0-404a45166ee4",
+    "amount": 123.45,
+    "balanceAmount": 987.65,
+    "bankAccountId": "7c57c381-4b19-49e4-bbb0-404a45166ee4",
+    "bankCardId": "7c57c381-4b19-49e4-bbb0-404a45166ee4",
+    "paypalVaultId": "7c57c381-4b19-49e4-bbb0-404a45166ee4",
+    "exclusiveRateId": "7c57c381-4b19-49e4-bbb0-404a45166ee4",
+    "merchantSlug": "abc123",
+    "defaultToBalance": false,
+    "minRewardRate": 5.5
+  }
+    
+GetVirtualCardTransactionsInput
+Input type for fetching transactions for multiple virtual cards.
+Input Field
+Description
+
+virtualCardIds:
+[UUID!]!
+
+A list of virtual card IDs to fetch transactions for.
+
+filters:
+VirtualCardTransactionFiltersInput
+
+Filters to apply to the transaction data, such as date range or transaction type.
+
+paginate:
+OffsetInput
+
+Pagination settings for the results, including offset and limit.
+Example
+  {
+    "virtualCardIds": ["07df5653-43a8-4532-9881-3ab5857bbe11"],
+    "filters": {
+      "transactionTypes": ["PURCHASE", "REFUND"]
+    },
+    "paginate": {
+      "offset": 0,
+      "limit": 10
+    }
+  }
+  
+VirtualCardTransactionFiltersInput
+Input type for filtering virtual card transactions.
+Input Field
+Description
+
+transactionTypes:
+[VirtualCardTransactionListType!]
+
+A list of transaction types to filter by (e.g., PURCHASE, REFUND).
+Example
+  {
+    "transactionTypes": ["PURCHASE", "REFUND", "DECLINE"]
+  }
+  
+GetVirtualCardBalanceInput
+Input type for get virtual card balance.
+Input Field
+Description
+
+virtualCardIds:
+[UUID!]!
+
+The virtual card ids to fetch balances.
+Example
+  {
+    "virtualCardIds": ["07df5653-43a8-4532-9881-3ab5857bbe11"]
+  }
+  
+UserAddressInput
+Input type for adding an address to the user.
+Input Field
+Description
+
+streetAddressLine1:
+String!
+
+
+
+streetAddressLine2:
+String
+
+
+
+country:
+String!
+
+
+
+city:
+String!
+
+
+
+state:
+String!
+
+
+
+postalCode:
+String
+
+
+Example
+  {
+    "streetAddressLine1": "351 Mueller Keys",
+    "streetAddressLine2": null,
+    "country": "United States",
+    "city": "Dover",
+    "state": "Delaware",
+    "postalCode": "11223"
+  }
+    
+UserPurchaseFilterInput
+UserPurchaseFilterInput is used by getUserPurchases to select which principals from the caller's token to apply.
+Input Field
+Description
+
+scope:
+[PurchaseScopeFilter!]
+
+Flags that control scoping. Supported values: TOKEN_USER (use token.userId), TOKEN_ACCOUNT (use token.account_id). Default when omitted or [] is [TOKEN_USER].
+Example
+  {
+    "scope": ["TOKEN_USER", "TOKEN_ACCOUNT"]
+  }
+    
+VirtualCardOrderItemInput
+Input type for bulk virtual card order.
+Input Field
+Description
+
+quantity:
+Int!
+
+The number of virtual cards to create with this specific configuration.
+
+spendLimit:
+Float!
+
+The maximum amount that you can charge to the card. You will only be charged for the amount you actually used.
+
+spendLimitDuration:
+VirtualCardSpendLimitDuration
+
+Card limit duration type. Default is Lifetime.
+
+lockDate:
+String
+
+The date when the card will be locked. The default is 47 months.
+
+lockCardNextUse:
+Boolean
+
+The setting to lock the card after next use. The default is false.
+
+cardNickname:
+String
+
+The card's nickname. This nickname will be applied to all cards in this item.
+
+primaryFundingSource:
+VirtualCardFundingSource
+
+Primary Funding Source for Virtual Card.
+
+bankAccountId:
+UUID
+
+The unique identifier for the bank account.
+
+userCashBalanceId:
+UUID
+
+The unique identifier for the user Cash Balance.
+Example
+  {
+    quantity: 10
+    spendLimit: 100
+    spendLimitDuration: DAILY
+    lockCardNextUse: true
+    cardNickname: "Test nickname"
+    primaryFundingSource: FLUZ_BALANCE
+  }
+    
+UpdateBankCardNicknameInput
+Input type for updating a bank card's nickname.
+Input Field
+Description
+
+bankCardId:
+UUID!
+
+The ID of the bank card to update.
+
+nickname:
+String!
+
+The new nickname for the bank card. Can be an empty string to clear the nickname.
+Example
+  {
+    "bankCardId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "nickname": "My Travel Card"
+  }
+    
+UpdateBankCardPreferredMerchantCategoryCodeInput
+Input type for updating a bank card's preferred merchant category code.
+Input Field
+Description
+
+bankCardId:
+UUID!
+
+The ID of the bank card to update.
+
+preferredMerchantCategoryCode:
+String!
+
+The preferred merchant category code (MCC) for the bank card. A 4-digit code that will be padded if needed. Can be an empty string to clear the MCC.
+Example
+  {
+    "bankCardId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "preferredMerchantCategoryCode": "5411"
+  }
+    
+ENUM
+AccountType
+Enum describing the types of accounts.
+Enum Value
+Description
+
+CONSUMER
+
+Account is a consumer/personal account.
+
+BUSINESS
+
+Account is a business account.
+Example
+"BUSINESS"
+BankAccountStatus
+BankAccountStatus represents the current status of a bank account.
+Enum Value
+Description
+
+ENABLED
+
+
+
+DISABLED
+
+
+Example
+"ENABLED"
+BankAccountType
+BankAccountType represents the type of bank account.
+Enum Value
+Description
+
+SAVING
+
+
+
+CREDIT
+
+
+
+CHECKING
+
+
+Example
+"SAVING"
+BankCardStatus
+BankCardStatus represents the status of bank card.
+Enum Value
+Description
+
+ACTIVE
+
+
+
+INACTIVE
+
+
+
+PENDING_REMOVAL
+
+
+Example
+"ACTIVE"
+BankCardType
+BankCardType represents the type of bank card.
+Enum Value
+Description
+
+DEBIT
+
+
+
+CREDIT
+
+
+
+PREPAID
+
+
+Example
+"DEBIT"
+CashBalanceAvailabilityType
+Enum defining the types of availability for a cash balance.
+Enum Value
+Description
+
+INSTANT
+
+The deposit can be settled immediately.
+
+STANDARD
+
+Standard processing times applies.
+Example
+"INSTANT"
+CashBalanceDepositStatus
+Enum representing the status of a cash balance deposit.
+Enum Value
+Description
+
+AVAILABLE
+
+The deposit is available in the user's account.
+
+FAILED
+
+The deposit attempt has failed.
+
+PENDING
+
+The deposit is currently being processed.
+
+REFUNDED
+
+The deposit was refunded.
+
+REVERSED
+
+The deposit was reversed after being credited.
+
+REVIEW
+
+The deposit is under review.
+Example
+"AVAILABLE"
+CashBalanceDepositType
+Enum representing different types of cash balance deposits.
+Enum Value
+Description
+
+CASH_BALANCE
+
+A regular cash balance deposit.
+
+RESERVE_BALANCE
+
+A deposit held in reserve balance.
+
+GIFT_CARD_BALANCE
+
+A non-withdrawable deposit for gift card balance.
+Example
+"CASH_BALANCE"
+CloRateTypeEnum
+Enum representing the types of rate, active for a specific period of a Card Linked Offer.
+Enum Value
+Description
+
+REGULAR
+
+A regular CLO rate type.
+
+PROMO
+
+A promotional CLO rate type.
+Example
+"REGULAR"
+DeliveryFormatType
+Enum representing the delivery format of the offer.
+Enum Value
+Description
+
+URL
+
+URL delivery format.
+
+CODES
+
+PIN with CODE delivery format.
+
+PIN_AS_CODE
+
+PIN as CODE delivery format.
+
+PIN_WITH_URL
+
+PIN with URL delivery format.
+Example
+"CODES"
+GiftCardStatus
+GiftCardStatus represents the current state of a gift card.
+Enum Value
+Description
+
+ACTIVE
+
+The default status when a Gift Card is generated.
+
+ARCHIVED
+
+The Gift Card has been marked as used by the user.
+Example
+"ACTIVE"
+OfferDenominationType
+OfferDenominationType is the type of denomination of a specific offer.
+Enum Value
+Description
+
+VARIABLE
+
+VARIABLE means that the offer has a variable denomination.
+
+FIXED
+
+FIXED means that the offer has fixed value denominations.
+
+VARIABLENOCENTS
+
+VARIABLENOCENTS means that the offer has a variable denomination but the value must be an integer.
+Example
+"VARIABLE"
+OfferType
+OfferType is the type of offer.
+Enum Value
+Description
+
+GIFT_CARD_OFFER
+
+GIFT_CARD_OFFER means that the offer is a gift card.
+
+EXCLUSIVE_RATE_OFFER
+
+EXCLUSIVE_RATE_OFFER means that the offer is a special rate for gift cards.
+
+CARD_LINKED_OFFER
+
+CARD_LINKED_OFFER means that the offer is a special rate for virtual cards.
+Example
+"GIFT_CARD_OFFER"
+PayPalAccountStatus
+PayPalAccountStatus represents the current status of a PayPal account.
+Enum Value
+Description
+
+ACTIVE
+
+
+
+REMOVED
+
+
+Example
+"ACTIVE"
+PaymentMethodType
+PaymentMethodType represents the type of payment method.
+Enum Value
+Description
+
+BANK_CARD
+
+
+
+BANK_ACCOUNT
+
+
+
+PAYPAL
+
+
+
+FLUZPAY
+
+
+
+APPLE_PAY
+
+
+
+GOOGLE_PAY
+
+
+Example
+"BANK_CARD"
+PurchaseScopeFilter
+PurchaseScopeFilter indicates the type of filter to use for getUserPurchases query. Presence of both filters means both userId and accountId will be used.
+Enum Value
+Description
+
+TOKEN_USER
+
+DEFAULT. Scope by userId from the token (all purchases for that user across all accounts).
+
+TOKEN_ACCOUNT
+
+Scope by accountId from the token (all purchases for that account across all users).
+Example
+["TOKEN_USER"]
+ScopeType
+Enum describing the various types of access scopes available within the system. These scopes define the extent of access granted to user tokens for specific operations.
+Enum Value
+Description
+
+LIST_PAYMENT
+
+Allows access to user's payment methods and account balance.
+
+LIST_PURCHASES
+
+Allows access to user's purchase history.
+
+LIST_OFFERS
+
+Allows access to offers catalog and inventory data.
+
+MAKE_DEPOSIT
+
+Allows making a deposit to the user's balance.
+
+PURCHASE_GIFTCARD
+
+Allows purchasing a gift card.
+
+REVEAL_GIFTCARD
+
+Allows revealing a gift card code.
+
+PCI_COMPLIANCE
+
+Allows handling payment card information. This scope is granted to a PCI compliant developer and all of their applications. You cannot request this when generating a token. PERSONAL/Private applications are exempt from PCI_COMPLIANCE requirement.
+
+MANAGE_PAYMENT
+
+Allows making changes to user's payment methods.
+
+REVEAL_VIRTUALCARD
+
+Allows revealing a virtual card details.
+
+CREATE_VIRTUALCARD
+
+Allows access to create virtual card.
+Example
+"LIST_PAYMENT"
+VirtualCardBulkOrderStatus
+VirtualCardBulkOrderStatus represents the current state of a bulk virtual card order status.
+Enum Value
+Description
+
+PENDING
+
+
+
+IN_PROGRESS
+
+
+
+COMPLETED
+
+
+
+FAILED
+
+
+
+CANCELED
+
+
+Example
+"PENDING"
+VirtualCardSpendLimitDuration
+VirtualCardSpendLimitDuration represents the card limit duration type.
+Enum Value
+Description
+
+DAILY
+
+
+
+WEEKLY
+
+
+
+MONTHLY
+
+
+
+ANNUAL
+
+
+
+LIFETIME
+
+
+Example
+"LIFETIME"
+VirtualCardNetwork
+VirtualCardNetworkrepresents the card network of a virtual card (MASTERCARD or VISA).
+Enum Value
+Description
+
+MASTERCARD
+
+
+
+VISA
+
+
+Example
+"MASTERCARD"
+VirtualCardOfferType
+VirtualCardOfferType represents the card type of a virtual card (DEBIT or PREPAID).
+Enum Value
+Description
+
+DEBIT
+
+
+
+PREPAID
+
+
+Example
+"DEBIT"
+VirtualCardFundingSource
+VirtualCardFundingSource represents the funding sources available for Virtual Cards.
+Enum Value
+Description
+
+FLUZ_BALANCE
+
+
+
+BANK_ACCOUNT
+
+
+Example
+"FLUZ_BALANCE"
+VirtualCardStatus
+VirtualCardStatus represents the current state of a virtual card.
+Enum Value
+Description
+
+PENDING
+
+
+
+ACTIVE
+
+
+
+USED
+
+
+
+CANCELLED
+
+
+
+REFUNDED
+
+
+
+EXPIRED
+
+
+
+DISPUTED
+
+
+Example
+"PENDING"
+VirtualCardType
+VirtualCardType indicates whether the card is multi-use or single-use, defining its usability.
+Enum Value
+Description
+
+MULTI_USE
+
+MULTI_USE is a Virtual Card that can be stored and reused.
+
+SINGLE_USE
+
+SINGLE_USE is a Virtual Card that can be used once.
+Example
+"MULTI_USE"
+VirtualCardTransactionListType
+Types of virtual card transactions.
+Enum Value
+Description
+
+PURCHASE
+
+A successful purchase transaction.
+
+REFUND
+
+A refund transaction.
+
+DECLINE
+
+A declined transaction.
+Example
+"PURCHASE"
+OBJECT
+Account
+Represents the account operable by the application.
+Field Name
+Description
+
+accountId:
+UUID!
+
+The id of the account.
+
+type:
+AccountType
+
+The type of account.
+
+accountName:
+String
+
+The name of the business or first and last name of the user.
+
+seats:
+[Seat]
+
+The seats owned with the account.
+
+user:
+User
+
+The user associated with the account.
+
+business:
+Business
+
+The business associated with the account.
+Example
+  {
+    "accountId": "a2c02ec6-357b-41cf-9229-4da34e727019",
+    "type": "CONSUMER",
+    "accountName": "xyz789",
+    "seats": [Seat],
+    "user": User,
+    "business": Business
+  }
+  
+ApplicationUser
+Represents the user_id and the scopes that the user has made available to the application, expired and invalid scopes are not included.
+Field Name
+Description
+
+userId:
+UUID
+
+The userId that has granted the scopes.
+
+scopes:
+[ScopeType]
+
+The user scopes available the application.
+Example
+  {
+    "userId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "scopes": ["LIST_PAYMENT"]
+  }
+  
+BankAccount
+BankAccount is a record of a bank account added by a user.
+Field Name
+Description
+
+bankAccountId:
+UUID!
+
+The ID of the bank account.
+
+accountId:
+UUID!
+
+
+
+type:
+BankAccountType!
+
+
+
+accountName:
+String!
+
+
+
+status:
+BankAccountStatus!
+
+
+
+achRouting:
+String!
+
+
+
+lastFour:
+String!
+
+
+
+authChargeBackupPaymentMethod:
+Boolean!
+
+
+
+billingAddressId:
+UUID!
+
+
+
+nickname:
+String
+
+
+Example
+  {
+    "bankAccountId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "accountId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "type": "SAVING",
+    "accountName": "John's Account",
+    "status": "ENABLED",
+    "achRouting": "026009593",
+    "lastFour": "1122",
+    "authChargeBackupPaymentMethod": false,
+    "billingAddressId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "nickname": "Johnny"
+  }
+  
+BankCard
+BankCard is a record of a bank card added by a user.
+Field Name
+Description
+
+bankCardId:
+UUID!
+
+The ID of the bank card.
+
+ownerAccountId:
+UUID!
+
+
+
+addedUserId:
+UUID!
+
+
+
+cardType:
+BankCardType
+
+
+
+cardProcessor:
+String
+
+
+
+cardholderName:
+String
+
+
+
+lastFourDigits:
+String
+
+
+
+expirationMonth:
+String
+
+
+
+expirationYear:
+String
+
+
+
+cardStatus:
+BankCardStatus
+
+
+
+billingAddressId:
+UUID
+
+
+
+nickname:
+String
+
+Optional nickname for the card.
+Example
+  {
+    "bankCardId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "ownerAccountId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "addedUserId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "cardType": "DEBIT",
+    "cardProcessor": "MASTERCARD",
+    "cardholderName": "John Doe",
+    "lastFourDigits": "1122",
+    "expirationMonth": "11",
+    "expirationYear": "2025",
+    "cardStatus": "ACTIVE",
+    "billingAddressId": "8c8cf345-3f20-4708-9a78-eac27d54a535"
+  }
+  
+Business
+Represents the Business who has access to the account.
+Field Name
+Description
+
+businessId:
+UUID
+
+The businessId associated with the account.
+
+businessName:
+String
+
+The name of the business.
+Example
+  {
+    "businessId": "a2c02ec6-357b-41cf-9229-4da34e727019",
+    "businessName": "xyz789"
+  }
+  
+CashBalance
+CashBalance represents the balance of a user's cash.
+Field Name
+Description
+
+availableBalance:
+String
+
+The available balance of the user's cash.
+
+totalBalance:
+String
+
+The total balance of the user's cash.
+
+pendingBalance:
+String
+
+The pending balance of the user's cash.
+
+lifetimeBalance:
+String
+
+The lifetime balance of the user's cash.
+Example
+  {
+    "availableBalance": "5000.00",
+    "totalBalance": "10000.00",
+    "pendingBalance": "2000.00",
+    "lifetimeBalance": "60000.00"
+  }
+  
+CashBalanceDeposit
+CashBalanceDeposit represents a cash balance deposit, including details like amount, fee, and status.
+Field Name
+Description
+
+cashBalanceDepositId:
+UUID!
+
+Unique identifier for the cash balance deposit.
+
+depositDisplayId:
+String!
+
+Display identifier for the deposit, used for user-facing purposes.
+
+depositAmount:
+String!
+
+The amount of the deposit.
+
+depositFee:
+String
+
+Fee associated with the deposit, if applicable.
+
+bankCardId:
+UUID
+
+Identifier of the bank card used for the deposit.
+
+bankAccountId:
+UUID
+
+Identifier of the bank account used for the deposit.
+
+paypalVaultId:
+UUID
+
+Identifier of the PayPal vault used for the deposit.
+
+transactionDate:
+DateTime!
+
+Date and time when the transaction was made.
+
+clearedDate:
+DateTime
+
+Date and time when the deposit cleared, if applicable.
+
+status:
+CashBalanceDepositStatus!
+
+Current status of the deposit.
+
+expectedClearedDate:
+DateTime!
+
+Expected date and time for the deposit to clear.
+
+cashBalanceDepositType:
+CashBalanceDepositType!
+
+Type of the cash balance deposit.
+
+cashBalanceSettlements:
+[CashBalanceSettlement]
+
+Associated settlements for the deposit.
+Example
+  {
+    "cashBalanceDepositId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "depositDisplayId": "102370",
+    "depositAmount": "200.00",
+    "depositFee": "2.00",
+    "bankCardId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "bankAccountId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "paypalVaultId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "transactionDate": "2007-12-03T10:15:30Z",
+    "clearedDate": "2007-12-03T10:15:30Z",
+    "status": "AVAILABLE",
+    "expectedClearedDate": "2007-12-03T10:15:30Z",
+    "cashBalanceDepositType": "CASH_BALANCE",
+    "cashBalanceSettlements": [CashBalanceSettlement]
+  }
+  
+CashBalanceSettlement
+CashBalanceSettlement representing a settlement record of a cash balance.
+Field Name
+Description
+
+cashBalanceSettlementId:
+UUID!
+
+Unique identifier for the cash balance settlement.
+
+cashBalanceDepositId:
+UUID!
+
+Identifier of the associated cash balance deposit.
+
+availabilityType:
+CashBalanceAvailabilityType!
+
+Type of availability for the settlement (instant or standard).
+
+status:
+CashBalanceDepositStatus!
+
+Current status of the cash balance settlement.
+Example
+  {
+    "cashBalanceSettlementId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "cashBalanceDepositId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "availabilityType": "INSTANT",
+    "status": "AVAILABLE"
+  }
+  
+CloDetails
+[CLO Only] CloDetails contains specific details about rates and periods for a Card Linked Offer. This object is null for non-CLO offer types.
+Field Name
+Description
+
+currentRateType:
+CloRateTypeEnum!
+
+The type of rate currently active (REGULAR or PROMO) based on evaluation of all periods against the current time.
+
+regularRate:
+Float
+
+The standard reward rate (%) for the offer.
+
+promoRate:
+Float
+
+The promotional reward rate (%) potentially active during a PROMO period.
+
+promoBaseRate:
+Float
+
+The reward rate (%) applied during a PROMO period *after* the promoMaxCap is exceeded.
+
+promoMaxCap:
+Float
+
+The maximum purchase amount up to which the promoRate applies during a PROMO period.
+
+applyPromoBaseRateAfterCap:
+Boolean
+
+If true, the promoBaseRate applies to the purchase amount exceeding the promoMaxCap during a PROMO period.
+
+minimumPurchaseAmount:
+Float
+
+The minimum purchase amount required to qualify for the CLO reward, if any.
+
+activePeriodStartDate:
+String
+
+The end date (YYYY-MM-DD) of the *currently active* offer period, if any.
+
+periods:
+[CloPeriod]!
+
+List of all defined periods for this offer's rates (past, present, future).
+Example
+   {
+      "currentRateType": "PROMO",
+      "regularRate": 4,
+      "promoRate": 17,
+      "promoBaseRate": 12,
+      "promoMaxCap": 1999,
+      "applyPromoBaseRateAfterCap": false,
+      "minimumPurchaseAmount": 100,
+      "activePeriodStartDate": "2025-04-21",
+      "activePeriodEndDate": "2025-04-30",
+      "periods": [CloPeriod]!
+  }           
+  
+CloPeriod
+[CLO Only] CloPeriod represents a specific time period during which a Card Linked Offer rate applies.
+Field Name
+Description
+
+id:
+UUID!
+
+Unique identifier for this specific period definition.
+
+offerRateType:
+CloRateTypeEnum!
+
+Indicates if this period corresponds to the REGULAR or PROMO rate structure defined in the parent CloDetails.
+
+periodType:
+String
+
+Describes the nature of the period's timing (e.g., ALWAYS_AVAILABLE, MULTIPLE_DAYS, SINGLE_DAY, WEEKLY).
+
+startDate:
+String
+
+Start date (YYYY-MM-DD) when this period rule becomes potentially active.
+
+endDate:
+String
+
+End date (YYYY-MM-DD) when this period rule ceases to be active.
+
+startTime:
+String
+
+Start time for daily applicability, often used with daysOfWeek.
+
+endTime:
+String
+
+End time for daily applicability.
+
+daysOfWeek:
+[String]
+
+Array of days (e.g., ["Monday", "Friday"]) when this period rule is active. Used for weekly recurring periods.
+
+daysOfMonth:
+[String]
+
+Array of specific days of the month (e.g., ["1", "15"]) when this period rule is active. Used for monthly recurring periods.
+Example
+   {
+      "id": "9f887399-7bd6-44ad-af04-3fccdafeb092",
+      "offerRateType": "PROMO",
+      "periodType": "MONTHLY",
+      "startDate": "2025-04-21",
+      "endDate": "2025-04-30",
+      "startTime": "00:00:00",
+      "endTime": "23:59:00",
+      "daysOfWeek": null,
+      "daysOfMonth": [
+          "01",
+          "25",
+          "31"
+      ]
+  }          
+  
+DepositCashBalanceResponse
+Response type for the depositCashBalance mutation, returning the resulting deposits and current user balances.
+Field Name
+Description
+
+cashBalanceDeposits:
+[CashBalanceDeposit]
+
+List of cash balance deposits made as part of the mutation.
+
+balances:
+UserBalances
+
+User's current balances.
+Example
+  {
+    "cashBalanceDeposits": [CashBalanceDeposit],
+    "balances": UserBalances
+  }
+  
+GenerateUserAccessTokenResponse
+Represents the response returned from the generateUserAccessToken mutation. Includes the access token and the scopes that the token grants.
+Field Name
+Description
+
+token:
+String
+
+The User Access JWT for API requests.
+
+scopes:
+[ScopeType]
+
+The list of scopes granted to the token.
+Example
+  {
+      "token": "eyJhbGciOiJItSEqOajcx..."
+    "scopes": ["LIST_PAYMENT"]
+  }
+  
+GetWalletResponse
+GetWalletResponse represents the response to the get wallet request.
+Field Name
+Description
+
+bankCards(paginate: OffsetInput):
+[BankCard]
+
+
+
+bankAccounts(paginate: OffsetInput):
+[BankAccount]
+
+
+
+paypalAccounts:
+[Paypal]
+
+
+
+blockedPaymentTypes:
+[PaymentMethodType]
+
+
+
+balances:
+UserBalances
+
+
+Example
+  {
+    "bankCards": [BankCard],
+    "bankAccounts": [BankAccount],
+    "paypalAccounts": [Paypal],
+    "blockedPaymentTypes": ["BANK_CARD"],
+    "balances": UserBalances
+  }
+  
+GiftCard
+GiftCard represents a record of a gift card purchased by a user.
+Field Name
+Description
+
+giftCardId:
+UUID!
+
+The ID associated with the gift card.
+
+purchaserUserId:
+UUID!
+
+The ID of the user who made the purchase.
+
+endDate:
+DateTime!
+
+The expiration date of the gift card.
+
+status:
+GiftCardStatus!
+
+The status of the Gift Card.
+
+createdAt:
+DateTime!
+
+The time the gift card was created.
+
+merchant:
+Merchant
+
+A connection to the merchant that the gift card can be redeemed at.
+Example
+  {
+    "giftCardId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "purchaserUserId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "endDate": "2007-12-03T10:15:30Z",
+    "status": "ACTIVE",
+    "createdAt": "2007-12-03T10:15:30Z",
+    "merchant": Merchant
+  }
+  
+GiftCardCode
+GiftCardCode contains the redemption credentials for a Merchant.
+Field Name
+Description
+
+code:
+String
+
+
+
+pin:
+String
+
+
+
+url:
+String
+
+
+Example
+  {
+    "code": "9877890000000000",
+    "pin": "2014",
+    "url": "null"
+  }
+  
+LockVirtualCardResponse
+Response from LockVirtualCard mutation.
+Field Name
+Description
+
+virtualCardId:
+UUID!
+
+
+
+locked:
+Boolean!
+
+
+Example
+  {
+    "virtualCardId": "ad7102be-ffc2-4002-a171-6c0184bf0a61",
+    "locked": true
+  }
+  
+Merchant
+Merchant is place that a Gift Card can be use, or can charge a user's VirtualCard.
+Field Name
+Description
+
+merchantId:
+UUID!
+
+
+
+name:
+String
+
+
+
+slug:
+String
+
+
+
+offers:
+[Offer]
+
+
+Example
+  {
+    "merchantId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "name": "CVS",
+    "slug": "cvs",
+    "offers": [Offer]
+  }
+  
+MerchantCategoryCode
+MerchantCategoryCode represents the classifier for a business by the types of goods or services it provides.
+Field Name
+Description
+
+code:
+String
+
+Four digit merchant category code.
+
+displayDescription:
+String
+
+Display description.
+
+description:
+String
+
+Mcc description.
+Example
+  {
+    "code": "xyz789",
+    "displayDescription": "abc123",
+    "description": "xyz789"
+  }
+  
+Offer
+Offer is a discounted offer for a merchant.
+Field Name
+Description
+
+offeringMerchantId:
+UUID!
+
+
+
+offerId:
+UUID!
+
+
+
+type:
+OfferType!
+
+
+
+deliveryFormat:
+DeliveryFormatType
+
+
+
+hasStockInfo:
+Boolean
+
+
+
+offerRates:
+[OfferRate]
+
+
+
+denominationsType:
+OfferDenominationType
+
+
+
+stockInfo:
+[StockInfoType]!
+
+StockInfo is an object where the key:value pairs represent the amount in stock for each denomination (key = denomination; value = amount in stock). It's only available if the offer hasStockInfo. This requires Fluz to confirm the inventory, response time varies by vendors.
+
+cloDetails:
+[CloDetails]
+
+[CLO Only] Contains specific details about rates and periods for a Card Linked Offer. Returns null for non-CLO offer types.
+Example
+  {
+    "offeringMerchantId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "offerId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "type": "GIFT_CARD_OFFER",
+    "deliveryFormat": "CODES"
+    "hasStockInfo": false,
+    "offerRates": [OfferRate],
+    "denominationsType": "VARIABLE",
+    "stockInfo": [StockInfoVariableType],
+    "cloDetails": [CloDetails]
+  }
+  
+OfferRate
+OfferRate is the rate of a specific offer.
+Field Name
+Description
+
+maxUserRewardValue:
+Float
+
+
+
+cashbackVoucherRewardValue:
+Float
+
+
+
+boostRewardValue:
+Float
+
+
+
+displayBoostReward:
+Boolean
+
+
+
+denominations:
+[String]
+
+
+
+allowedPaymentMethods:
+[String]
+
+
+Example
+  {
+    "maxUserRewardValue": 987.65,
+    "cashbackVoucherRewardValue": 123.45,
+    "boostRewardValue": 123.45,
+    "displayBoostReward": false,
+    "denominations": ["20", "50", "100"],
+    "allowedPaymentMethods": ["BANK_CARD", "BANK_ACCOUNT"]
+  }
+  
+Paypal
+Paypal represents a PayPal account added by a user.
+Field Name
+Description
+
+paypalVaultId:
+UUID!
+
+The ID of the PayPal account.
+
+userId:
+UUID!
+
+
+
+status:
+PayPalAccountStatus!
+
+
+
+email:
+String!
+
+
+Example
+  {
+    "paypalVaultId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "userId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "status": "ACTIVE",
+    "email": "abc123@example.com"
+  }
+  
+ProgramLimits
+Represents the bank program spent limits.
+Field Name
+Description
+
+dailyLimit:
+String
+
+The bank program daily spend limit.
+
+weeklyLimit:
+String
+
+The bank program weekly spend limit.
+
+monthlyLimit:
+String
+
+The bank program monthly spend limit.
+Example
+  {
+    "dailyLimit": "200.00",
+    "weeklyLimit": "5000.00",
+    "monthlyLimit": "20000.00"
+  }
+  
+RewardsBalance
+RewardsBalance represents the balance of a user's rewards.
+Field Name
+Description
+
+availableBalance:
+String
+
+The available balance of the user's rewards.
+
+totalBalance:
+String
+
+The total balance of the user's rewards.
+
+lifetimeBalance:
+String
+
+The lifetime balance of the user's rewards.
+Example
+  {
+    "availableBalance": "200.00",
+    "totalBalance": "5000.00",
+    "lifetimeBalance": "20000.00"
+  }
+  
+Seat
+Represents the network position held by the entity.
+Field Name
+Description
+
+seatId:
+UUID
+
+The seat id associated with the account.
+
+seatNumber:
+String
+
+The string value of seat position.
+Example
+  {
+    "seatId": "a2c02ec6-357b-41cf-9229-4da34e727019",
+    "seatNumber": "xyz789"
+  }
+  
+StockInfoFixedType
+StockInfoFixedType describes the available denominations for fixed offers, and the amount in stock for each denomination.
+Field Name
+Description
+
+denomination:
+String
+
+The stock denomination value of the offer.
+
+availableStock:
+String
+
+The available stock of the offer.
+Example
+  {
+    "denomination": "xyz789",
+    "availableStock": "xyz789"
+  }
+  
+StockInfoVariableType
+StockInfoVariableType describes the available denomination range for variable offers.
+Field Name
+Description
+
+minDenomination:
+String
+
+The min denomination of the variable offer.
+
+maxDenomination:
+String
+
+The max denomination of the variable offer.
+
+description:
+String
+
+The variable stock description.
+Example
+  {
+    "minDenomination": "xyz789",
+    "maxDenomination": "xyz789",
+    "description": "xyz789"
+  }
+  
+User
+Represents the User who has access to the account.
+Field Name
+Description
+
+userId:
+UUID
+
+The userId associated with the account.
+
+firstName:
+String
+
+The first name of the user.
+
+lastName:
+String
+
+The last name of the user.
+Example
+  {
+    "userId": "a2c02ec6-357b-41cf-9229-4da34e727019",
+    "firstName": "xyz789",
+    "lastName": "xyz789"
+  }
+  
+UserAddress
+UserAddress represents a User Address record.
+Field Name
+Description
+
+userAddressId:
+UUID!
+
+
+
+streetAddressLine1:
+String
+
+
+
+streetAddressLine2:
+String
+
+
+
+country:
+String!
+
+
+
+city:
+String!
+
+
+
+state:
+String
+
+
+
+postalCode:
+String
+
+
+Example
+  {
+    "userAddressId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "streetAddressLine1": "351 Mueller Keys",
+    "streetAddressLine2": null,
+    "country": "United States",
+    "city": "Dover",
+    "state": "Delaware",
+    "postalCode": "11223"
+  }
+  
+UserBalances
+UserBalances represents the balances of a user's rewards, cash, and gift card cash.
+Field Name
+Description
+
+rewardsBalance:
+RewardsBalance
+
+
+
+cashBalance:
+CashBalance
+
+
+
+giftCardCashBalance:
+CashBalance
+
+
+Example
+  {
+    "rewardsBalance": RewardsBalance,
+    "cashBalance": CashBalance,
+    "giftCardCashBalance": CashBalance
+  }
+  
+UserPurchase
+UserPurchase represents a record of a purchase made by a user, detailing the payment methods and other relevant information.
+Field Name
+Description
+
+purchaseId:
+UUID!
+
+The ID associated with the purchase.
+
+purchaseDisplayId:
+String
+
+The display ID of the purchase.
+
+purchaseBankCardId:
+UUID
+
+The ID of the Bank Card used to make the purchase.
+
+bankAccountId:
+UUID
+
+The ID of the Bank Account used to make the purchase.
+
+purchaseAmount:
+Float!
+
+The amount of the purchase.
+
+fluzpayAmount:
+Float
+
+The amount of the balance applied.
+
+seatRewardValue:
+Float!
+
+The amount of the cashback reward from the purchase.
+
+paypalVaultId:
+UUID
+
+The ID of the PayPal used to make the purchase.
+
+createdAt:
+DateTime!
+
+The time the purchase was created.
+
+accountId:
+UUID
+
+The fluz account under which the purchase was made.
+
+purchaserUserId:
+UUID
+
+The user id under which the purchase was made.
+
+giftCard:
+GiftCard
+
+A connection to the gift card associated with the purchase.
+
+virtualCard:
+VirtualCard
+
+A connection to the virtual card associated with the purchase.
+Example
+  {
+    "purchaseId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "purchaseDisplayId": "1002405",
+    "purchaseBankCardId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "bankAccountId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "purchaseAmount": 123.45,
+    "fluzpayAmount": 123.45,
+    "seatRewardValue": 123.45,
+    "paypalVaultId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "createdAt": "2007-12-03T10:15:30Z",
+    "giftCard": GiftCard,
+    "virtualCard": VirtualCard
+  }
+  
+VirtualCard
+VirtualCard represents a record of a virtual card generated by a user.
+Field Name
+Description
+
+virtualCardId:
+UUID!
+
+The ID associated with the virtual card.
+
+userId:
+UUID!
+
+The ID of the user who created the virtual card.
+
+cardholderName:
+String!
+
+The cardholder name appeared on the virtual card.
+
+expiryMonth:
+String!
+
+The expiration month of the virtual card.
+
+expiryYear:
+String!
+
+The expiration year of the virtual card.
+
+virtualCardLast4:
+String!
+
+The last 4 digits of the virtual card number.
+
+status:
+VirtualCardStatus!
+
+The status of the virtual card.
+
+cardType:
+VirtualCardType!
+
+The type of the virtual card.
+
+initialAmount:
+Float!
+
+The initial amount requested when the card was generated.
+
+usedAmount:
+Float
+
+The total amount spent on the virtual card.
+
+createdAt:
+DateTime!
+
+The time the virtual card was generated.
+
+authorizationSetting:
+VirtualCardAuthorizationSetting
+
+A connection to the authorization setting of the virtual card.
+Example
+  {
+    "virtualCardId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "userId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "cardholderName": "Sue",
+    "expiryMonth": "01",
+    "expiryYear": "28",
+    "virtualCardLast4": "abc123",
+    "status": "PENDING",
+    "cardType": "MULTI_USE",
+    "initialAmount": 123.45,
+    "usedAmount": 123.45,
+    "createdAt": "2007-12-03T10:15:30Z",
+    "authorizationSetting": VirtualCardAuthorizationSetting
+  }
+  
+VirtualCardAddressInfo
+VirtualCardAddressInfo provides the address information associated with a virtual card.
+Field Name
+Description
+
+streetAddress:
+String
+
+The street address.
+
+billingAddrLine2:
+String
+
+The second line of the billing address.
+
+city:
+String
+
+The city.
+
+state:
+String
+
+The state.
+
+postalCode:
+String
+
+The postal code.
+Example
+  {
+    "streetAddress": : "351 Mueller Keys",
+    "billingAddrLine2": null,
+    "city": "Dover",
+    "state": "Delaware",
+    "postalCode": "11223"
+  }
+  
+VirtualCardAuthorizationSetting
+VirtualCardAuthorizationSetting defines the authorization settings for a virtual card.
+Field Name
+Description
+
+virtualCardAsaSettingsId:
+UUID!
+
+The unique identifier for the authorization setting of the virtual card.
+
+virtualCardId:
+UUID!
+
+The unique identifier for the virtual card.
+
+lockDate:
+String
+
+The date when the card was locked.
+
+dailySpendLimit:
+String
+
+The daily spending limit for the card.
+
+weeklySpendLimit:
+String
+
+The weekly spending limit for the card.
+
+monthlySpendLimit:
+String
+
+The monthly spending limit for the card.
+
+annualSpendLimit:
+String
+
+The annual spending limit for the card.
+
+lifetimeSpendLimit:
+String
+
+The lifetime spending limit for the card.
+
+dailySpent:
+String
+
+The amount spent daily on the card.
+
+weeklySpent:
+String
+
+The amount spent weekly on the card.
+
+monthlySpent:
+String
+
+The amount spent monthly on the card.
+
+annualSpent:
+String
+
+The amount spent annually on the card.
+
+lifetimeSpent:
+String
+
+The amount spent over the lifetime of the card.
+
+tokenized:
+Boolean
+
+Whether the card is tokenized or not.
+
+lockedByUser:
+Boolean
+
+Whether the card is locked by the user or not.
+
+lockCardNextUse:
+Boolean
+
+Whether the card should be locked after the next use.
+
+cardNickname:
+String
+
+The nickname of the card.
+Example
+  {
+    "virtualCardAsaSettingsId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "virtualCardId": "8c8cf345-3f20-4708-9a78-eac27d54a535",
+    "lockDate": "2028-06-01 03:59:59.999+00",
+    "dailySpendLimit": "100.00",
+    "weeklySpendLimit": "200.00",
+    "monthlySpendLimit": "300.00",
+    "annualSpendLimit": "500.00",
+    "lifetimeSpendLimit": "1000.00",
+    "dailySpent": "22.50",
+    "weeklySpent": "100.00",
+    "monthlySpent": "200.00",
+    "annualSpent": "500.00",
+    "lifetimeSpent": "500.00",
+    "tokenized": true,
+    "lockedByUser": true,
+    "lockCardNextUse": false,
+    "cardNickname": "Johnny"
+  }
+  
+VirtualCardBulkOrder
+Provides information about bulk creation order.
+Field Name
+Description
+
+orderId:
+String!
+
+Order ID.
+
+orderStatus:
+VirtualCardBulkOrderStatus!
+
+Status of the order.
+
+virtualCards:
+[VirtualCardDetails]
+
+Created virtual card details.
+
+totalCards:
+Int
+
+Total cards count.
+
+successfulCardCreations:
+Int
+
+Successful card creation count.
+
+failedCardCreations:
+Int
+
+Failed card creation count.
+Example
+  {
+    "orderStatus": "COMPLETED",
+    "orderId": "MTFkYjIxNTYtNTEwOS00ODNmLTkwMTYtYjA5N2E2NTEyMjU5fDIzMjIxODRhLTEzMjgtNDkwYy05Mzc1LTZlOWM4MWIwMjkzZA==",
+    "virtualCards": [
+        {
+            "cardNumber": "5111142487759818",
+            "expiryMMYY": "08/29",
+            "cvv": "479",
+            "cardHolderName": "Test",
+            "virtualCardId": "c8a1e101-8d69-4b16-997c-afd6bcda5002"
+        },
+        {
+            "cardNumber": "5111141637519304",
+            "expiryMMYY": "08/29",
+            "cvv": "291",
+            "cardHolderName": "Test",
+            "virtualCardId": "dd971968-c233-433a-a015-f2abe2759f30"
+        },
+        {
+            "cardNumber": "5111143840238441",
+            "expiryMMYY": "08/29",
+            "cvv": "251",
+            "cardHolderName": "Test",
+            "virtualCardId": "da3d5ff5-cb93-4870-9835-62f7d77893c8"
+        }
+    ],
+    "successfulCardCreations": 3,
+    "failedCardCreations": 0
+  }
+  
+VirtualCardDetails
+The VirtualCardDetails type represents the details of a virtual card.
+Field Name
+Description
+
+virtualCardId:
+UUID!
+
+The card ID.
+
+cardNumber:
+String
+
+The card number.
+
+expiryMMYY:
+String
+
+The expiry date in MMYY format.
+
+cvv:
+String
+
+The CVV code.
+
+cardHolderName:
+String
+
+The card holder's name.
+
+billingAddress:
+VirtualCardAddressInfo
+
+The billing address.
+
+authorizationSetting:
+VirtualCardAuthorizationSetting
+
+A connection to the authorization setting of the virtual card.
+Example
+  {
+    "virtualCardId": "5305a7ec-f8ed-4088-8ac2-2bad5d3b0752",
+    "cardNumber": "4111111560324603",
+    "expiryMMYY": "02/2023",
+    "cvv": "486",
+    "cardHolderName": "Susan Jones",
+    "billingAddress": VirtualCardAddressInfo,
+    "authorizationSetting": VirtualCardAuthorizationSetting
+  }
+  
+VirtualCardOffer
+Represents the Virtual Card Offer.
+Field Name
+Description
+
+offerId:
+String
+
+Virtual Card offer ID.
+
+programName:
+String
+
+Virtual Card program name.
+
+bin:
+String
+
+The bank bin.
+
+bankName:
+String
+
+The bank name.
+
+programLimits:
+ProgramLimits
+
+The bank program spent limits.
+
+rewardValue:
+String
+
+The bank program earn rate.
+Example
+  {
+      "offerId": "e046aeff-d83d-4533-b030-83474f49c6bd",
+      "bin": "123456",
+      "bankName": "Example Bank - Mastercard",
+      "rewardValue": "1.5%",
+      "programLimits": {
+          "dailyLimit": "100000",
+          "weeklyLimit": "700000",
+          "monthlyLimit": "3100000"
+      },
+      "programName": "Virtual Card - Mastercard Prepaid"
+  }
+  
+VirtualCardTransactions
+Virtual card transactions, grouped by virtual card ID.
+Field Name
+Description
+
+virtualCardId:
+UUID!
+
+The virtual card ID.
+
+transactions:
+[VirtualCardTransaction!]!
+
+List of transactions for this virtual card.
+Example
+  {
+    "virtualCardId": "07df5653-43a8-4532-9881-3ab5857bbe11",
+    "transactions": [
+      {
+        "transactionDate": "2023-09-24T10:00:00Z",
+        "transactionType": "PURCHASE",
+        "transactionAmount": 50.00,
+        "merchantName": "Example Store",
+        "transactionStatus": "Approved"
+      }
+    ]
+  }
+  
+VirtualCardTransaction
+Virtual card transaction type.
+Field Name
+Description
+
+transactionDate:
+String!
+
+The date and time of the transaction.
+
+transactionType:
+VirtualCardTransactionListType!
+
+The type of transaction (PURCHASE, REFUND, or DECLINE).
+
+transactionAmount:
+Float!
+
+The amount of the transaction.
+
+transactionApproval:
+String
+
+The approval code for the transaction.
+
+transactionResponseCode:
+String
+
+The response code from the transaction.
+
+transactionStatus:
+String
+
+The status of the transaction.
+
+merchantName:
+String
+
+The name of the merchant.
+
+paymentMethod:
+String
+
+The payment method used for the transaction.
+Example
+  {
+    "transactionDate": "2023-09-24T10:00:00Z",
+    "transactionType": "PURCHASE",
+    "transactionAmount": 50.00,
+    "transactionApproval": "123456",
+    "transactionResponseCode": "APPROVED",
+    "transactionStatus": "APPROVED",
+    "merchantName": "Example Store",
+    "paymentMethod": "FLUZPAY"
+  }
+  
+VirtualCardBalance
+VirtualCardBalance provides information about virtual card balance.
+Field Name
+Description
+
+virtualCardId:
+UUID!
+
+Virtual Card ID.
+
+spentAmount:
+Float!
+
+Current card spent amount.
+
+remainingBalance:
+Float!
+
+Remaining card balance.
+
+spendLimit:
+Float!
+
+Spend limit for card.
+
+spendLimitDuration:
+VirtualCardSpendLimitDuration
+
+Card limit duration type. Default is Lifetime.
+Example
+  {
+    "virtualCardId": "07df5653-43a8-4532-9881-3ab5857bbe11",
+    "spentAmount": 50.00,
+    "remainingBalance": 450.00,
+    "spendLimit": 500.00,
+    "spendLimitDuration": "LIFETIME"
+  }
+  
+ift Card Connectors
+Incomm API Connector
+Original Incomm API vs Fluz API Adapter
+Base URL
+Original Incomm API
+https://app.giftango.com
+Fluz API Adapter
+Staging
+https://api-adapter.staging.fluzapp.com/incomm
+Production
+https://api-adapter.fluzapp.com/incomm
+Authentication
+Original Incomm API
+Uses Bearer Authentication with the Authorization header - need to generate authorization token first.
+Authorization: Bearer <INCOMM-AUTH-TOKEN>
+{
+  grant_type: 'client_credentials',
+  client_id: INCOMM_CLIENT_ID,
+  client_secret: INCOMM_SECRET_KEY,
+}
+Fluz API Adapter
+Uses Basic Authentication with the Authorization header (same as all vendor integrations).
+Authorization: Basic MjJhZjFlMTUtNzQyOC00ZTQ1LTkyYTQtNmExY2FlZDU3ODg3OjliOTZjZGQxZWRlM2ZkZjg5NDg4NGRmNjZlMmM0YTU1
+API Endpoint Comparison
+Operation mapping between Incomm and the Fluz API Adapter
+Operation
+Incomm endpoint
+Fluz endpoint
+Notes
+Get Order Details
+GET /orders/:orderId/
+cards
+GET /v1/orders/
+:orderId/cards
+Retrieve card details for a specific order
+Get Orders
+GET /orders/:orderId
+GET /v1/orders/:orderId
+Retrieve details for a specific order
+Create Order
+POST /orders/immediate
+POST /v1/orders/
+immediate
+Create a new gift card order
+Get Balance (All Accounts)
+GET /programs/programs/
+:programId/
+programbalance
+GET /v1/balance
+Get balance for all currencies
+Request Examples - Create Order
+Original Incomm API
+{
+  "PurchaseOrderNumber": "cddabd6d-1f7a-483d-8126-8bc676f7bd63",
+  "CustomerOrderId": "cddabd6d-1f7a-483d-8126-8bc676f7bd63",
+  "Recipients": [
+    {
+      "FirstName": "testFirstName",
+      "LastName": "testLastName",
+      "EmailAddress": "testEmail@test.com",
+      "DeliverEmail": false,
+      "Products": [
+        {
+          "Sku": "VUSA-D-2500-00",
+          "Quantity": 1,
+          "Value": 25
+        }
+      ]
+    }
+  ]
+}
+Fluz API Adapter
+{
+  "PurchaseOrderNumber": "cddabd6d-1f7a-483d-8126-8bc676f7bd63",
+  "CustomerOrderId": "cddabd6d-1f7a-483d-8126-8bc676f7bd63",
+  "Recipients": [
+    {
+      "FirstName": "testFirstName",
+      "LastName": "testLastName",
+      "EmailAddress": "testEmail@test.com",
+      "DeliverEmail": false,
+      "Products": [
+        {
+          "Sku": "VUSA-D-2500-00",
+          "Quantity": 1,
+          "Value": 25
+        }
+      ]
+    }
+  ]
+}
+Background Processing for Incomm Orders
+All purchase operations through the Incomm integration are processed as background operations. However, for compatibility with Incomm API behavior, the Fluz API Adapter may return full results synchronously by default.
+Note: Even when results appear synchronous, all purchases are still scheduled and tracked as background operations internally for improved reliability and better handling of retries.
+Example Usage with cURL
+Example 1: Get a Specific Order with Gift Cards
+Get gift cards from order with Incomm via Fluz API Adapter
+curl -X GET "https://api-adapter.staging.fluzapp.com/incomm/v1/orders/353a4151-2d51-48b6-81c9-90fd6815f12b/cards" 
+  -H "Authorization: Basic MjJhZjFlMTUtNzQyOC00ZTQ1LTkyYTQtNmExY2FlZDU3ODg3OjliOTZjZGQxZWRlM2ZkZjg5NDg4NGRmNjZlMmM0YTU1"
+Example 2: Get Order Details
+Get order details with Incomm via Fluz API Adapter
+curl -X GET "https://api-adapter.staging.fluzapp.com/incomm/v1/orders/353a4151-2d51-48b6-81c9-90fd6815f12b"
+  -H "Authorization: Basic MjJhZjFlMTUtNzQyOC00ZTQ1LTkyYTQtNmExY2FlZDU3ODg3OjliOTZjZGQxZWRlM2ZkZjg5NDg4NGRmNjZlMmM0YTU1"
+Example 3: Get Balance
+Get Balance with Incomm via Fluz API Adapter
+curl -X GET "https://api-adapter.staging.fluzapp.com/incomm/v1/balance"
+  -H "Authorization: Basic MjJhZjFlMTUtNzQyOC00ZTQ1LTkyYTQtNmExY2FlZDU3ODg3OjliOTZjZGQxZWRlM2ZkZjg5NDg4NGRmNjZlMmM0YTU1"
+Example 4: Create a New Order
+Create Order with Incomm via Fluz API Adapter
+Note: This operation runs as a background process but may return complete results
+curl -X POST "https://api-adapter.staging.fluzapp.com/incomm/v1/orders/immediate" 
+  -H "Authorization: Basic MjJhZjFlMTUtNzQyOC00ZTQ1LTkyYTQtNmExY2FlZDU3ODg3OjliOTZjZGQxZWRlM2ZkZjg5NDg4NGRmNjZlMmM0YTU1" 
+  -H "Content-Type: application/json" 
+  -d '{
+  "PurchaseOrderNumber": "cddabd6d-1f7a-483d-8126-8bc676f7bd63",
+  "CustomerOrderId": "cddabd6d-1f7a-483d-8126-8bc676f7bd63",
+  "Recipients": [
+    {
+      "FirstName": "testFirstName",
+      "LastName": "testLastName",
+      "EmailAddress": "testEmail@test.com",
+      "DeliverEmail": false,
+      "Products": [
+        {
+          "Sku": "VUSA-D-2500-00",
+          "Quantity": 1,
+          "Value": 25
+        }
+      ]
+    }
+  ]
+}'
+Gift Card Connectors
+Runa API Connector
+Original Runa API vs Fluz API Adapter
+Base URL
+Original Runa API
+https://playground.runa.io
+Fluz API Adapter
+Staging
+https://api-adapter.staging.fluzapp.com/runa
+Production
+https://api-adapter.fluzapp.com/runa
+Authentication
+Original Runa API
+Uses API Key Authentication with the header X-Api-Key.
+X-Api-Key: XXxxq8Vl.5fx~8r_dS7LGJ*HdEeGd^P9pQwi4cV_7
+Fluz API Adapter
+Uses Basic Authentication with the Authorization header (same as all vendor integrations).
+Authorization: Basic MjJhZjFlMTUtNzQyOC00ZTQ1LTkyYTQtNmExY2FlZDU3ODg3OjliOTZjZGQxZWRlM2ZkZjg5NDg4NGRmNjZlMmM0YTU1
+API Endpoint Comparison
+Operation mapping between Runa and the Fluz API Adapter
+Operation
+Runa Endpoint
+Fluz Endpoint
+Notes
+Get Order
+GET /v2/order/:id
+GET /v2/order/:id
+Retrieve details for a specific order
+Get All Orders
+GET /v2/order
+GET /v2/order
+Retrieve all orders
+Create Order
+POST /v2/order/:id
+POST /v2/order
+Create a new gift card order (processed as a background operation)
+Get Balance (All Accounts)
+GET /v2/balance
+GET /v2/balance
+Get balance for all currencies
+Get Balance (Single Currency)
+GET /v2/balance?currency=USD
+GET /v2/balance?currency=USD
+Get balance for a specific currency
+Request Examples - Create Order
+Original Runa API
+{
+  "payment_method": {
+    "type": "ACCOUNT_BALANCE",
+    "currency": "USD"
+  },
+  "items": [
+    {
+      "distribution_method": {
+        "type": "PAYOUT_LINK"
+      },
+      "products": {
+        "type": "SINGLE",
+        "value": "1800FL-US"
+      },
+      "face_value": 10
+    }
+  ],
+  "description": "string"
+}
+Fluz API Adapter
+{
+  "payment_method": {
+    "type": "ACCOUNT_BALANCE",
+    "currency": "USD"
+  },
+  "items": [
+    {
+      "distribution_method": {
+        "type": "PAYOUT_LINK"
+      },
+      "products": {
+        "type": "SINGLE",
+        "value": ["1800FL-US"]
+      },
+      "face_value": 10
+    }
+  ],
+  "description": "d8e118ab-732b-4884-8e8a-70746b5f359e"
+}
+Background Processing for Runa Orders
+All purchase operations through the Runa integration are processed as background operations. The Fluz API Adapter provides two response modes for Runa:
+Synchronous Mode
+Add header X-Execution-Mode: sync to wait for the background operation to complete. The API call will wait until the background purchase operation completes and will return full operation results in the response. Useful for testing, but may time out for complex purchases.
+Asynchronous Mode (Default)
+Returns immediately with an operation reference ID while the purchase continues processing in the background. Check status later by querying the order endpoint with the reference ID. Recommended for production to avoid timeouts.
+Both modes rely on background processing, but they differ in how the API responds to the client.
+Idempotency Support
+Both the original Runa API and Fluz’s implementation support idempotency keys to prevent duplicate operations. Use the header:
+X-Idempotency-Key: your-unique-key
+Example Usage with cURL
+Example 1: Get a Specific Order
+Get a specific order with Runa via Fluz API Adapter
+curl -X GET "https://api-adapter.staging.fluzapp.com/runa/v2/order/df263170-1c87-4e53-baf5-96258c3dd6b9"
+  -H "Authorization: Basic MjJhZjFlMTUtNzQyOC00ZTQ1LTkyYTQtNmExY2FlZDU3ODg3OjliOTZjZGQxZWRlM2ZkZjg5NDg4NGRmNjZlMmM0YTU1"
+  -H "X-Idempotency-Key: 123"
+Example 2: Get All Orders
+Get all orders with Runa via Fluz API Adapter
+curl -X GET "https://api-adapter.staging.fluzapp.com/runa/v2/order"
+  -H "Authorization: Basic MjJhZjFlMTUtNzQyOC00ZTQ1LTkyYTQtNmExY2FlZDU3ODg3OjliOTZjZGQxZWRlM2ZkZjg5NDg4NGRmNjZlMmM0YTU1"
+Example 3: Get Balance for All Currencies
+Get Balance for all currencies with Runa via Fluz API Adapter
+curl -X GET "https://api-adapter.staging.fluzapp.com/runa/v2/balance"
+  -H "Authorization: Basic MjJhZjFlMTUtNzQyOC00ZTQ1LTkyYTQtNmExY2FlZDU3ODg3OjliOTZjZGQxZWRlM2ZkZjg5NDg4NGRmNjZlMmM0YTU1"
+Example 4: Get Balance for USD Currency
+Get Balance for USD currency with Runa via Fluz API Adapter
+curl -X GET "https://api-adapter.staging.fluzapp.com/runa/v2/balance?currency=USD"
+  -H "Authorization: Basic MjJhZjFlMTUtNzQyOC00ZTQ1LTkyYTQtNmExY2FlZDU3ODg3OjliOTZjZGQxZWRlM2ZkZjg5NDg4NGRmNjZlMmM0YTU1"
+Example 5: Create Order (Asynchronous Mode — Default)
+Create Order with Runa via Fluz API Adapter (Asynchronous mode - default)
+This will return quickly with a reference ID while processing continues in the background
+curl -X POST "https://api-adapter.staging.fluzapp.com/runa/v2/order"
+  -H "Authorization: Basic MjJhZjFlMTUtNzQyOC00ZTQ1LTkyYTQtNmExY2FlZDU3ODg3OjliOTZjZGQxZWRlM2ZkZjg5NDg4NGRmNjZlMmM0YTU1"
+  -H "Content-Type: application/json"
+  -H "X-Idempotency-Key: unique-key-123456"
+  -d '{
+    "payment_method": {
+      "type": "ACCOUNT_BALANCE",
+      "currency": "USD"
+    },
+    "items": [
+      {
+        "distribution_method": {
+          "type": "PAYOUT_LINK"
+        },
+        "products": {
+          "type": "SINGLE",
+          "value": ["1800FL-US"]
+        },
+        "face_value": 10
+      }
+    ],
+    "description": "d8e118ab-732b-4884-8e8a-70746b5f359e"
+  }'
+Example 6: Create Order (Synchronous Mode)
+Create Order with Runa via Fluz API Adapter (Synchronous mode)
+This will wait for the background process to complete before responding
+curl -X POST "https://api-adapter.staging.fluzapp.com/runa/v2/order"
+  -H "Authorization: Basic MjJhZjFlMTUtNzQyOC00ZTQ1LTkyYTQtNmExY2FlZDU3ODg3OjliOTZjZGQxZWRlM2ZkZjg5NDg4NGRmNjZlMmM0YTU1"
+  -H "Content-Type: application/json"
+  -H "X-Execution-Mode: sync"
+  -H "X-Idempotency-Key: unique-key-789012"
+  -d '{
+    "payment_method": {
+      "type": "ACCOUNT_BALANCE",
+      "currency": "USD"
+    },
+    "items": [
+      {
+        "distribution_method": {
+          "type": "PAYOUT_LINK"
+        },
+        "products": {
+          "type": "SINGLE",
+          "value": ["1800FL-US"]
+        },
+        "face_value": 10
+      }
+    ],
+    "description": "d8e118ab-732b-4884-8e8a-70746b5f359e"
+  }'
+Gift Card Connectors
+TangoCard API Connector
+Original TangoCard API vs Fluz API Adapter
+Base URL
+Original TangoCard API
+https://integration-api.tangocard.com/rass
+Fluz API Adapter
+Staging
+https://api-adapter.staging.fluzapp.com/tangocard
+Production
+https://api-adapter.fluzapp.com/tangocard
+Authentication
+Original TangoCard API
+Uses Basic Authentication with username and password.
+Username: QAPlatform2
+Password: apYPfT6HNONpDRUj3CLGWYt7gvIHONpDRUYPfT6Hj
+Fluz API Adapter
+Uses Basic Authentication with the Authorization header (same as all vendor integrations).
+Authorization: Basic MjJhZjFlMTUtNzQyOC00ZTQ1LTkyYTQtNmExY2FlZDU3ODg3OjliOTZjZGQxZWRlM2ZkZjg5NDg4NGRmNjZlMmM0YTU1
+API Endpoint Comparison
+Operation mapping between TangoCard and the Fluz API Adapter
+Operation
+TangoCard Endpoint
+Fluz Endpoint
+Notes
+Get Order
+GET /v2/orders/
+:referenceOrderID
+GET /v2/orders/
+:referenceOrderID
+Retrieve details for a specific order
+Get All Orders
+GET /v2/orders
+GET /v2/orders
+Retrieve all orders
+Create Order
+POST /v2/orders
+POST /v2/orders
+Create a new gift card order (processed as a background operation)
+Get Balance (All Accounts)
+GET /v2/accounts
+GET /v2/accounts
+Get balance for all currencies
+Get Balance (By Account)
+GET /v2/accounts/:accountId
+GET /v2/accounts/:accountId
+Get balance for a specific currency
+Request Examples - Create Order
+Original TangoCard API
+{
+  "sendEmail": false,
+  "accountIdentifier": "testing1234account",
+  "customerIdentifier": "johnr002",
+  "utid": "U561593",
+  "amount": 50
+}
+Fluz API Adapter
+{
+  "sendEmail": false,
+  "accountIdentifier": "testing1234account",
+  "customerIdentifier": "johnr002",
+  "utid": "1800FL-US",
+  "amount": 40,
+  "externalRefID": "d8e118ab-732b-4884-8e8a-70746b5f359e"
+}
+Background Processing for TangoCard Orders
+All purchase operations through the TangoCard integration are processed as background operations. However, for compatibility with TangoCard’s API behavior, the Fluz API Adapter may return full results synchronously by default.
+Note: Even when results appear synchronous, all purchases are still scheduled and tracked as background operations internally for improved reliability and better handling of retries.
+Example Usage with cURL
+Example 1: Get a Specific Order
+Get a specific order with TangoCard via Fluz API Adapter
+curl -X GET "https://api-adapter.staging.fluzapp.com/tangocard/v2/orders/72991f5a-b389-404e-98b0-ac5444839ca9" 
+  -H "Authorization: Basic MjJhZjFlMTUtNzQyOC00ZTQ1LTkyYTQtNmExY2FlZDU3ODg3OjliOTZjZGQxZWRlM2ZkZjg5NDg4NGRmNjZlMmM0YTU1"
+Example 2: Get All Orders
+Get all orders with TangoCard via Fluz API Adapter
+curl -X GET "https://api-adapter.staging.fluzapp.com/tangocard/v2/orders" 
+  -H "Authorization: Basic MjJhZjFlMTUtNzQyOC00ZTQ1LTkyYTQtNmExY2FlZDU3ODg3OjliOTZjZGQxZWRlM2ZkZjg5NDg4NGRmNjZlMmM0YTU1"
+Example 3: Get Balance for All Accounts
+Get Balance for all accounts with TangoCard via Fluz API Adapter
+curl -X GET "https://api-adapter.staging.fluzapp.com/tangocard/v2/accounts" 
+  -H "Authorization: Basic MjJhZjFlMTUtNzQyOC00ZTQ1LTkyYTQtNmExY2FlZDU3ODg3OjliOTZjZGQxZWRlM2ZkZjg5NDg4NGRmNjZlMmM0YTU1"
+Example 4: Get Balance for a Specific Account
+Get Balance for a specific account with TangoCard via Fluz API Adapter
+curl -X GET "https://api-adapter.staging.fluzapp.com/tangocard/v2/accounts/testing1234account" 
+  -H "Authorization: Basic MjJhZjFlMTUtNzQyOC00ZTQ1LTkyYTQtNmExY2FlZDU3ODg3OjliOTZjZGQxZWRlM2ZkZjg5NDg4NGRmNjZlMmM0YTU1"
+Example 5: Create a New Order
+Create Order with TangoCard via Fluz API Adapter
+Note: This operation runs as a background process but may return complete results
+curl -X POST "https://api-adapter.staging.fluzapp.com/tangocard/v2/orders" 
+  -H "Authorization: Basic MjJhZjFlMTUtNzQyOC00ZTQ1LTkyYTQtNmExY2FlZDU3ODg3OjliOTZjZGQxZWRlM2ZkZjg5NDg4NGRmNjZlMmM0YTU1" 
+  -H "Content-Type: application/json" 
+  -d '{
+    "sendEmail": false,
+    "accountIdentifier": "testing1234account",
+    "customerIdentifier": "johnr002",
+    "utid": "1800FL-US",
+    "amount": 40,
+    "externalRefID": "d8e118ab-732b-4884-8e8a-70746b5f359e"
+  }'

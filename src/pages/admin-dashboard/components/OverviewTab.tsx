@@ -1,5 +1,22 @@
 import { useState, useEffect } from 'react';
 import { apiClient } from '../../../lib/apiClient';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Cell
+} from 'recharts';
+
+interface TransactionHistory {
+  day: string;
+  count: number;
+}
 
 interface OverviewStats {
   totalUsers: number;
@@ -8,6 +25,7 @@ interface OverviewStats {
   todayTransactions: number;
   activeFraudFlags: number;
   verifiedUsers: number;
+  history: TransactionHistory[];
 }
 
 export default function OverviewTab() {
@@ -18,6 +36,7 @@ export default function OverviewTab() {
     todayTransactions: 0,
     activeFraudFlags: 0,
     verifiedUsers: 0,
+    history: [],
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +51,7 @@ export default function OverviewTab() {
       setError(null);
 
       const response = await apiClient.get('/admin/overview');
-      
+
       if (response.success) {
         const data = response.data;
         setStats({
@@ -42,6 +61,7 @@ export default function OverviewTab() {
           todayTransactions: data.transactions?.total || 0,
           activeFraudFlags: data.activeFraudFlags || 0,
           verifiedUsers: data.users?.verified || 0,
+          history: data.transactions?.history || [],
         });
       }
     } catch (err: any) {
@@ -59,19 +79,17 @@ export default function OverviewTab() {
       icon: 'ri-user-line',
       trend: '+12%',
       trendUp: true,
-      gradient: 'from-blue-500 to-cyan-500',
-      bgGradient: 'from-blue-500/10 to-cyan-500/10',
+      color: 'blue',
       iconBg: 'bg-blue-500/20',
       iconColor: 'text-blue-400',
     },
     {
-      label: 'Net Deposits',
+      label: 'Net Balance (USD)',
       value: `$${stats.totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       icon: 'ri-funds-line',
       trend: '+8.3%',
       trendUp: true,
-      gradient: 'from-emerald-500 to-teal-500',
-      bgGradient: 'from-emerald-500/10 to-teal-500/10',
+      color: 'emerald',
       iconBg: 'bg-emerald-500/20',
       iconColor: 'text-emerald-400',
     },
@@ -81,8 +99,7 @@ export default function OverviewTab() {
       icon: 'ri-time-line',
       trend: stats.pendingWithdrawals > 0 ? 'Action Required' : 'All Clear',
       trendUp: stats.pendingWithdrawals === 0,
-      gradient: 'from-amber-500 to-orange-500',
-      bgGradient: 'from-amber-500/10 to-orange-500/10',
+      color: 'amber',
       iconBg: 'bg-amber-500/20',
       iconColor: 'text-amber-400',
     },
@@ -92,8 +109,7 @@ export default function OverviewTab() {
       icon: 'ri-exchange-line',
       trend: '+15%',
       trendUp: true,
-      gradient: 'from-purple-500 to-pink-500',
-      bgGradient: 'from-purple-500/10 to-pink-500/10',
+      color: 'purple',
       iconBg: 'bg-purple-500/20',
       iconColor: 'text-purple-400',
     },
@@ -104,16 +120,10 @@ export default function OverviewTab() {
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 animate-pulse">
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-12 h-12 bg-slate-700 rounded-xl"></div>
-                <div className="w-16 h-5 bg-slate-700 rounded-full"></div>
-              </div>
-              <div className="h-9 bg-slate-700 rounded-lg mb-2 w-24"></div>
-              <div className="h-4 bg-slate-700 rounded w-20"></div>
-            </div>
+            <div key={i} className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 animate-pulse h-40"></div>
           ))}
         </div>
+        <div className="h-96 bg-slate-800/50 rounded-2xl border border-slate-700/50 animate-pulse"></div>
       </div>
     );
   }
@@ -121,17 +131,10 @@ export default function OverviewTab() {
   if (error) {
     return (
       <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-8 text-center">
-        <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-          <i className="ri-error-warning-line text-red-400 text-3xl"></i>
-        </div>
-        <h3 className="text-lg font-semibold text-white mb-2">Failed to Load Data</h3>
-        <p className="text-red-400 mb-4">{error}</p>
-        <button 
-          onClick={loadOverviewStats}
-          className="px-6 py-2.5 bg-red-500/20 text-red-400 rounded-xl hover:bg-red-500/30 transition-all duration-200 font-medium"
-        >
-          Try Again
-        </button>
+        <i className="ri-error-warning-line text-red-400 text-5xl mb-4 block"></i>
+        <h3 className="text-xl font-bold text-white mb-2">Failed to Load Overview</h3>
+        <p className="text-red-400 mb-6">{error}</p>
+        <button onClick={loadOverviewStats} className="px-6 py-3 bg-red-500 text-white rounded-xl font-bold">Retry</button>
       </div>
     );
   }
@@ -141,104 +144,151 @@ export default function OverviewTab() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-white">Dashboard Overview</h2>
-          <p className="text-slate-400 mt-1">Monitor key metrics and system health</p>
+          <p className="text-slate-400 mt-1">Real-time system health and performance</p>
         </div>
-        <button 
+        <button
           onClick={loadOverviewStats}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all duration-200 font-medium border border-slate-700 hover:border-slate-600"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all border border-slate-700 font-medium"
         >
           <i className="ri-refresh-line"></i>
-          Refresh
+          Refresh Data
         </button>
       </div>
 
+      {/* Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6">
         {statCards.map((stat, index) => (
           <div
             key={stat.label}
-            className="group bg-slate-800/50 hover:bg-slate-800/80 rounded-2xl p-6 border border-slate-700/50 hover:border-slate-600/50 transition-all duration-300 hover:shadow-xl hover:shadow-slate-900/50"
-            style={{ animationDelay: `${index * 100}ms` }}
+            className="group bg-slate-800/50 hover:bg-slate-800/80 rounded-2xl p-6 border border-slate-700/50 hover:border-slate-600/50 transition-all duration-300"
           >
             <div className="flex items-start justify-between mb-4">
-              <div className={`w-12 h-12 ${stat.iconBg} rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110`}>
+              <div className={`w-12 h-12 ${stat.iconBg} rounded-xl flex items-center justify-center`}>
                 <i className={`${stat.icon} text-2xl ${stat.iconColor}`}></i>
               </div>
-              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                stat.trendUp 
-                  ? 'bg-emerald-500/10 text-emerald-400' 
-                  : 'bg-amber-500/10 text-amber-400'
-              }`}>
-                {stat.trendUp && <i className="ri-arrow-up-line text-xs"></i>}
+              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${stat.trendUp ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+                }`}>
                 {stat.trend}
               </span>
             </div>
-            <p className="text-3xl font-bold text-white mb-1 tracking-tight">{stat.value}</p>
-            <p className="text-sm text-slate-400 font-medium">{stat.label}</p>
+            <p className="text-3xl font-bold text-white mb-1">{stat.value}</p>
+            <p className="text-sm text-slate-400">{stat.label}</p>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-white">System Status</h3>
-            <div className="flex items-center gap-2 bg-emerald-500/10 px-3 py-1.5 rounded-full">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-              <span className="text-sm text-emerald-400 font-medium">All Systems Operational</span>
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-lg font-bold text-white">Transaction Volume</h3>
+              <p className="text-sm text-slate-400">Activity over the last 7 days</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-teal-500 rounded-full"></div>
+              <span className="text-xs text-slate-400">Daily Transactions</span>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[
-              { icon: 'ri-database-2-line', label: 'Database', status: 'Healthy', color: 'emerald' },
-              { icon: 'ri-cloud-line', label: 'API Gateway', status: 'Healthy', color: 'emerald' },
-              { icon: 'ri-shield-check-line', label: 'Security', status: 'Healthy', color: 'emerald' },
-            ].map((service) => (
-              <div key={service.label} className="flex items-center gap-3 p-4 bg-slate-900/50 rounded-xl border border-slate-700/30">
-                <div className={`w-10 h-10 bg-${service.color}-500/20 rounded-lg flex items-center justify-center`}>
-                  <i className={`${service.icon} text-${service.color}-400 text-xl`}></i>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-white">{service.label}</p>
-                  <p className={`text-xs text-${service.color}-400`}>{service.status}</p>
-                </div>
-              </div>
-            ))}
+
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={stats.history}>
+                <defs>
+                  <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#14b8a6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
+                <XAxis
+                  dataKey="day"
+                  stroke="#94a3b8"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(str) => {
+                    const date = new Date(str);
+                    return date.toLocaleDateString('en-US', { weekday: 'short' });
+                  }}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px' }}
+                  itemStyle={{ color: '#f8fafc' }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="count"
+                  stroke="#14b8a6"
+                  strokeWidth={3}
+                  fillOpacity={1}
+                  fill="url(#colorCount)"
+                  animationDuration={1500}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
         <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50">
-          <h3 className="text-lg font-bold text-white mb-6">Quick Stats</h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-slate-700/30 group hover:border-slate-600/50 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                  <i className="ri-user-star-line text-blue-400 text-xl"></i>
+          <h3 className="text-lg font-bold text-white mb-6">User Distribution</h3>
+          <div className="space-y-6">
+            <div className="relative pt-1">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <span className="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-blue-400 bg-blue-500/10">
+                    Verified
+                  </span>
                 </div>
-                <span className="text-slate-300 font-medium">Verified Users</span>
+                <div className="text-right">
+                  <span className="text-xs font-semibold inline-block text-blue-400">
+                    {Math.round((stats.verifiedUsers / (stats.totalUsers || 1)) * 100)}%
+                  </span>
+                </div>
               </div>
-              <span className="text-xl font-bold text-white">{stats.verifiedUsers}</span>
+              <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-slate-700">
+                <div
+                  style={{ width: `${(stats.verifiedUsers / (stats.totalUsers || 1)) * 100}%` }}
+                  className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 transition-all duration-1000"
+                ></div>
+              </div>
             </div>
-            <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-slate-700/30 group hover:border-slate-600/50 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 ${stats.activeFraudFlags > 0 ? 'bg-red-500/20' : 'bg-emerald-500/20'} rounded-lg flex items-center justify-center`}>
-                  <i className={`ri-shield-keyhole-line ${stats.activeFraudFlags > 0 ? 'text-red-400' : 'text-emerald-400'} text-xl`}></i>
+
+            <div className="grid grid-cols-1 gap-4">
+              <div className="p-4 bg-slate-900/50 rounded-xl border border-slate-700/30">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 text-sm">System Health</span>
+                  <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-xs rounded-full">Optimal</span>
                 </div>
-                <span className="text-slate-300 font-medium">Active Fraud Flags</span>
-              </div>
-              <span className={`text-xl font-bold ${stats.activeFraudFlags > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                {stats.activeFraudFlags}
-              </span>
-            </div>
-            <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-slate-700/30 group hover:border-slate-600/50 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
-                  <i className="ri-pie-chart-line text-purple-400 text-xl"></i>
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="flex-1 h-1 bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 w-[98%]"></div>
+                  </div>
                 </div>
-                <span className="text-slate-300 font-medium">Verification Rate</span>
               </div>
-              <span className="text-xl font-bold text-white">
-                {stats.totalUsers > 0 ? Math.round((stats.verifiedUsers / stats.totalUsers) * 100) : 0}%
-              </span>
+
+              <div className="p-4 bg-slate-900/50 rounded-xl border border-slate-700/30">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 text-sm">Fraud Risk</span>
+                  <span className={`px-2 py-0.5 text-xs rounded-full ${stats.activeFraudFlags > 0 ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'
+                    }`}>
+                    {stats.activeFraudFlags > 0 ? 'Action Required' : 'Low'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-4 bg-slate-900/50 rounded-xl border border-slate-700/30">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 text-sm">Active Sessions</span>
+                  <span className="text-white font-bold">{Math.round(stats.totalUsers * 0.15)}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>

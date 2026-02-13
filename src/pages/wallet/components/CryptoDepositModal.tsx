@@ -38,7 +38,7 @@ const CRYPTO_ASSETS: CryptoAsset[] = [
         fee: 'Free',
         confirmations: 3,
         minDeposit: '0.0001 BTC',
-        depositAddress: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'
+        depositAddress: ''
       }
     ]
   },
@@ -56,7 +56,7 @@ const CRYPTO_ASSETS: CryptoAsset[] = [
         fee: 'Free',
         confirmations: 12,
         minDeposit: '0.001 ETH',
-        depositAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f1E2C3'
+        depositAddress: ''
       }
     ]
   },
@@ -74,7 +74,7 @@ const CRYPTO_ASSETS: CryptoAsset[] = [
         fee: 'Free',
         confirmations: 12,
         minDeposit: '10 USDT',
-        depositAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f1E2C3'
+        depositAddress: ''
       },
       {
         id: 'usdt-trc20',
@@ -84,7 +84,7 @@ const CRYPTO_ASSETS: CryptoAsset[] = [
         fee: 'Free',
         confirmations: 20,
         minDeposit: '1 USDT',
-        depositAddress: 'TN3W4H6rK2ce4vX9YnFQHwKENnHjoxb3m9'
+        depositAddress: ''
       },
       {
         id: 'usdt-bep20',
@@ -94,7 +94,7 @@ const CRYPTO_ASSETS: CryptoAsset[] = [
         fee: 'Free',
         confirmations: 15,
         minDeposit: '5 USDT',
-        depositAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f1E2C3'
+        depositAddress: ''
       }
     ]
   },
@@ -112,7 +112,7 @@ const CRYPTO_ASSETS: CryptoAsset[] = [
         fee: 'Free',
         confirmations: 15,
         minDeposit: '0.01 BNB',
-        depositAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f1E2C3'
+        depositAddress: ''
       }
     ]
   },
@@ -130,7 +130,7 @@ const CRYPTO_ASSETS: CryptoAsset[] = [
         fee: 'Free',
         confirmations: 20,
         minDeposit: '10 TRX',
-        depositAddress: 'TN3W4H6rK2ce4vX9YnFQHwKENnHjoxb3m9'
+        depositAddress: ''
       }
     ]
   }

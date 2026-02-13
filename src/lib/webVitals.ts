@@ -39,7 +39,7 @@ export function initWebVitals(): void {
 
   import('web-vitals').then((webVitals) => {
     if (webVitals.onCLS) webVitals.onCLS(reportWebVitals);
-    if (webVitals.onFID) webVitals.onFID(reportWebVitals);
+    if (webVitals.onINP) webVitals.onINP(reportWebVitals);
     if (webVitals.onFCP) webVitals.onFCP(reportWebVitals);
     if (webVitals.onLCP) webVitals.onLCP(reportWebVitals);
     if (webVitals.onTTFB) webVitals.onTTFB(reportWebVitals);

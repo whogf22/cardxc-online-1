@@ -5,7 +5,8 @@ import type { VirtualCard, CardTransaction, CreateCardRequest, UpdateLimitsReque
 export const cardService = {
   async getCards(): Promise<VirtualCard[]> {
     try {
-      const response = await apiClient.get('/user/cards');
+      // Switched from /user/cards to /cards to use the dedicated cardsRouter
+      const response = await apiClient.get('/cards');
       if (response.success && response.data?.cards) {
         return response.data.cards.map((card: any) => ({
           id: card.id,
@@ -15,9 +16,9 @@ export const cardService = {
           last_four: card.last_four,
           card_type: 'VIRTUAL',
           card_brand: card.card_type || 'VISA',
-          status: card.status || 'ACTIVE',
-          balance: card.balance || 0,
-          currency: 'USD',
+          status: (card.status || 'ACTIVE').toUpperCase(),
+          balance: card.balance_cents ? card.balance_cents / 100 : (card.balance || 0),
+          currency: card.currency || 'USD',
           daily_limit: card.spending_limit_cents ? card.spending_limit_cents / 100 : 5000,
           monthly_limit: 25000,
           per_transaction_limit: 2500,
@@ -27,6 +28,7 @@ export const cardService = {
           expiry_year: new Date().getFullYear() + 3,
           created_at: card.created_at,
           updated_at: card.updated_at || card.created_at,
+          is_frozen: card.frozen || card.status === 'frozen',
         }));
       }
       return [];
@@ -42,7 +44,8 @@ export const cardService = {
   },
 
   async createCard(request: CreateCardRequest = {}): Promise<VirtualCard> {
-    const response = await apiClient.post('/user/cards', {
+    // Switched from /user/cards to /cards
+    const response = await apiClient.post('/cards', {
       cardName: request.card_name || 'My Card',
       cardType: request.card_brand || 'VISA',
       spendingLimit: request.daily_limit || 5000,
@@ -61,9 +64,9 @@ export const cardService = {
       last_four: card.last_four,
       card_type: 'VIRTUAL',
       card_brand: card.card_type || 'VISA',
-      status: card.status || 'ACTIVE',
-      balance: card.balance || 0,
-      currency: 'USD',
+      status: (card.status || 'ACTIVE').toUpperCase(),
+      balance: card.balance_cents ? card.balance_cents / 100 : (card.balance || 0),
+      currency: card.currency || 'USD',
       daily_limit: card.spending_limit_cents ? card.spending_limit_cents / 100 : 5000,
       monthly_limit: 25000,
       per_transaction_limit: 2500,
@@ -77,32 +80,41 @@ export const cardService = {
   },
 
   async deleteCard(cardId: string): Promise<void> {
-    console.log('[CardService] Card deletion requires backend support:', cardId);
-    throw new Error('Card deletion coming soon');
+    await apiClient.delete(`/cards/${cardId}`);
   },
 
-  async freezeCard(cardId: string): Promise<VirtualCard> {
-    console.log('[CardService] Card freeze requires backend support:', cardId);
-    throw new Error('Card freeze coming soon');
+  async freezeCard(cardId: string): Promise<void> {
+    await apiClient.post(`/cards/${cardId}/freeze`);
   },
 
-  async unfreezeCard(cardId: string): Promise<VirtualCard> {
-    console.log('[CardService] Card unfreeze requires backend support:', cardId);
-    throw new Error('Card unfreeze coming soon');
+  async unfreezeCard(cardId: string): Promise<void> {
+    await apiClient.post(`/cards/${cardId}/unfreeze`);
   },
 
-  async updateLimits(cardId: string, limits: UpdateLimitsRequest): Promise<VirtualCard> {
-    console.log('[CardService] Update limits requires backend support:', cardId, limits);
-    throw new Error('Limit updates coming soon');
+  async updateLimits(cardId: string, limits: UpdateLimitsRequest): Promise<void> {
+    if (limits.daily_limit !== undefined) {
+      await apiClient.post(`/cards/${cardId}/spending-limit`, { limit: limits.daily_limit });
+    }
   },
 
-  async topUpCard(cardId: string, amount: number): Promise<VirtualCard> {
-    console.log('[CardService] Card top-up requires backend support:', cardId, amount);
-    throw new Error('Card top-up coming soon');
+  async topUpCard(cardId: string, amount: number, currency: string = 'USD'): Promise<void> {
+    await apiClient.post(`/cards/${cardId}/top-up`, { amount, currency });
   },
 
   async getTransactions(cardId: string): Promise<CardTransaction[]> {
-    console.log('[CardService] Card transactions requires backend support:', cardId);
+    const response = await apiClient.get(`/cards/${cardId}/transactions`);
+    if (response.success && response.data?.transactions) {
+      return response.data.transactions.map((t: any) => ({
+        id: t.id,
+        card_id: cardId,
+        amount: t.amount_cents / 100,
+        currency: t.currency,
+        merchant: t.merchant,
+        category: t.category,
+        status: t.status,
+        created_at: t.created_at,
+      }));
+    }
     return [];
   },
 };

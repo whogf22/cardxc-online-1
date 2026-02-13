@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { queryOne } from '../db/pool';
 import { logger } from '../middleware/logger';
+import { isFluzConfigured, testFluzConnection } from '../services/fluzClient';
 import os from 'os';
 
 const router = Router();
@@ -103,6 +104,17 @@ router.get('/version', (req: Request, res: Response) => {
     environment: process.env.NODE_ENV || 'development',
     buildTime: process.env.BUILD_TIME || 'unknown',
   });
+});
+
+router.get('/provider', async (req: Request, res: Response) => {
+  if (!isFluzConfigured()) {
+    return res.json({ provider: 'not_configured' });
+  }
+  const result = await testFluzConnection();
+  if (result.success) {
+    return res.json({ provider: 'ok' });
+  }
+  res.status(503).json({ provider: 'unreachable', error: result.error });
 });
 
 export { router as healthRouter };

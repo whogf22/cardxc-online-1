@@ -1,9 +1,13 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_TEL, SUPPORT_WHATSAPP_URL } from '../../lib/contactPlaceholders';
+
+const LAST_UPDATED = '27 June 2025';
 
 export default function TermsPage() {
   useEffect(() => {
     window.scrollTo(0, 0);
+    document.title = 'Terms and Conditions | CardXC';
   }, []);
 
   return (
@@ -12,14 +16,14 @@ export default function TermsPage() {
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <Link to="/" className="flex items-center gap-3 cursor-pointer group">
-              <div className="w-10 h-10 bg-gradient-to-br from-cream-300 to-cream-500 rounded-xl flex items-center justify-center shadow-glow-sm group-hover:shadow-glow transition-all duration-300">
-                <i className="ri-wallet-3-line text-dark-bg text-xl"></i>
+              <div className="w-10 h-10 bg-lime-500 rounded-xl flex items-center justify-center shadow-glow-sm group-hover:shadow-glow transition-all duration-300">
+                <i className="ri-wallet-3-line text-black text-xl"></i>
               </div>
               <span className="text-xl font-bold text-white">CardXC</span>
             </Link>
             <Link
               to="/"
-              className="text-neutral-400 hover:text-cream-300 transition-colors cursor-pointer flex items-center gap-2"
+              className="text-neutral-400 hover:text-lime-400 transition-colors cursor-pointer flex items-center gap-2"
             >
               <i className="ri-arrow-left-line"></i>
               Back to Home
@@ -28,11 +32,24 @@ export default function TermsPage() {
         </div>
       </header>
 
-      <div className="max-w-4xl mx-auto px-6 py-16">
-        <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Terms & Conditions</h1>
-        <p className="text-neutral-400 mb-12">Last updated: {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
+      <main className="max-w-4xl mx-auto px-6 py-16" role="document" aria-label="Terms and Conditions">
+        <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">Terms and Conditions</h1>
+        <p className="text-neutral-400 text-sm uppercase tracking-wide mb-10">Last updated: {LAST_UPDATED}</p>
 
         <div className="space-y-8 text-neutral-300">
+          <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
+            <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-3">
+              <i className="ri-hand-heart-line text-lime-400"></i>
+              Welcome to CardXC
+            </h2>
+            <p className="leading-relaxed mb-4">
+              Thank you for visiting CardXC, a digital wallet and payments platform operated by GameNova Vault LLC (the “Company”). By accessing or using our website, applications, or services (collectively, the “Services”), you agree to be bound by these Terms and Conditions. Please read them carefully before using our Services.
+            </p>
+            <p className="leading-relaxed text-neutral-400 text-sm">
+              If you do not agree to these terms, you may not access or use our Services.
+            </p>
+          </section>
+
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <div className="flex items-start gap-4 p-4 bg-warning-500/10 border border-warning-500/30 rounded-xl mb-6">
               <i className="ri-information-line text-warning-500 text-2xl mt-0.5"></i>
@@ -45,7 +62,7 @@ export default function TermsPage() {
             </div>
 
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-file-text-line text-cream-300"></i>
+              <i className="ri-file-text-line text-lime-400"></i>
               1. Agreement to Terms
             </h2>
             <p className="leading-relaxed mb-4">
@@ -58,7 +75,7 @@ export default function TermsPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-bank-card-line text-cream-300"></i>
+              <i className="ri-bank-card-line text-lime-400"></i>
               2. Virtual Card Services
             </h2>
             <p className="leading-relaxed mb-4">
@@ -75,7 +92,7 @@ export default function TermsPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-wallet-3-line text-cream-300"></i>
+              <i className="ri-wallet-3-line text-lime-400"></i>
               3. Digital Wallet Services
             </h2>
             <p className="leading-relaxed mb-4">
@@ -91,7 +108,7 @@ export default function TermsPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-shield-check-line text-cream-300"></i>
+              <i className="ri-shield-check-line text-lime-400"></i>
               4. User Responsibilities
             </h2>
             <p className="leading-relaxed mb-4">
@@ -109,7 +126,7 @@ export default function TermsPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-error-warning-line text-cream-300"></i>
+              <i className="ri-error-warning-line text-lime-400"></i>
               5. Prohibited Activities
             </h2>
             <p className="leading-relaxed mb-4">
@@ -126,7 +143,7 @@ export default function TermsPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-refund-line text-cream-300"></i>
+              <i className="ri-refund-line text-lime-400"></i>
               6. Refunds and Disputes
             </h2>
             <p className="leading-relaxed mb-4">
@@ -142,7 +159,7 @@ export default function TermsPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-lock-line text-cream-300"></i>
+              <i className="ri-lock-line text-lime-400"></i>
               7. Privacy and Data Protection
             </h2>
             <p className="leading-relaxed mb-4">
@@ -158,7 +175,7 @@ export default function TermsPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-alert-line text-cream-300"></i>
+              <i className="ri-alert-line text-lime-400"></i>
               8. Limitation of Liability
             </h2>
             <p className="leading-relaxed mb-4">
@@ -178,7 +195,7 @@ export default function TermsPage() {
 
           <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-              <i className="ri-mail-line text-cream-300"></i>
+              <i className="ri-mail-line text-lime-400"></i>
               9. Contact Information
             </h2>
             <p className="leading-relaxed mb-4">
@@ -186,16 +203,16 @@ export default function TermsPage() {
             </p>
             <div className="space-y-2">
               <p className="flex items-center gap-2">
-                <i className="ri-whatsapp-line text-cream-300"></i>
-                <span>WhatsApp: +880 1730-275-2121</span>
+                <i className="ri-whatsapp-line text-lime-400"></i>
+                <a href={SUPPORT_WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="text-neutral-300 hover:text-lime-400 transition-colors">{SUPPORT_PHONE}</a>
               </p>
               <p className="flex items-center gap-2">
-                <i className="ri-phone-line text-cream-300"></i>
-                <span>Phone: +1 (737) 378-1872</span>
+                <i className="ri-phone-line text-lime-400"></i>
+                <a href={SUPPORT_PHONE_TEL} className="text-neutral-300 hover:text-lime-400 transition-colors">{SUPPORT_PHONE}</a>
               </p>
               <p className="flex items-center gap-2">
-                <i className="ri-mail-line text-cream-300"></i>
-                <span>Email: support@cardxc.com</span>
+                <i className="ri-mail-line text-lime-400"></i>
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="text-neutral-300 hover:text-lime-400 transition-colors">{SUPPORT_EMAIL}</a>
               </p>
             </div>
           </section>
@@ -204,13 +221,13 @@ export default function TermsPage() {
         <div className="mt-12 text-center">
           <Link
             to="/"
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-cream-300 to-cream-400 text-dark-bg px-8 py-4 rounded-xl font-semibold transition-all duration-300 shadow-glow-sm hover:shadow-glow cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center gap-2 bg-lime-500 text-black px-8 py-4 rounded-xl font-semibold transition-all duration-300 shadow-glow-sm hover:shadow-glow cursor-pointer whitespace-nowrap"
           >
             <i className="ri-home-line"></i>
             Back to Home
           </Link>
         </div>
-      </div>
+      </main>
 
       <footer className="bg-dark-elevated border-t border-dark-border mt-20">
         <div className="max-w-7xl mx-auto px-6 py-8">

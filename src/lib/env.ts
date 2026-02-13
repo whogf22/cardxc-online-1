@@ -47,8 +47,8 @@ export const SITE_URL = ((): string => {
 export const AUTH_API_URL = getEnvVar('VITE_PUBLIC_AUTH_URL', false) || '';
 export const AUTH_API_KEY = getEnvVar('VITE_PUBLIC_AUTH_KEY', false) || '';
 
-export const API_URL = getEnvVar('VITE_API_URL', false) || 
-  (isProduction ? '/api' : 'http://localhost:8000/api');
+export const API_URL = getEnvVar('VITE_API_URL', false) ||
+  '/api';
 
 export const APP_DOMAIN = getEnvVar('VITE_APP_DOMAIN', false) || 'cardxc.online';
 
@@ -60,13 +60,6 @@ export const ADYEN_ENABLED = getEnvVar('VITE_ADYEN_ENABLED', false) === 'true';
 export const SUPABASE_URL = AUTH_API_URL;
 export const SUPABASE_ANON_KEY = AUTH_API_KEY;
 
-console.log('[ENV] All environment variables validated successfully.\n');
-
 if (isDevelopment && typeof window !== 'undefined') {
-  console.log('[ENV] Configuration loaded:', {
-    SITE_URL,
-    API_URL,
-    isProduction,
-    isDevelopment,
-  });
+  console.debug('[ENV] Configuration loaded:', { SITE_URL, API_URL, isProduction, isDevelopment });
 }

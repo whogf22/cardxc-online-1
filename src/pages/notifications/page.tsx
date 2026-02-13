@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import BottomNavigation from '../../components/BottomNavigation';
 
 interface Notification {
   id: string;
@@ -100,8 +99,6 @@ export default function NotificationsPage() {
           </div>
         )}
       </main>
-
-      <BottomNavigation />
     </div>
   );
 }

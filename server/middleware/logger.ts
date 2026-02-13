@@ -33,7 +33,7 @@ export function requestLogger(req: RequestWithStartTime, res: Response, next: Ne
       url: req.originalUrl,
       status: res.statusCode,
       duration: `${duration}ms`,
-      ip: req.ip || req.connection.remoteAddress,
+      ip: req.ip || req.socket.remoteAddress,
       userAgent: req.get('user-agent')?.substring(0, 100),
     };
     

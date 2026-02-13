@@ -1,28 +1,35 @@
-export default function CustomerServiceSection() {
+import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_TEL, SUPPORT_WHATSAPP_URL } from '../../../lib/contactPlaceholders';
+
+interface CustomerServiceSectionProps {
+  /** Opens the contact modal when provided (e.g. from homepage) */
+  onOpenContact?: () => void;
+}
+
+export default function CustomerServiceSection({ onOpenContact }: CustomerServiceSectionProps) {
   const supportChannels = [
     {
       icon: 'ri-whatsapp-line',
       title: 'WhatsApp Support',
-      description: 'Chat with us instantly',
+      description: SUPPORT_PHONE,
       action: 'Message Us',
-      link: 'https://wa.me/2348012345678',
+      link: SUPPORT_WHATSAPP_URL,
       color: 'from-success-500 to-success-600'
     },
     {
       icon: 'ri-mail-line',
       title: 'Email Support',
-      description: 'Get help via email',
+      description: SUPPORT_EMAIL,
       action: 'Send Email',
-      link: 'mailto:support@cardxc.com',
+      link: `mailto:${SUPPORT_EMAIL}`,
       color: 'from-primary-400 to-primary-600'
     },
     {
       icon: 'ri-phone-line',
       title: 'Phone Support',
-      description: 'Call us directly',
+      description: SUPPORT_PHONE,
       action: 'Call Now',
-      link: 'tel:+2348012345678',
-      color: 'from-cream-400 to-cream-600'
+      link: SUPPORT_PHONE_TEL,
+      color: 'from-lime-500 to-lime-700'
     }
   ];
 
@@ -30,8 +37,8 @@ export default function CustomerServiceSection() {
     <section id="contact" className="relative py-24 bg-dark-bg">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-16">
-          <div className="inline-flex items-center space-x-2 px-4 py-2 bg-cream-300/10 rounded-full border border-cream-300/20 mb-6">
-            <span className="text-cream-300 text-sm font-medium">Customer Support</span>
+          <div className="inline-flex items-center space-x-2 px-4 py-2 bg-lime-400/10 rounded-full border border-lime-400/20 mb-6">
+            <span className="text-lime-400 text-sm font-medium">Customer Support</span>
           </div>
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
             We're Here to Help
@@ -40,6 +47,18 @@ export default function CustomerServiceSection() {
           <p className="text-xl text-neutral-400 max-w-2xl mx-auto">
             Our dedicated support team is always ready to assist you with any questions
           </p>
+          {onOpenContact && (
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={onOpenContact}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-lime-500 text-black font-semibold rounded-xl shadow-glow-sm hover:shadow-glow hover:scale-105 active:scale-100 transition-all duration-300"
+              >
+                <i className="ri-mail-send-line text-lg" aria-hidden />
+                Get in Touch
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="grid md:grid-cols-3 gap-6 mb-16">
@@ -47,8 +66,8 @@ export default function CustomerServiceSection() {
             <a
               key={index}
               href={channel.link}
-              target="_blank"
-              rel="noopener noreferrer"
+              target={channel.link.startsWith('http') ? '_blank' : undefined}
+              rel={channel.link.startsWith('https') ? 'noopener noreferrer' : undefined}
               className="group dark-card-interactive p-8 text-center"
             >
               <div className={`w-16 h-16 bg-gradient-to-br ${channel.color} rounded-2xl flex items-center justify-center mx-auto mb-6`}>
@@ -56,7 +75,7 @@ export default function CustomerServiceSection() {
               </div>
               <h3 className="text-xl font-bold text-white mb-2">{channel.title}</h3>
               <p className="text-neutral-400 mb-6">{channel.description}</p>
-              <div className="inline-flex items-center space-x-2 text-cream-300 font-semibold group-hover:translate-x-1 transition-transform">
+              <div className="inline-flex items-center space-x-2 text-lime-400 font-semibold group-hover:translate-x-1 transition-transform">
                 <span>{channel.action}</span>
                 <i className="ri-arrow-right-line"></i>
               </div>
@@ -75,20 +94,20 @@ export default function CustomerServiceSection() {
               </p>
               <div className="space-y-3">
                 <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-cream-300/10 rounded-lg flex items-center justify-center">
-                    <i className="ri-check-line text-cream-300"></i>
+                  <div className="w-8 h-8 bg-lime-400/10 rounded-lg flex items-center justify-center">
+                    <i className="ri-check-line text-lime-400"></i>
                   </div>
                   <span className="text-neutral-300">Average response under 2 minutes</span>
                 </div>
                 <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-cream-300/10 rounded-lg flex items-center justify-center">
-                    <i className="ri-check-line text-cream-300"></i>
+                  <div className="w-8 h-8 bg-lime-400/10 rounded-lg flex items-center justify-center">
+                    <i className="ri-check-line text-lime-400"></i>
                   </div>
                   <span className="text-neutral-300">Available 24/7 every day</span>
                 </div>
                 <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-cream-300/10 rounded-lg flex items-center justify-center">
-                    <i className="ri-check-line text-cream-300"></i>
+                  <div className="w-8 h-8 bg-lime-400/10 rounded-lg flex items-center justify-center">
+                    <i className="ri-check-line text-lime-400"></i>
                   </div>
                   <span className="text-neutral-300">Friendly and professional team</span>
                 </div>
@@ -99,30 +118,30 @@ export default function CustomerServiceSection() {
               <div className="p-6 dark-card">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-white font-semibold">Response Time</span>
-                  <span className="text-cream-300 font-bold">&lt; 2 min</span>
+                  <span className="text-lime-400 font-bold">&lt; 2 min</span>
                 </div>
                 <div className="w-full bg-dark-border rounded-full h-2">
-                  <div className="bg-gradient-to-r from-cream-300 to-cream-500 h-2 rounded-full" style={{ width: '95%' }}></div>
+                  <div className="bg-lime-500 h-2 rounded-full" style={{ width: '95%' }}></div>
                 </div>
               </div>
 
               <div className="p-6 dark-card">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-white font-semibold">Customer Satisfaction</span>
-                  <span className="text-cream-300 font-bold">98%</span>
+                  <span className="text-lime-400 font-bold">98%</span>
                 </div>
                 <div className="w-full bg-dark-border rounded-full h-2">
-                  <div className="bg-gradient-to-r from-cream-300 to-cream-500 h-2 rounded-full" style={{ width: '98%' }}></div>
+                  <div className="bg-lime-500 h-2 rounded-full" style={{ width: '98%' }}></div>
                 </div>
               </div>
 
               <div className="p-6 dark-card">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-white font-semibold">Issue Resolution</span>
-                  <span className="text-cream-300 font-bold">99%</span>
+                  <span className="text-lime-400 font-bold">99%</span>
                 </div>
                 <div className="w-full bg-dark-border rounded-full h-2">
-                  <div className="bg-gradient-to-r from-cream-300 to-cream-500 h-2 rounded-full" style={{ width: '99%' }}></div>
+                  <div className="bg-lime-500 h-2 rounded-full" style={{ width: '99%' }}></div>
                 </div>
               </div>
             </div>

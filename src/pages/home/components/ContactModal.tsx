@@ -1,5 +1,5 @@
-
 import { useState } from 'react';
+import { SUPPORT_EMAIL } from '../../../lib/contactPlaceholders';
 
 interface ContactModalProps {
   isOpen: boolean;
@@ -26,7 +26,7 @@ export default function ContactModal({ isOpen, onClose }: ContactModalProps) {
     try {
       const { name, email, subject, message } = formData;
       const mailtoBody = `Name: ${name}%0AEmail: ${email}%0ASubject: ${subject}%0A%0AMessage:%0A${message}`;
-      const mailtoLink = `mailto:support@cardxc.com?subject=${encodeURIComponent(subject)}&body=${mailtoBody}`;
+      const mailtoLink = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${mailtoBody}`;
       window.location.href = mailtoLink;
       setSubmitStatus('success');
       setFormData({ name: '', email: '', subject: '', message: '' });

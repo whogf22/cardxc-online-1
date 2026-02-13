@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { userApi } from '../../lib/api';
 import { useAuth } from '../../hooks/useAuth';
 import DashboardHeader from './components/DashboardHeader';
 import TotalAssetCard from './components/TotalAssetCard';
 import ActionButtons from './components/ActionButtons';
 import QuickActionsGrid from './components/QuickActionsGrid';
-import PortfolioSection from './components/PortfolioSection';
 import TransactionList from './components/TransactionList';
 import DepositModal from './components/DepositModal';
 import WithdrawModal from './components/WithdrawModal';
@@ -14,11 +13,10 @@ import { DashboardSkeleton } from '../../components/SkeletonLoader';
 import { KYCStatusBanner } from '../../components/KYCStatusBanner';
 
 export default function Dashboard() {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [user, setUser] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [usdBalance, setUsdBalance] = useState(0);
   const [usdtBalance, setUsdtBalance] = useState(0);
@@ -60,27 +58,35 @@ export default function Dashboard() {
         const wallets = walletsResult.data.wallets;
         const usdWallet = wallets.find((w: any) => w.currency === 'USD');
         const usdtWallet = wallets.find((w: any) => w.currency === 'USDT');
-        setUsdBalance(usdWallet?.balance || usdWallet?.balanceCents / 100 || 0);
-        setUsdtBalance(usdtWallet?.balance || usdtWallet?.balanceCents / 100 || 0);
+        setUsdBalance(usdWallet?.balance ?? (usdWallet?.balanceCents != null ? usdWallet.balanceCents / 100 : 0));
+        setUsdtBalance(usdtWallet?.balance ?? (usdtWallet?.balanceCents != null ? usdtWallet.balanceCents / 100 : 0));
       }
 
       setIsLoading(false);
 
     } catch (error: any) {
       console.error('[Dashboard] Load error:', error);
-      setError(error.message || 'Failed to load dashboard');
+
+      setUsdBalance(0);
+      setUsdtBalance(0);
+      setTransactions([]);
+      setError('Unable to load dashboard data. Please try again.');
       setIsLoading(false);
     }
   };
 
   const fetchWalletBalances = async () => {
-    const walletsResult = await userApi.getWallets();
-    if (walletsResult.success && walletsResult.data?.wallets) {
-      const wallets = walletsResult.data.wallets;
-      const usdWallet = wallets.find((w: any) => w.currency === 'USD');
-      const usdtWallet = wallets.find((w: any) => w.currency === 'USDT');
-      setUsdBalance(usdWallet?.balance || usdWallet?.balanceCents / 100 || 0);
-      setUsdtBalance(usdtWallet?.balance || usdtWallet?.balanceCents / 100 || 0);
+    try {
+      const walletsResult = await userApi.getWallets();
+      if (walletsResult.success && walletsResult.data?.wallets) {
+        const wallets = walletsResult.data.wallets;
+        const usdWallet = wallets.find((w: any) => w.currency === 'USD');
+        const usdtWallet = wallets.find((w: any) => w.currency === 'USDT');
+        setUsdBalance(usdWallet?.balance ?? (usdWallet?.balanceCents != null ? usdWallet.balanceCents / 100 : 0));
+        setUsdtBalance(usdtWallet?.balance ?? (usdtWallet?.balanceCents != null ? usdtWallet.balanceCents / 100 : 0));
+      }
+    } catch (err) {
+      console.error('[Dashboard] Balance polling error:', err);
     }
   };
 
@@ -93,11 +99,11 @@ export default function Dashboard() {
     if (paymentStatus === 'processing') {
       let pollCount = 0;
       const maxPolls = 10;
-      
+
       pollingRef.current = setInterval(() => {
         pollCount++;
         fetchWalletBalances();
-        
+
         if (pollCount >= maxPolls) {
           if (pollingRef.current) {
             clearInterval(pollingRef.current);
@@ -117,28 +123,26 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-dark-bg p-4 sm:p-6">
-        <div className="max-w-7xl mx-auto">
-          <DashboardSkeleton />
-        </div>
+      <div className="min-h-screen bg-[#0D0D0D] p-4">
+        <DashboardSkeleton />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-dark-bg flex items-center justify-center p-4">
-        <div className="bg-dark-card rounded-[2.5rem] border border-white/5 p-8 max-w-md w-full text-center shadow-3d-depth">
-          <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-            <i className="ri-error-warning-fill text-4xl text-red-500"></i>
+      <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center p-4">
+        <div className="bg-[#1a1a1a] rounded-2xl border border-white/10 p-8 max-w-sm w-full text-center">
+          <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i className="ri-error-warning-fill text-3xl text-red-400"></i>
           </div>
-          <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-3">System Error</h2>
-          <p className="text-neutral-500 mb-8">{error}</p>
+          <h2 className="text-lg font-semibold text-white mb-2">Something went wrong</h2>
+          <p className="text-gray-500 text-sm mb-6">{error}</p>
           <button
             onClick={() => loadDashboardData()}
-            className="btn-3d w-full"
+            className="w-full px-6 py-3 bg-lime-400 text-black font-semibold rounded-xl cursor-pointer hover:bg-lime-300 transition-colors"
           >
-            Retry Connection
+            Try Again
           </button>
         </div>
       </div>
@@ -148,35 +152,27 @@ export default function Dashboard() {
   const currentBalance = calculateBalance();
 
   return (
-    <div className="min-h-screen bg-[#030303] bg-3d-mesh pb-24">
+    <div className="min-h-screen bg-[#0D0D0D] pb-24">
       <DashboardHeader />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="px-5 space-y-6 mt-2">
         <KYCStatusBanner onUploadClick={() => setShowKYCModal(true)} />
 
-        <div className="space-y-8">
-          <TotalAssetCard
-            usdBalance={usdBalance}
-            usdtBalance={usdtBalance}
-            showBalance={showBalance}
-            onToggleBalance={() => setShowBalance(!showBalance)}
-          />
+        <TotalAssetCard
+          usdBalance={usdBalance}
+          usdtBalance={usdtBalance}
+          showBalance={showBalance}
+          onToggleBalance={() => setShowBalance(!showBalance)}
+        />
 
-          <ActionButtons
-            onDepositClick={() => setShowDepositModal(true)}
-            onWithdrawClick={() => setShowWithdrawModal(true)}
-          />
+        <ActionButtons
+          onDepositClick={() => setShowDepositModal(true)}
+          onWithdrawClick={() => setShowWithdrawModal(true)}
+        />
 
-          <QuickActionsGrid />
+        <QuickActionsGrid />
 
-          <PortfolioSection
-            usdBalance={usdBalance}
-            usdtBalance={usdtBalance}
-            showBalance={showBalance}
-          />
-
-          <TransactionList transactions={transactions} />
-        </div>
+        <TransactionList transactions={transactions} />
       </main>
 
       {showDepositModal && (

@@ -1,8 +1,9 @@
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
-import { Request, Response } from 'express';
+import { Request } from 'express';
 import { logSecurityEvent } from './securityLogger';
 
 const isDev = process.env.NODE_ENV !== 'production';
+const trustProxy = process.env.TRUST_PROXY === 'true' || !!process.env.REPL_ID;
 
 // Store rate limit violations for security monitoring
 const rateLimitViolations = new Map<string, number>();
@@ -32,8 +33,8 @@ const createRateLimiter = (options: {
       return ipKeyGenerator(req, req.res);
     }),
     validate: {
-      trustProxy: false,
-      ip: false,
+      trustProxy,
+      ip: !trustProxy,
     },
     handler: (req: any, res: any) => {
       const ip = ipKeyGenerator(req, res);
@@ -71,8 +72,9 @@ export const authLimiter = createRateLimiter({
   code: 'RATE_LIMITED',
   skip: (req: any) => {
     if (!isDev) return false;
-    const ip = ipKeyGenerator(req, req.res as any) as any;
-    return ip === '127.0.0.1' || ip === '::1' || ip.startsWith('172.') || ip.startsWith('10.');
+    const ip = ipKeyGenerator(req, req.res as any);
+    const ipStr = typeof ip === 'string' ? ip : String(ip || '');
+    return ipStr === '127.0.0.1' || ipStr === '::1' || ipStr.startsWith('172.') || ipStr.startsWith('10.');
   },
 });
 
@@ -103,6 +105,14 @@ export const passwordResetLimiter = createRateLimiter({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 3, // Only 3 password reset attempts per hour
   message: 'Too many password reset attempts. Please try again later.',
+  code: 'RATE_LIMIT_EXCEEDED',
+});
+
+// Stricter rate limiter for payment webhook (per IP, reduce abuse; allows retries)
+export const webhookLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: 'Too many webhook requests.',
   code: 'RATE_LIMIT_EXCEEDED',
 });
 
