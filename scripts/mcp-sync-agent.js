@@ -12,15 +12,12 @@ import fs from "fs/promises";
 import fsSync from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { exec } from "child_process";
-import { promisify } from "util";
+import { spawn } from "child_process";
 import { createSnapshot, rollbackToSnapshot, getLastSnapshot } from "./snapshot-rollback.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
-const execAsync = promisify(exec);
 
-// Load .env.mcp-sync if present (DO NOT load .env - secrets safety)
 try {
   const envPath = path.join(PROJECT_ROOT, ".env.mcp-sync");
   if (fsSync.existsSync(envPath)) {
@@ -34,9 +31,8 @@ try {
   }
 } catch (_) {}
 
-// ─── Configuration ─────────────────────────────────────────────────────────
 const REPLIT_MCP_URL = process.env.REPLIT_MCP_URL || "";
-const REPLIT_MCP_AUTH = process.env.REPLIT_MCP_AUTH || ""; // "Bearer YOUR_TOKEN" – if set, skips /auth/token
+const REPLIT_MCP_AUTH = process.env.REPLIT_MCP_AUTH || "";
 const MCP_API_KEY = process.env.MCP_API_KEY || "cardxc-mcp-key";
 const MCP_USERNAME = process.env.MCP_SYNC_USERNAME || "mcp-sync-agent";
 const LOG_FILE = path.join(PROJECT_ROOT, "tmp", "mcp-sync.log");
@@ -44,7 +40,6 @@ const DEBOUNCE_MS = 1500;
 const MCP_RETRY_MS = 5000;
 const MCP_RETRY_ATTEMPTS = 5;
 
-// Blocked paths (fintech production safety)
 const BLOCKED_PATTERNS = [
   /\.env$/i,
   /\.env\./i,
@@ -54,13 +49,11 @@ const BLOCKED_PATTERNS = [
   /\.pem$/i,
   /\.key$/i,
   /config\/secrets/i,
-  // Payment, auth, wallet settlement logic
   /server\/routes\/(auth|payments|cardCheckout|transactions)\.ts$/i,
   /server\/.*(payment|auth|wallet|settlement|withdrawal)/i,
   /server\/db\/.*(migration|seed)/i,
 ];
 
-// Blocked path substrings
 const BLOCKED_SUBSTRINGS = [
   ".env",
   "secrets",
@@ -72,10 +65,8 @@ const BLOCKED_SUBSTRINGS = [
   "dist/",
 ];
 
-// SQL migrations with DROP/TRUNCATE
 const DANGEROUS_SQL = /\b(DROP\s+(TABLE|DATABASE|SCHEMA)|TRUNCATE\s+)/i;
 
-// ─── Logging ───────────────────────────────────────────────────────────────
 async function ensureLogDir() {
   const dir = path.dirname(LOG_FILE);
   await fs.mkdir(dir, { recursive: true });
@@ -92,11 +83,9 @@ async function log(level, message, data = null) {
     await ensureLogDir();
     await fs.appendFile(LOG_FILE, line);
   } catch (e) {
-    // ignore
   }
 }
 
-// ─── Phase 1: Pre-Sync Safety Validator ─────────────────────────────────────
 function isPathBlocked(relativePath) {
   const normalized = relativePath.replace(/\\/g, "/");
   for (const sub of BLOCKED_SUBSTRINGS) {
@@ -120,13 +109,25 @@ async function checkDangerousMigration(filePath) {
   return { blocked: false };
 }
 
-async function runStaticChecks() {
-  try {
-    await execAsync("npm run type-check", { cwd: PROJECT_ROOT, timeout: 60000 });
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, message: e.stderr || e.stdout || e.message };
-  }
+function runStaticChecks() {
+  return new Promise((resolve) => {
+    // spawn: shell:false, hardcoded binary and args - no user input
+    const child = spawn("npm", ["run", "type-check"], { cwd: PROJECT_ROOT, timeout: 60000, shell: false });
+    let stderr = "";
+    let stdout = "";
+    child.stdout.on("data", d => { stdout += d; });
+    child.stderr.on("data", d => { stderr += d; });
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve({ ok: true });
+      } else {
+        resolve({ ok: false, message: stderr || stdout || "type-check failed" });
+      }
+    });
+    child.on("error", (e) => {
+      resolve({ ok: false, message: e.message });
+    });
+  });
 }
 
 async function validateBeforeSync(changedFiles) {
@@ -169,7 +170,6 @@ async function validateBeforeSync(changedFiles) {
   return { pass: true, blocked: [], safe };
 }
 
-// ─── Phase 2: Replit MCP Client ────────────────────────────────────────────
 let cachedToken = null;
 let tokenExpiry = 0;
 
@@ -193,7 +193,7 @@ async function getAuthHeader() {
   }
   const data = await res.json();
   cachedToken = data.token;
-  tokenExpiry = Date.now() + 8 * 60 * 60 * 1000; // 8h
+  tokenExpiry = Date.now() + 8 * 60 * 60 * 1000;
   return `Bearer ${cachedToken}`;
 }
 
@@ -255,7 +255,6 @@ async function softRestartReplit() {
   }
 }
 
-// ─── Phase 3: Post-Sync Verification ────────────────────────────────────────
 async function verifyReplitMcp() {
   try {
     const url = `${REPLIT_MCP_URL.replace(/\/$/, "")}/health`;
@@ -268,7 +267,6 @@ async function verifyReplitMcp() {
   return false;
 }
 
-// ─── Main Sync Logic ───────────────────────────────────────────────────────
 let pendingFiles = new Set();
 let debounceTimer = null;
 
@@ -291,7 +289,6 @@ function scheduleSync(addedPath) {
         await fs.access(f);
         existing.push(f);
       } catch (_) {
-        // file deleted - skip for now (we don't delete on Replit unless explicitly supported)
       }
     }
     if (existing.length === 0) return;
@@ -380,7 +377,6 @@ function hasPlaceholders() {
   return false;
 }
 
-// ─── Entry Point ────────────────────────────────────────────────────────────
 async function main() {
   if (!REPLIT_MCP_URL || hasPlaceholders()) {
     console.error("REPLIT_MCP_URL is required and must be a real janeway.replit.dev:8080 URL.");
@@ -395,7 +391,6 @@ async function main() {
     projectRoot: PROJECT_ROOT,
   });
 
-  // Initial snapshot for rollback baseline
   try {
     const snap = await createSnapshot();
     await log("SNAPSHOT", "Initial baseline created", {
@@ -407,14 +402,12 @@ async function main() {
     await log("WARN", "Initial snapshot failed (non-fatal)", { error: e.message });
   }
 
-  // Initial validation (no files = pass)
   const initialValidation = await validateBeforeSync([]);
   await log("VALIDATION", "Initial pass", { staticChecks: "skipped (no changes)" });
 
   setupWatcher();
   await log("INFO", "Auto-sync ACTIVE - watching src/, server/, mcp-server/, public/");
 
-  // Keep alive
   process.on("SIGINT", () => {
     log("INFO", "MCP Sync Agent stopped by user");
     process.exit(0);

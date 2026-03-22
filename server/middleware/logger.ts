@@ -1,9 +1,18 @@
 import winston from 'winston';
 import { Request, Response, NextFunction } from 'express';
+import { sanitizeForLog } from '../lib/sanitizeLog';
+
+const sanitizeFormat = winston.format((info) => {
+  if (typeof info.message === 'string') {
+    info.message = sanitizeForLog(info.message);
+  }
+  return info;
+});
 
 export const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: winston.format.combine(
+    sanitizeFormat(),
     winston.format.timestamp(),
     winston.format.errors({ stack: true }),
     winston.format.json()

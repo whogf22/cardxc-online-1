@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CreditCard, Plus, Trash2, Upload, Download, AlertCircle, CheckCircle, Loader } from 'lucide-react';
+import { CreditCard, Plus, Trash2, Download, AlertCircle, CheckCircle, Loader } from 'lucide-react';
 import { adminApi } from '../../../lib/api';
 
 interface BulkCardInput {
@@ -48,7 +48,7 @@ export default function BulkCardCreatorTab() {
         data: response
       });
 
-      alert(`Successfully created ${response.total} virtual cards!`);
+      alert(`Successfully created ${response.data?.total ?? cards.length} virtual cards!`);
     } catch (error: any) {
       setResult({
         success: false,

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { userApi } from '../../lib/api';
 import { useAuth } from '../../hooks/useAuth';
 import { TransactionStatusBadge } from '../../components/TransactionStatusBadge';
+import { formatDateTime } from '../../lib/localeUtils';
 
 interface Transaction {
   id: string;
@@ -77,56 +78,45 @@ export default function TransactionsPage() {
   const getTransactionIcon = (type: string) => {
     switch (type) {
       case 'deposit':
-        return 'ri-arrow-down-line text-green-600';
+        return 'ri-arrow-down-line text-emerald-400';
       case 'withdrawal':
-        return 'ri-arrow-up-line text-orange-600';
+        return 'ri-arrow-up-line text-amber-400';
       case 'transfer':
-        return 'ri-exchange-line text-blue-600';
+        return 'ri-exchange-line text-lime-400';
       default:
-        return 'ri-exchange-dollar-line text-slate-600';
+        return 'ri-exchange-dollar-line text-neutral-400';
     }
   };
 
   const getTransactionBg = (type: string) => {
     switch (type) {
       case 'deposit':
-        return 'bg-green-100';
+        return 'bg-emerald-500/20';
       case 'withdrawal':
-        return 'bg-orange-100';
+        return 'bg-amber-500/20';
       case 'transfer':
-        return 'bg-blue-100';
+        return 'bg-lime-500/20';
       default:
-        return 'bg-slate-100';
+        return 'bg-dark-elevated';
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-dark-bg">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
+      <header className="bg-dark-card border-b border-dark-border sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2 sm:gap-3">
               <button
                 onClick={() => navigate('/dashboard')}
-                className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors cursor-pointer flex-shrink-0"
+                className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-dark-elevated transition-colors cursor-pointer flex-shrink-0"
               >
-                <i className="ri-arrow-left-line text-slate-600 text-xl"></i>
+                <i className="ri-arrow-left-line text-neutral-300 text-xl"></i>
               </button>
               <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-slate-900 truncate">Transaction History</h1>
-                <p className="text-xs text-slate-500 hidden sm:block">View all your transactions</p>
+                <h1 className="text-lg sm:text-xl font-bold text-white truncate">Transaction History</h1>
+                <p className="text-xs text-neutral-400 hidden sm:block">View all your transactions</p>
               </div>
             </div>
           </div>
@@ -136,15 +126,15 @@ export default function TransactionsPage() {
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Search and Filters */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4 mb-6 space-y-4">
+        <div className="bg-dark-card rounded-2xl border border-dark-border p-4 mb-6 space-y-4">
           <div className="relative">
-            <i className="ri-search-line absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <i className="ri-search-line absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500"></i>
             <input
               type="text"
               placeholder="Search by description, reference, or amount..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all"
+              className="input-dark w-full rounded-xl pl-11 pr-4 py-3"
             />
           </div>
 
@@ -153,9 +143,9 @@ export default function TransactionsPage() {
               <button
                 key={t}
                 onClick={() => setFilter(t)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer whitespace-nowrap flex-shrink-0 ${filter === t
-                    ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/25'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer whitespace-nowrap flex-shrink-0 ${filter === t
+                    ? 'bg-lime-500 text-black shadow-glow-sm'
+                    : 'bg-dark-elevated text-neutral-400 hover:bg-dark-hover hover:text-white border border-dark-border'
                   }`}
               >
                 {t.charAt(0).toUpperCase() + t.slice(1)}s
@@ -165,15 +155,15 @@ export default function TransactionsPage() {
         </div>
 
         {/* Transactions List */}
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="bg-dark-card rounded-2xl border border-dark-border overflow-hidden">
           {loading ? (
             <div className="space-y-4 p-4">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="flex items-center gap-4 animate-pulse">
-                  <div className="w-12 h-12 bg-slate-100 rounded-xl"></div>
+                <div key={i} className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-dark-elevated rounded-xl skeleton-shimmer"></div>
                   <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-slate-100 rounded w-1/4"></div>
-                    <div className="h-3 bg-slate-100 rounded w-1/2"></div>
+                    <div className="h-4 bg-dark-elevated rounded w-1/4 skeleton-shimmer"></div>
+                    <div className="h-3 bg-dark-elevated rounded w-1/2 skeleton-shimmer"></div>
                   </div>
                 </div>
               ))}
@@ -195,20 +185,20 @@ export default function TransactionsPage() {
               if (filtered.length === 0) {
                 return (
                   <div className="text-center py-16">
-                    <i className="ri-file-list-3-line text-slate-300 text-5xl mb-4"></i>
-                    <p className="text-slate-500 text-sm">No transactions found matching your search</p>
+                    <i className="ri-file-list-3-line text-neutral-500 text-5xl mb-4"></i>
+                    <p className="text-neutral-400 text-sm">No transactions found matching your search</p>
                   </div>
                 );
               }
 
               return (
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-dark-border">
                   {filtered.map((transaction) => (
                     <div
                       key={transaction.id}
                       id={`transaction-${transaction.id}`}
-                      className={`p-4 hover:bg-slate-50 transition-all ${highlightId === transaction.id
-                          ? 'bg-teal-50 border-l-4 border-teal-500'
+                      className={`p-4 hover:bg-dark-elevated/50 transition-all ${highlightId === transaction.id
+                          ? 'bg-lime-500/10 border-l-4 border-lime-500'
                           : ''
                         }`}
                     >
@@ -226,23 +216,23 @@ export default function TransactionsPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-4">
                             <div>
-                              <p className="text-sm font-semibold text-slate-900 capitalize">
+                              <p className="text-sm font-semibold text-white capitalize">
                                 {transaction.type}
                               </p>
-                              <p className="text-xs text-slate-500 mt-1">
+                              <p className="text-xs text-neutral-400 mt-1">
                                 {transaction.merchantDisplayName || transaction.merchant_display_name || transaction.description || transaction.reference || 'No description'}
                               </p>
-                              <p className="text-xs text-slate-400 mt-1">
-                                {formatDate(transaction.created_at)}
+                              <p className="text-xs text-neutral-500 mt-1">
+                                {formatDateTime(transaction.created_at)}
                               </p>
                             </div>
                             <div className="text-right">
                               <p
                                 className={`text-base font-bold ${transaction.type === 'deposit'
-                                    ? 'text-green-600'
+                                    ? 'text-emerald-400'
                                     : transaction.type === 'withdrawal'
-                                      ? 'text-orange-600'
-                                      : 'text-slate-900'
+                                      ? 'text-amber-400'
+                                      : 'text-white'
                                   }`}
                               >
                                 {transaction.type === 'deposit' ? '+' : '-'}

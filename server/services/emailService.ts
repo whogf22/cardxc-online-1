@@ -45,7 +45,7 @@ function createTransporter() {
     port: config.port,
     secure: config.secure,
     tls: {
-      rejectUnauthorized: false,
+      rejectUnauthorized: process.env.NODE_ENV === 'production',
       minVersion: 'TLSv1.2'
     }
   };

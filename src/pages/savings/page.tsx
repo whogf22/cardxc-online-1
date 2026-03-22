@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../components/DashboardLayout';
-import { Card, CardHeader, Tabs, Modal, StatusBadge, DataTable } from '../../components/ui';
+import { Card, CardHeader, Tabs, Modal, DataTable } from '../../components/ui';
 import { EmptyState } from '../../components/EmptyState';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { useToastContext } from '../../contexts/ToastContext';
@@ -119,7 +119,7 @@ export default function SavingsPage() {
       action={
         <button
           onClick={() => setShowVaultModal(true)}
-          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-xl transition-colors"
+          className="px-4 py-2 bg-lime-500 hover:bg-lime-600 text-white text-sm font-medium rounded-xl transition-colors"
         >
           <i className="ri-add-line mr-2"></i>
           New Vault
@@ -130,36 +130,36 @@ export default function SavingsPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center">
-                <i className="ri-safe-2-fill text-2xl text-emerald-600"></i>
+              <div className="w-12 h-12 bg-emerald-500/20 rounded-2xl flex items-center justify-center">
+                <i className="ri-safe-2-fill text-2xl text-emerald-400"></i>
               </div>
               <div>
-                <p className="text-sm text-slate-500">Total Saved</p>
-                <p className="text-2xl font-bold text-slate-900">${(totalSaved / 100).toFixed(2)}</p>
+                <p className="text-sm text-neutral-500">Total Saved</p>
+                <p className="text-2xl font-bold text-white">${(totalSaved / 100).toFixed(2)}</p>
               </div>
             </div>
           </Card>
 
           <Card>
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-sky-100 rounded-2xl flex items-center justify-center">
-                <i className="ri-target-line text-2xl text-sky-600"></i>
+              <div className="w-12 h-12 bg-lime-500/20 rounded-2xl flex items-center justify-center">
+                <i className="ri-target-line text-2xl text-lime-400"></i>
               </div>
               <div>
-                <p className="text-sm text-slate-500">Savings Goal</p>
-                <p className="text-2xl font-bold text-slate-900">${(totalGoal / 100).toFixed(2)}</p>
+                <p className="text-sm text-neutral-500">Savings Goal</p>
+                <p className="text-2xl font-bold text-white">${(totalGoal / 100).toFixed(2)}</p>
               </div>
             </div>
           </Card>
 
           <Card>
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center">
-                <i className="ri-notification-3-line text-2xl text-amber-600"></i>
+              <div className="w-12 h-12 bg-amber-500/20 rounded-2xl flex items-center justify-center">
+                <i className="ri-notification-3-line text-2xl text-amber-400"></i>
               </div>
               <div>
-                <p className="text-sm text-slate-500">Active Alerts</p>
-                <p className="text-2xl font-bold text-slate-900">{alerts.filter(a => !a.read).length}</p>
+                <p className="text-sm text-neutral-500">Active Alerts</p>
+                <p className="text-2xl font-bold text-white">{alerts.filter(a => !a.read).length}</p>
               </div>
             </div>
           </Card>
@@ -188,21 +188,21 @@ export default function SavingsPage() {
                     <div className="space-y-3">
                       <div className="flex items-end justify-between">
                         <div>
-                          <p className="text-2xl font-bold text-slate-900">
+                          <p className="text-2xl font-bold text-white">
                             ${(vault.balance_cents / 100).toFixed(2)}
                           </p>
                           {vault.goal_cents && (
-                            <p className="text-sm text-slate-500">
+                            <p className="text-sm text-neutral-500">
                               of ${(vault.goal_cents / 100).toFixed(2)} goal
                             </p>
                           )}
                         </div>
                         {vault.goal_cents && (
-                          <span className="text-sm font-medium text-emerald-600">{progress.toFixed(0)}%</span>
+                          <span className="text-sm font-medium text-emerald-400">{progress.toFixed(0)}%</span>
                         )}
                       </div>
                       {vault.goal_cents && (
-                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-2 bg-dark-elevated rounded-full overflow-hidden">
                           <div
                             className="h-full bg-emerald-500 rounded-full transition-all"
                             style={{ width: `${progress}%` }}
@@ -219,11 +219,11 @@ export default function SavingsPage() {
 
         {activeTab === 'budgets' && (
           <Card padding="none">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="font-semibold text-slate-900">Your Budgets</h3>
+            <div className="p-4 border-b border-dark-border flex items-center justify-between">
+              <h3 className="font-semibold text-white">Your Budgets</h3>
               <button
                 onClick={() => setShowBudgetModal(true)}
-                className="px-3 py-1.5 text-sm font-medium text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+                className="px-3 py-1.5 text-sm font-medium text-lime-400 hover:bg-lime-500/20 rounded-lg transition-colors"
               >
                 <i className="ri-add-line mr-1"></i>
                 Add Budget
@@ -247,13 +247,13 @@ export default function SavingsPage() {
                   const pct = row.limit_cents ? ((row.spent_cents || 0) / row.limit_cents) * 100 : 0;
                   return (
                     <div className="flex items-center gap-2">
-                      <div className="w-16 h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="w-16 h-2 bg-dark-elevated rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full ${pct > 80 ? 'bg-red-500' : pct > 50 ? 'bg-amber-500' : 'bg-emerald-500'}`}
                           style={{ width: `${Math.min(100, pct)}%` }}
                         />
                       </div>
-                      <span className="text-xs text-slate-500">{pct.toFixed(0)}%</span>
+                      <span className="text-xs text-neutral-500">{pct.toFixed(0)}%</span>
                     </div>
                   );
                 }},
@@ -275,8 +275,8 @@ export default function SavingsPage() {
                 <div className="space-y-3">
                   {analytics.byCategory.map((cat: any) => (
                     <div key={cat.category} className="flex items-center justify-between">
-                      <span className="text-sm text-slate-600 capitalize">{cat.category}</span>
-                      <span className="text-sm font-medium text-slate-900">
+                      <span className="text-sm text-neutral-400 capitalize">{cat.category}</span>
+                      <span className="text-sm font-medium text-white">
                         ${(cat.total_cents / 100).toFixed(2)}
                       </span>
                     </div>
@@ -311,15 +311,15 @@ export default function SavingsPage() {
               subtitle="Automatically save spare change from transactions"
               icon="ri-coin-line"
             />
-            <div className="mt-4 p-4 bg-slate-50 rounded-xl">
+            <div className="mt-4 p-4 bg-dark-elevated rounded-xl">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-slate-900">Round-up to nearest dollar</p>
-                  <p className="text-sm text-slate-500">Save the difference on every purchase</p>
+                  <p className="font-medium text-white">Round-up to nearest dollar</p>
+                  <p className="text-sm text-neutral-500">Save the difference on every purchase</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" className="sr-only peer" />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:ring-4 peer-focus:ring-sky-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-600"></div>
+                  <div className="w-11 h-6 bg-dark-bg peer-focus:ring-4 peer-focus:ring-lime-500/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-dark-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-lime-500"></div>
                 </label>
               </div>
             </div>
@@ -330,18 +330,18 @@ export default function SavingsPage() {
       <Modal isOpen={showVaultModal} onClose={() => setShowVaultModal(false)} title="Create Savings Vault" size="md">
         <form onSubmit={handleCreateVault} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Vault Name</label>
+            <label className="block text-sm font-medium text-neutral-400 mb-1">Vault Name</label>
             <input
               type="text"
               value={vaultForm.name}
               onChange={(e) => setVaultForm({ ...vaultForm, name: e.target.value })}
               placeholder="e.g., Emergency Fund, Vacation"
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              className="input-dark w-full px-4 py-3 rounded-xl"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Goal Amount (optional)</label>
+            <label className="block text-sm font-medium text-neutral-400 mb-1">Goal Amount (optional)</label>
             <div className="flex gap-2">
               <input
                 type="number"
@@ -349,12 +349,12 @@ export default function SavingsPage() {
                 value={vaultForm.goalCents}
                 onChange={(e) => setVaultForm({ ...vaultForm, goalCents: e.target.value })}
                 placeholder="0.00"
-                className="flex-1 px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="input-dark flex-1 px-4 py-3 rounded-xl"
               />
               <select
                 value={vaultForm.currency}
                 onChange={(e) => setVaultForm({ ...vaultForm, currency: e.target.value })}
-                className="px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="input-dark px-4 py-3 rounded-xl"
               >
                 <option value="USD">USD</option>
                 <option value="EUR">EUR</option>
@@ -364,7 +364,7 @@ export default function SavingsPage() {
           </div>
           <button
             type="submit"
-            className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-colors"
+            className="w-full py-3 bg-lime-500 hover:bg-lime-600 text-white font-semibold rounded-xl transition-colors"
           >
             Create Vault
           </button>
@@ -374,11 +374,11 @@ export default function SavingsPage() {
       <Modal isOpen={showBudgetModal} onClose={() => setShowBudgetModal(false)} title="Create Budget" size="md">
         <form onSubmit={handleCreateBudget} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
+            <label className="block text-sm font-medium text-neutral-400 mb-1">Category</label>
             <select
               value={budgetForm.category}
               onChange={(e) => setBudgetForm({ ...budgetForm, category: e.target.value })}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+              className="input-dark w-full px-4 py-3 rounded-xl"
             >
               <option value="shopping">Shopping</option>
               <option value="food">Food & Dining</option>
@@ -389,7 +389,7 @@ export default function SavingsPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Budget Limit</label>
+            <label className="block text-sm font-medium text-neutral-400 mb-1">Budget Limit</label>
             <input
               type="number"
               step="0.01"
@@ -397,16 +397,16 @@ export default function SavingsPage() {
               value={budgetForm.limit}
               onChange={(e) => setBudgetForm({ ...budgetForm, limit: e.target.value })}
               placeholder="0.00"
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+              className="input-dark w-full px-4 py-3 rounded-xl"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Period</label>
+            <label className="block text-sm font-medium text-neutral-400 mb-1">Period</label>
             <select
               value={budgetForm.period}
               onChange={(e) => setBudgetForm({ ...budgetForm, period: e.target.value })}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+              className="input-dark w-full px-4 py-3 rounded-xl"
             >
               <option value="weekly">Weekly</option>
               <option value="monthly">Monthly</option>
@@ -414,19 +414,19 @@ export default function SavingsPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Alert at (%)</label>
+            <label className="block text-sm font-medium text-neutral-400 mb-1">Alert at (%)</label>
             <input
               type="number"
               min="1"
               max="100"
               value={budgetForm.alertThreshold}
               onChange={(e) => setBudgetForm({ ...budgetForm, alertThreshold: e.target.value })}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+              className="input-dark w-full px-4 py-3 rounded-xl"
             />
           </div>
           <button
             type="submit"
-            className="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-xl transition-colors"
+            className="w-full py-3 bg-lime-500 hover:bg-lime-600 text-white font-semibold rounded-xl transition-colors"
           >
             Create Budget
           </button>

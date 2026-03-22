@@ -19,7 +19,7 @@ export default function GiftCardGrid({ cards, onSelectCard, emptyMessage = "No c
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 md:gap-4 w-full min-w-0">
       {cards.map((card) => (
         <GiftCardItem key={card.id} card={card} onSelect={onSelectCard} />
       ))}

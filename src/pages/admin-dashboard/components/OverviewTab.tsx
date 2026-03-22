@@ -8,9 +8,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar,
-  Cell
 } from 'recharts';
 
 interface TransactionHistory {
@@ -157,7 +154,7 @@ export default function OverviewTab() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6">
-        {statCards.map((stat, index) => (
+        {statCards.map((stat) => (
           <div
             key={stat.label}
             className="group bg-slate-800/50 hover:bg-slate-800/80 rounded-2xl p-6 border border-slate-700/50 hover:border-slate-600/50 transition-all duration-300"

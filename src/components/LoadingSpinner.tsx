@@ -1,5 +1,5 @@
 interface LoadingSpinnerProps {
-  variant?: 'light' | 'dark' | 'auto';
+  variant?: 'light' | 'dark' | 'auto' | 'lime';
   size?: 'sm' | 'md' | 'lg';
   fullScreen?: boolean;
 }
@@ -19,12 +19,14 @@ export function LoadingSpinner({
     light: 'bg-gradient-to-br from-slate-50 via-white to-slate-100',
     dark: 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900',
     auto: 'bg-gradient-to-br from-slate-50 via-white to-slate-100',
+    lime: 'bg-dark-bg',
   };
 
   const spinnerClasses = {
     light: { border: 'border-sky-500/30 border-t-sky-500', pulse: 'bg-sky-500/20' },
     dark: { border: 'border-sky-400/30 border-t-sky-400', pulse: 'bg-sky-400/20' },
     auto: { border: 'border-sky-500/30 border-t-sky-500', pulse: 'bg-sky-500/20' },
+    lime: { border: 'border-lime-500/30 border-t-lime-500', pulse: 'bg-lime-500/10' },
   };
 
   const spinnerContent = (

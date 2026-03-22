@@ -82,37 +82,38 @@ router.post('/',
   sensitiveOpLimiter,
   body('cardName').trim().notEmpty().isLength({ max: 50 }),
   body('cardType').optional().isIn(['VISA', 'MASTERCARD']),
-  body('spendingLimit').optional().isFloat({ min: 0 }),
+  body('spendingLimit').optional().isFloat({ min: 1 }).withMessage('Spend limit must be at least $1'),
+  body('spendLimitDuration').optional().isIn(['DAILY', 'WEEKLY', 'MONTHLY', 'ANNUAL', 'LIFETIME']),
   body('isSingleUse').optional().isBoolean(),
   body('currency').optional().isIn(['USD', 'EUR', 'GBP', 'NGN']),
+  body('offerId').optional().isUUID().withMessage('Invalid offer ID'),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       throw new AppError(errors.array()[0].msg, 400, 'VALIDATION_ERROR');
     }
 
-    const { cardName, cardType = 'VISA', spendingLimit, isSingleUse = false, currency = 'USD' } = req.body;
+    const { cardName, cardType = 'VISA', spendingLimit, spendLimitDuration, isSingleUse = false, currency = 'USD', offerId } = req.body;
     const spendingLimitCents = spendingLimit ? Math.round(spendingLimit * 100) : null;
 
     let fluzCardId: string | null = null;
     let lastFour = Math.floor(1000 + Math.random() * 9000).toString();
 
     if (fluzApi.isConfigured()) {
-      try {
-        const fluzCard = await fluzApi.createVirtualCard({
-          spendLimit: spendingLimit || 1000,
-          spendLimitDuration: isSingleUse ? 'LIFETIME' : 'MONTHLY',
-          cardNickname: cardName,
-          primaryFundingSource: 'FLUZ_BALANCE',
-          lockCardNextUse: isSingleUse,
-          idempotencyKey: uuidv4(),
-        });
-        fluzCardId = fluzCard.virtualCardId;
-        lastFour = fluzCard.virtualCardLast4 || lastFour;
-        logger.info('Provider virtual card created for user', { userId: req.user!.id, providerCardId: fluzCardId, last4: lastFour });
-      } catch (err: any) {
-        logger.error('Provider card creation failed, using local card', { error: err?.message });
-      }
+      const fluzCard = await fluzApi.createVirtualCard({
+        spendLimit: spendingLimit || 100,
+        spendLimitDuration: spendLimitDuration || (isSingleUse ? 'LIFETIME' : 'MONTHLY'),
+        cardNickname: cardName,
+        primaryFundingSource: 'FLUZ_BALANCE',
+        lockCardNextUse: isSingleUse,
+        idempotencyKey: uuidv4(),
+        offerId: offerId || undefined,
+      });
+      fluzCardId = fluzCard.virtualCardId;
+      lastFour = fluzCard.virtualCardLast4 || lastFour;
+      logger.info('Provider virtual card created for user', { userId: req.user!.id, providerCardId: fluzCardId, last4: lastFour });
+    } else {
+      throw new AppError('Virtual card service is not configured. Please try again later.', 503, 'PROVIDER_NOT_CONFIGURED');
     }
 
     const cardId = await transaction(async (client) => {

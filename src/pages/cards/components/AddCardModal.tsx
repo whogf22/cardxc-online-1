@@ -4,6 +4,8 @@ interface AddCardModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAdd: (card: PrepaidCardData) => void;
+  editingCard?: PrepaidCardData | null;
+  onEdit?: (card: PrepaidCardData) => void;
 }
 
 export interface PrepaidCardData {
@@ -33,7 +35,7 @@ const COUNTRIES = [
   'Finland', 'Ireland', 'New Zealand', 'South Africa', 'United Arab Emirates'
 ];
 
-export default function AddCardModal({ isOpen, onClose, onAdd }: AddCardModalProps) {
+export default function AddCardModal({ isOpen, onClose, onAdd, editingCard, onEdit }: AddCardModalProps) {
   const [cardholderName, setCardholderName] = useState('');
   const [cardNumber, setCardNumber] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
@@ -48,22 +50,50 @@ export default function AddCardModal({ isOpen, onClose, onAdd }: AddCardModalPro
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
 
+  const isEditing = !!editingCard;
+
   useEffect(() => {
-    if (!isOpen) {
-      setCardholderName('');
-      setCardNumber('');
-      setExpiryDate('');
-      setCvv('');
-      setShowBillingAddress(false);
-      setAddressLine1('');
-      setAddressLine2('');
-      setCity('');
-      setState('');
-      setPostalCode('');
-      setCountry('');
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleEscape);
+      return () => window.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (editingCard) {
+        setCardholderName(editingCard.cardholderName);
+        const raw = editingCard.cardNumber.replace(/\s/g, '');
+        setCardNumber(raw.match(/.{1,4}/g)?.join(' ') || raw);
+        setExpiryDate(editingCard.expiryDate);
+        setCvv(editingCard.cvv);
+        setShowBillingAddress(!!editingCard.billingAddress?.addressLine1);
+        setAddressLine1(editingCard.billingAddress?.addressLine1 || '');
+        setAddressLine2(editingCard.billingAddress?.addressLine2 || '');
+        setCity(editingCard.billingAddress?.city || '');
+        setState(editingCard.billingAddress?.state || '');
+        setPostalCode(editingCard.billingAddress?.postalCode || '');
+        setCountry(editingCard.billingAddress?.country || '');
+      } else {
+        setCardholderName('');
+        setCardNumber('');
+        setExpiryDate('');
+        setCvv('');
+        setShowBillingAddress(false);
+        setAddressLine1('');
+        setAddressLine2('');
+        setCity('');
+        setState('');
+        setPostalCode('');
+        setCountry('');
+      }
       setErrors({});
     }
-  }, [isOpen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, editingCard?.id]);
 
   const detectCardType = (number: string): 'VISA' | 'MASTERCARD' | 'AMEX' | null => {
     const cleanNumber = number.replace(/\s/g, '');
@@ -200,8 +230,8 @@ export default function AddCardModal({ isOpen, onClose, onAdd }: AddCardModalPro
       const cleanCardNumber = cardNumber.replace(/\s/g, '');
       const provider = detectCardType(cleanCardNumber) || 'VISA';
       
-      const newCard: PrepaidCardData = {
-        id: `card_${Date.now()}`,
+      const cardData: PrepaidCardData = {
+        id: editingCard?.id || `card_${Date.now()}`,
         cardholderName,
         cardNumber: cleanCardNumber,
         expiryDate,
@@ -223,11 +253,15 @@ export default function AddCardModal({ isOpen, onClose, onAdd }: AddCardModalPro
           country: '',
         },
         status: 'ACTIVE',
-        createdAt: new Date().toISOString(),
+        createdAt: editingCard?.createdAt || new Date().toISOString(),
       };
       
-      await new Promise(resolve => setTimeout(resolve, 500));
-      onAdd(newCard);
+      await new Promise(resolve => setTimeout(resolve, 300));
+      if (isEditing && onEdit) {
+        onEdit(cardData);
+      } else {
+        onAdd(cardData);
+      }
       onClose();
     } catch (error) {
       console.error('[AddCardModal] Failed to add card:', error);
@@ -273,20 +307,36 @@ export default function AddCardModal({ isOpen, onClose, onAdd }: AddCardModalPro
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900">Add Prepaid Card</h2>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="add-card-title"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col min-h-0 animate-slide-up sm:animate-none sm:mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 flex-shrink-0">
+          <div>
+            <h2 id="add-card-title" className="text-base sm:text-lg font-semibold text-gray-900">
+              {isEditing ? 'Edit Card' : 'Add Prepaid Card'}
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5 hidden sm:block">
+              {isEditing ? 'Update your card details' : 'Spend your debit/credit card by adding details below'}
+            </p>
+          </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+            className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors flex-shrink-0"
           >
             <i className="ri-close-line text-xl text-gray-500"></i>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-4">
-          <div className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4 min-h-0">
+          <div className="space-y-4 pb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Cardholder Name
@@ -296,7 +346,7 @@ export default function AddCardModal({ isOpen, onClose, onAdd }: AddCardModalPro
                 value={cardholderName}
                 onChange={(e) => setCardholderName(e.target.value)}
                 placeholder="John Doe"
-                className={`w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
+                className={`w-full px-4 py-3 sm:py-3 border rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 transition-all min-h-[44px] ${
                   errors.cardholderName
                     ? 'border-red-300 focus:ring-red-500 bg-red-50'
                     : 'border-gray-200 focus:ring-blue-500 focus:border-blue-500'
@@ -317,7 +367,7 @@ export default function AddCardModal({ isOpen, onClose, onAdd }: AddCardModalPro
                   value={cardNumber}
                   onChange={handleCardNumberChange}
                   placeholder="1234 5678 9012 3456"
-                  className={`w-full px-4 py-3 pr-14 border rounded-xl text-sm font-mono focus:outline-none focus:ring-2 transition-all ${
+                  className={`w-full px-4 py-3 sm:py-3 pr-14 border rounded-xl text-base sm:text-sm font-mono focus:outline-none focus:ring-2 transition-all min-h-[44px] ${
                     errors.cardNumber
                       ? 'border-red-300 focus:ring-red-500 bg-red-50'
                       : 'border-gray-200 focus:ring-blue-500 focus:border-blue-500'
@@ -332,7 +382,7 @@ export default function AddCardModal({ isOpen, onClose, onAdd }: AddCardModalPro
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Expiry Date
@@ -420,7 +470,7 @@ export default function AddCardModal({ isOpen, onClose, onAdd }: AddCardModalPro
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       City
@@ -461,7 +511,7 @@ export default function AddCardModal({ isOpen, onClose, onAdd }: AddCardModalPro
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       Postal Code
@@ -509,7 +559,7 @@ export default function AddCardModal({ isOpen, onClose, onAdd }: AddCardModalPro
           </div>
         </form>
 
-        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
+        <div className="px-4 sm:px-6 py-4 border-t border-gray-100 bg-gray-50 flex-shrink-0 pb-[env(safe-area-inset-bottom)] sm:pb-4">
           <div className="flex gap-3">
             <button
               type="button"
@@ -530,7 +580,7 @@ export default function AddCardModal({ isOpen, onClose, onAdd }: AddCardModalPro
                   Adding...
                 </>
               ) : (
-                'Proceed'
+                isEditing ? 'Save Changes' : 'Proceed'
               )}
             </button>
           </div>

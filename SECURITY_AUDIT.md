@@ -97,7 +97,7 @@ The CardXC backend has been thoroughly scanned for security vulnerabilities, per
 ## Remaining Recommendations
 
 ### Low Priority
-1. **SSL Certificate Validation:** `rejectUnauthorized: false` in database SSL config is acceptable for Replit but should be reviewed for other deployments
+1. **SSL Certificate Validation:** `rejectUnauthorized: true` is enforced in production for both database and SMTP connections
 2. **Webhook Secret Rotation:** Consider implementing automated rotation for webhook signing secrets
 3. **Session Token Entropy:** Current implementation is secure; consider increasing token length for additional security margin
 

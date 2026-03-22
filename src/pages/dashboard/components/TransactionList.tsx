@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCurrencyFormat } from '../../../hooks/useCurrencyFormat';
+import { formatDateTime } from '../../../lib/localeUtils';
 
 interface TransactionListProps {
   transactions: any[];
@@ -43,12 +44,12 @@ export default function TransactionList({ transactions }: TransactionListProps) 
   };
 
   return (
-    <div>
+    <div className="animate-fade-in-up" style={{ animationDelay: '0.25s', animationFillMode: 'forwards' }}>
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-white text-lg font-semibold">Transactions</h3>
         <button
           onClick={() => navigate('/transactions')}
-          className="text-gray-400 text-xs font-medium cursor-pointer hover:text-lime-400 transition-colors"
+          className="text-neutral-400 text-xs font-medium cursor-pointer hover:text-lime-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 rounded px-2 py-1"
         >
           See All
         </button>
@@ -59,10 +60,10 @@ export default function TransactionList({ transactions }: TransactionListProps) 
           <button
             key={f.key}
             onClick={() => setFilter(f.key)}
-            className={`px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
+            className={`px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 ${
               filter === f.key
-                ? 'bg-lime-400 text-black'
-                : 'bg-[#1a1a1a] text-gray-400 border border-white/10 hover:bg-white/5'
+                ? 'bg-lime-500 text-black'
+                : 'bg-dark-elevated text-neutral-400 border border-dark-border hover:bg-dark-hover hover:text-white'
             }`}
           >
             {f.label}
@@ -72,11 +73,11 @@ export default function TransactionList({ transactions }: TransactionListProps) 
 
       <div className="space-y-1">
         {filteredTransactions.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-[#1a1a1a] rounded-full flex items-center justify-center mx-auto mb-3">
-              <i className="ri-exchange-line text-2xl text-gray-600"></i>
+          <div className="text-center py-12 animate-fade-in-up">
+            <div className="w-16 h-16 bg-dark-elevated rounded-full flex items-center justify-center mx-auto mb-3 border border-dark-border">
+              <i className="ri-exchange-line text-2xl text-neutral-500"></i>
             </div>
-            <p className="text-gray-500 text-sm">No transactions yet</p>
+            <p className="text-neutral-500 text-sm">No transactions yet</p>
           </div>
         ) : (
           filteredTransactions.slice(0, 10).map((transaction) => {
@@ -86,7 +87,7 @@ export default function TransactionList({ transactions }: TransactionListProps) 
             return (
               <div
                 key={transaction.id}
-                className="flex items-center justify-between py-3 cursor-pointer hover:bg-white/[0.02] rounded-xl px-2 transition-colors"
+                className="flex items-center justify-between py-3 cursor-pointer hover:bg-dark-elevated rounded-xl px-2 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <div className={`w-11 h-11 ${iconData.bg} rounded-full flex items-center justify-center`}>
@@ -96,10 +97,8 @@ export default function TransactionList({ transactions }: TransactionListProps) 
                     <p className="text-sm font-medium text-white">
                       {transaction.description || (isCredit ? 'Received' : 'Sent')}
                     </p>
-                    <p className="text-[11px] text-gray-500 mt-0.5">
-                      {new Date(transaction.created_at).toLocaleString('en-US', {
-                        hour: '2-digit', minute: '2-digit', hour12: true,
-                      })}
+                    <p className="text-[11px] text-neutral-500 mt-0.5">
+                      {formatDateTime(transaction.created_at)}
                     </p>
                   </div>
                 </div>
@@ -107,7 +106,7 @@ export default function TransactionList({ transactions }: TransactionListProps) 
                   <p className={`text-sm font-semibold ${isCredit ? 'text-lime-400' : 'text-white'}`}>
                     {isCredit ? '+' : '-'}{format(transaction.amount || 0)}
                   </p>
-                  <p className="text-[10px] text-gray-500 capitalize mt-0.5">
+                  <p className="text-[10px] text-neutral-500 capitalize mt-0.5">
                     {transaction.status || transactionType}
                   </p>
                 </div>

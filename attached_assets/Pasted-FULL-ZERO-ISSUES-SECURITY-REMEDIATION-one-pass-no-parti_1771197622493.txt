@@ -1,0 +1,67 @@
+FULL ZERO-ISSUES SECURITY REMEDIATION (one pass, no partial fixes).
+
+Goal: After this completes, the security scan must show 0 active issues (or only explicitly justified false-positives). Fix code + config + git history.
+
+1) Dependency remediation
+- Update all vulnerable deps to latest stable.
+- Specifically upgrade:
+  @modelcontextprotocol/sdk to >= 1.26.0
+  axios to >= 1.13.5
+- Run npm audit (or pnpm/yarn equivalent) and apply fixes.
+- Ensure app builds and tests pass.
+
+2) Secret / Private Key eradication (code + history)
+- Search entire repo for secrets, key blocks, tokens, passwords, connection strings with credentials, and patterns like:
+  "BEGIN PRIVATE KEY", "BEGIN RSA PRIVATE KEY", "PRIVATE KEY-----", "secret", "api_key", "token", "password", "postgres://user:pass@", "sk_live", "rk_live", "AIza", etc.
+- Remove/replace any real or test secrets in code with environment variables (process.env.*).
+- Create/refresh .env.example with placeholder names ONLY.
+- Ensure .env, *.key, *.pem, *.p12, *.pfx are gitignored.
+- If any secret ever existed in the git history, fully purge it from history using a safe automated approach:
+  - prefer git filter-repo (or BFG if filter-repo unavailable)
+  - rewrite history to remove any files containing keys/certs/secrets or the secret strings themselves
+  - then regenerate a new clean commit state
+- Add a pre-commit secret scan (gitleaks) config and block commits that contain secret patterns.
+
+3) Fix “Private Key detected” scanner alerts (even if false positives)
+- If the scanner is triggering on example keys, replace them with non-key placeholders (e.g., “<PRIVATE_KEY_REMOVED>”).
+- If a key is required (rare), load it from Replit Secrets/ENV only, never from disk in repo, and ensure it is not logged.
+
+4) child_process + command injection hardening
+- Find all uses of child_process (exec, execSync, spawn, spawnSync) and any wrappers like $SPAWN.
+- Remove shell execution wherever possible. Mandatory:
+  - replace { shell: true } with { shell: false }
+  - replace exec/execSync with spawn using args array, not a single command string
+- Ensure NO user-controlled input can reach command execution. If any input flows into a command, implement strict allowlists and validation.
+- Prefer Node native APIs (fs, path, crypto) instead of shell commands (grep/find/sed/etc).
+
+5) Drizzle SQL compliance
+- Find all raw SQL usage:
+  pool.query(), db.execute(), sql.raw()
+- Convert each to either:
+  - Drizzle query builder
+  - or sql`...` template literals with bound parameters
+- Ensure all queries are parameterized; no string concatenation of user input.
+
+6) Privacy/logging compliance
+- Locate any logs that may print:
+  card numbers, bank/account numbers, wallet addresses, tokens, secrets
+- Implement central logger that auto-masks sensitive patterns and prevents accidental logging.
+- Replace direct console.log of request bodies/headers/tokens with safe summaries.
+- Add tests or runtime guards to ensure sensitive fields are never logged.
+
+7) TLS/SSL enforcement
+- Ensure PostgreSQL connections enforce verify-full semantics:
+  - connection string uses sslmode=verify-full
+  - Node pg uses rejectUnauthorized: true
+- Remove any NODE_TLS_REJECT_UNAUTHORIZED overrides.
+
+8) Verification (must be done)
+- Run the project build and basic smoke tests.
+- Re-run the security scan.
+- Output a final report that includes:
+  - which files were changed
+  - what vulnerabilities were fixed
+  - proof that secrets are not present (including history purge if done)
+  - confirmation that scan is now clean (0 active issues) or list remaining items with justification.
+
+Execute all steps automatically and do not stop until the scan is clean.

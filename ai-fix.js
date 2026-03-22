@@ -1,13 +1,14 @@
 import fs from "fs";
-import { exec } from "child_process";
-import fetch from "node-fetch";
-
-const RUN_CMD = "npm start";
+import { spawn } from "child_process";
 
 function run() {
   console.log("🚀 Running project...");
-  exec(RUN_CMD, async (err, stdout, stderr) => {
-    if (!err) {
+  // spawn: shell:false (default), hardcoded binary and args - no user input
+  const child = spawn("npm", ["start"], { cwd: process.cwd() });
+  let stderr = "";
+  child.stderr.on("data", d => { stderr += d; });
+  child.on("close", async (code) => {
+    if (code === 0) {
       console.log("✅ NO ERROR. PROJECT FIXED.");
       return;
     }

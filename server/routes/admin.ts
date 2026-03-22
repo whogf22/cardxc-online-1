@@ -18,7 +18,7 @@ router.use(requireRole('SUPER_ADMIN'));
 router.get('/wallets', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const wallets = await query(`
     SELECT 
-      w.user_id, w.currency, w.balance_cents, w.reserved_cents,
+      w.user_id, w.currency, w.balance_cents, w.reserved_cents, w.updated_at,
       u.email as user_email, u.full_name as user_name
     FROM wallets w
     JOIN users u ON w.user_id = u.id
@@ -146,7 +146,7 @@ router.get('/users', asyncHandler(async (req: AuthenticatedRequest, res: Respons
   }
 
   const users = await query(`
-    SELECT id, email, full_name, phone, role, kyc_status, account_status, created_at
+    SELECT id, email, full_name, phone, country, role, kyc_status, account_status, created_at
     FROM users 
     WHERE ${whereClause}
     ORDER BY created_at DESC
@@ -1073,7 +1073,7 @@ router.post('/gift-card-requests/:requestId/reject',
 
 // Gift card profit analytics
 router.get('/gift-cards/analytics', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const days = Math.min(parseInt(req.query.days as string, 10) || 30, 365);
+  const days = Math.min(Math.max(parseInt(req.query.days as string, 10) || 30, 1), 365);
 
   const analytics = await query(`
     SELECT 
@@ -1085,8 +1085,8 @@ router.get('/gift-cards/analytics', asyncHandler(async (req: AuthenticatedReques
       COUNT(DISTINCT brand) as unique_brands,
       AVG(profit_cents) FILTER (WHERE status = 'completed' AND profit_cents > 0) as avg_profit_per_transaction
     FROM gift_card_requests
-    WHERE created_at > NOW() - INTERVAL '${days} days'
-  `);
+    WHERE created_at > NOW() - ($1 * INTERVAL '1 day')
+  `, [days]);
 
   const topBrands = await query(`
     SELECT 
@@ -1096,11 +1096,11 @@ router.get('/gift-cards/analytics', asyncHandler(async (req: AuthenticatedReques
       AVG(profit_cents) as avg_profit_cents,
       SUM(amount_cents) as total_volume_cents
     FROM gift_card_requests
-    WHERE status = 'completed' AND created_at > NOW() - INTERVAL '${days} days'
+    WHERE status = 'completed' AND created_at > NOW() - ($1 * INTERVAL '1 day')
     GROUP BY brand
     ORDER BY total_profit_cents DESC NULLS LAST
     LIMIT 10
-  `);
+  `, [days]);
 
   const profitByDay = await query(`
     SELECT 
@@ -1109,10 +1109,10 @@ router.get('/gift-cards/analytics', asyncHandler(async (req: AuthenticatedReques
       SUM(profit_cents) as profit_cents,
       SUM(cost_cents) as cost_cents
     FROM gift_card_requests
-    WHERE status = 'completed' AND created_at > NOW() - INTERVAL '${days} days'
+    WHERE status = 'completed' AND created_at > NOW() - ($1 * INTERVAL '1 day')
     GROUP BY DATE(created_at)
     ORDER BY date DESC
-  `);
+  `, [days]);
 
   res.json({
     success: true,

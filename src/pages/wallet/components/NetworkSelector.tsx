@@ -21,7 +21,7 @@ export default function NetworkSelector({ networks, selectedNetwork, onSelect, d
 
   return (
     <div className="space-y-3">
-      <label className="block text-sm font-semibold text-slate-700">
+      <label className="block text-sm font-semibold text-white/80">
         Select Network
       </label>
       <div className="space-y-2">
@@ -32,38 +32,38 @@ export default function NetworkSelector({ networks, selectedNetwork, onSelect, d
             disabled={disabled}
             className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all cursor-pointer ${
               selectedNetwork === network.id
-                ? 'border-emerald-500 bg-emerald-50'
-                : 'border-slate-200 hover:border-slate-300 bg-white'
+                ? 'border-lime-500 bg-lime-500/[0.08]'
+                : 'border-white/[0.08] hover:border-white/[0.12] bg-[#0d0d0d]'
             } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <div className="flex items-center space-x-3">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                selectedNetwork === network.id ? 'bg-emerald-500' : 'bg-slate-100'
+                selectedNetwork === network.id ? 'bg-lime-500' : 'bg-white/[0.06]'
               }`}>
                 <i className={`${network.icon} text-lg ${
-                  selectedNetwork === network.id ? 'text-white' : 'text-slate-600'
+                  selectedNetwork === network.id ? 'text-white' : 'text-white/60'
                 }`}></i>
               </div>
               <div className="text-left">
-                <p className="font-semibold text-slate-900">{network.name}</p>
-                <p className="text-xs text-slate-500">{network.fullName}</p>
+                <p className="font-semibold text-white">{network.name}</p>
+                <p className="text-xs text-white/50">{network.fullName}</p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-xs text-slate-500">Fee: {network.fee}</p>
-              <p className="text-xs text-slate-400">{network.confirmations} confirmations</p>
+              <p className="text-xs text-white/50">Fee: {network.fee}</p>
+              <p className="text-xs text-white/40">{network.confirmations} confirmations</p>
             </div>
           </button>
         ))}
       </div>
       
       {selectedNetworkData && (
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+        <div className="p-3 bg-amber-500/[0.08] border border-amber-500/20 rounded-xl">
           <div className="flex items-start space-x-2">
-            <i className="ri-alert-line text-amber-600 mt-0.5"></i>
+            <i className="ri-alert-line text-amber-400 mt-0.5"></i>
             <div>
-              <p className="text-sm font-medium text-amber-800">Network Warning</p>
-              <p className="text-xs text-amber-700 mt-1">
+              <p className="text-sm font-medium text-amber-300">Network Warning</p>
+              <p className="text-xs text-amber-300 mt-1">
                 Only send assets via the <span className="font-bold">{selectedNetworkData.name}</span> network. 
                 Sending via other networks may result in permanent loss of funds.
               </p>

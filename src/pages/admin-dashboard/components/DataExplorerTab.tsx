@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { adminApi } from '../../../lib/api';
 import { useToastContext } from '../../../contexts/ToastContext';
+import { formatDateTime } from '../../../lib/localeUtils';
 
 type EntityType = 'users' | 'orders' | 'webhook_logs' | 'ledger' | 'withdrawals';
 type DataGroup = 'user' | 'admin';
@@ -116,6 +117,7 @@ export default function DataExplorerTab() {
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entity, page, loadUsers, loadOrders, loadWebhookLogs, loadLedger, loadWithdrawals]);
 
   useEffect(() => {
@@ -168,21 +170,24 @@ export default function DataExplorerTab() {
   };
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const formatDate = (v: any) => (v ? new Date(v).toLocaleString() : '—');
+  const formatDate = (v: any) => (v ? formatDateTime(v) : '—');
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-white">Data Explorer</h2>
-          <p className="text-slate-400 mt-1">View-only inspection; safe actions (Replay, Approve/Reject) only where shown.</p>
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <i className="ri-database-2-line text-lime-400"></i>
+            Data Explorer
+          </h2>
+          <p className="text-neutral-400 mt-1 text-sm">View-only inspection; safe actions (Replay, Approve/Reject) only where shown.</p>
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-sm text-slate-400">Entity:</label>
+          <label className="text-sm text-neutral-400">Entity:</label>
           <select
             value={entity}
             onChange={(e) => setEntity(e.target.value as EntityType)}
-            className="bg-slate-800 border border-slate-600 text-white rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500"
+            className="bg-dark-elevated border border-dark-border text-white rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-lime-500/50 focus:border-lime-500 transition-colors"
           >
             <optgroup label="User data">
               {USER_ENTITIES.map((e) => (
@@ -198,7 +203,7 @@ export default function DataExplorerTab() {
           <button
             onClick={load}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-dark-elevated hover:bg-dark-hover text-white rounded-xl border border-dark-border disabled:opacity-50 transition-colors"
           >
             <i className={`ri-refresh-line ${loading ? 'animate-spin' : ''}`}></i>
             Refresh
@@ -213,20 +218,20 @@ export default function DataExplorerTab() {
       )}
 
       {loading && rows.length === 0 ? (
-        <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 animate-pulse">
-          <div className="h-10 bg-slate-700 rounded-xl mb-4"></div>
+        <div className="bg-dark-card rounded-2xl p-6 border border-dark-border">
+          <div className="h-10 bg-dark-elevated rounded-xl mb-4 skeleton-shimmer"></div>
           <div className="space-y-3">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-12 bg-slate-700/50 rounded-xl"></div>
+              <div key={i} className="h-12 bg-dark-elevated rounded-xl skeleton-shimmer"></div>
             ))}
           </div>
         </div>
       ) : (
-        <div className="bg-slate-800/50 rounded-2xl border border-slate-700/50 overflow-hidden">
+        <div className="bg-dark-card rounded-2xl border border-dark-border overflow-hidden shadow-3d-depth">
           <div className="overflow-x-auto">
             {entity === 'users' && (
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-800 text-slate-400 border-b border-slate-700">
+                <thead className="bg-dark-elevated text-neutral-400 border-b border-dark-border">
                   <tr>
                     <th className="px-4 py-3">Email</th>
                     <th className="px-4 py-3">Name</th>
@@ -234,9 +239,9 @@ export default function DataExplorerTab() {
                     <th className="px-4 py-3">Created</th>
                   </tr>
                 </thead>
-                <tbody className="text-slate-300 divide-y divide-slate-700/50">
+                <tbody className="text-neutral-300 divide-y divide-dark-border">
                   {rows.map((r: any) => (
-                    <tr key={r.id}>
+                    <tr key={r.id} className="hover:bg-dark-elevated/50 transition-colors">
                       <td className="px-4 py-3">{r.email ?? '—'}</td>
                       <td className="px-4 py-3">{r.full_name ?? '—'}</td>
                       <td className="px-4 py-3">{r.role ?? '—'}</td>
@@ -248,7 +253,7 @@ export default function DataExplorerTab() {
             )}
             {entity === 'orders' && (
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-800 text-slate-400 border-b border-slate-700">
+                <thead className="bg-dark-elevated text-neutral-400 border-b border-dark-border">
                   <tr>
                     <th className="px-4 py-3">ID</th>
                     <th className="px-4 py-3">User</th>
@@ -257,9 +262,9 @@ export default function DataExplorerTab() {
                     <th className="px-4 py-3">Created</th>
                   </tr>
                 </thead>
-                <tbody className="text-slate-300 divide-y divide-slate-700/50">
+                <tbody className="text-neutral-300 divide-y divide-dark-border">
                   {rows.map((r: any) => (
-                    <tr key={r.id}>
+                    <tr key={r.id} className="hover:bg-dark-elevated/50 transition-colors">
                       <td className="px-4 py-3 font-mono text-xs">{r.id?.slice(0, 8)}…</td>
                       <td className="px-4 py-3">{r.user_email ?? r.user_name ?? '—'}</td>
                       <td className="px-4 py-3">{r.amount != null ? `${r.amount} ${r.currency || ''}` : '—'}</td>
@@ -272,7 +277,7 @@ export default function DataExplorerTab() {
             )}
             {entity === 'webhook_logs' && (
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-800 text-slate-400 border-b border-slate-700">
+                <thead className="bg-dark-elevated text-neutral-400 border-b border-dark-border">
                   <tr>
                     <th className="px-4 py-3">ID</th>
                     <th className="px-4 py-3">Event</th>
@@ -282,9 +287,9 @@ export default function DataExplorerTab() {
                     <th className="px-4 py-3">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="text-slate-300 divide-y divide-slate-700/50">
+                <tbody className="text-neutral-300 divide-y divide-dark-border">
                   {rows.map((r: any) => (
-                    <tr key={r.id}>
+                    <tr key={r.id} className="hover:bg-dark-elevated/50 transition-colors">
                       <td className="px-4 py-3 font-mono text-xs">{r.id?.slice(0, 8)}…</td>
                       <td className="px-4 py-3">{r.event_type ?? '—'}</td>
                       <td className="px-4 py-3">{r.processed ? 'Yes' : 'No'}</td>
@@ -308,7 +313,7 @@ export default function DataExplorerTab() {
             )}
             {entity === 'ledger' && (
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-800 text-slate-400 border-b border-slate-700">
+                <thead className="bg-dark-elevated text-neutral-400 border-b border-dark-border">
                   <tr>
                     <th className="px-4 py-3">ID</th>
                     <th className="px-4 py-3">Action</th>
@@ -316,9 +321,9 @@ export default function DataExplorerTab() {
                     <th className="px-4 py-3">Created</th>
                   </tr>
                 </thead>
-                <tbody className="text-slate-300 divide-y divide-slate-700/50">
+                <tbody className="text-neutral-300 divide-y divide-dark-border">
                   {rows.map((r: any) => (
-                    <tr key={r.id}>
+                    <tr key={r.id} className="hover:bg-dark-elevated/50 transition-colors">
                       <td className="px-4 py-3 font-mono text-xs">{r.id?.slice(0, 8)}…</td>
                       <td className="px-4 py-3">{r.action ?? '—'}</td>
                       <td className="px-4 py-3">{r.entity_type ?? '—'}</td>
@@ -330,7 +335,7 @@ export default function DataExplorerTab() {
             )}
             {entity === 'withdrawals' && (
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-800 text-slate-400 border-b border-slate-700">
+                <thead className="bg-dark-elevated text-neutral-400 border-b border-dark-border">
                   <tr>
                     <th className="px-4 py-3">ID</th>
                     <th className="px-4 py-3">User</th>
@@ -340,9 +345,9 @@ export default function DataExplorerTab() {
                     <th className="px-4 py-3">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="text-slate-300 divide-y divide-slate-700/50">
+                <tbody className="text-neutral-300 divide-y divide-dark-border">
                   {rows.map((r: any) => (
-                    <tr key={r.id}>
+                    <tr key={r.id} className="hover:bg-dark-elevated/50 transition-colors">
                       <td className="px-4 py-3 font-mono text-xs">{r.id?.slice(0, 8)}…</td>
                       <td className="px-4 py-3">{r.user_email ?? r.user_name ?? '—'}</td>
                       <td className="px-4 py-3">{r.amount != null ? `${r.amount} ${r.currency || ''}` : (r.amount_cents != null ? `${(r.amount_cents / 100).toFixed(2)} ${r.currency || ''}` : '—')}</td>
@@ -376,22 +381,22 @@ export default function DataExplorerTab() {
           </div>
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 bg-slate-800/50 border-t border-slate-700/50">
-              <span className="text-slate-400 text-sm">
+            <div className="flex items-center justify-between px-4 py-3 bg-dark-elevated border-t border-dark-border">
+              <span className="text-neutral-400 text-sm">
                 Page {page} of {totalPages} ({total} total)
               </span>
               <div className="flex gap-2">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page <= 1}
-                  className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm disabled:opacity-50 text-slate-300"
+                  className="px-3 py-1.5 bg-dark-elevated hover:bg-dark-hover rounded-lg text-sm disabled:opacity-50 text-white transition-colors"
                 >
                   Previous
                 </button>
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page >= totalPages}
-                  className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm disabled:opacity-50 text-slate-300"
+                  className="px-3 py-1.5 bg-dark-elevated hover:bg-dark-hover rounded-lg text-sm disabled:opacity-50 text-white transition-colors"
                 >
                   Next
                 </button>
@@ -403,20 +408,20 @@ export default function DataExplorerTab() {
 
       {rejectModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 max-w-md w-full">
+          <div className="bg-dark-card rounded-2xl border border-dark-border p-6 max-w-md w-full">
             <h3 className="text-lg font-semibold text-white mb-2">Reject withdrawal</h3>
-            <p className="text-slate-400 text-sm mb-4">Reason (required):</p>
+            <p className="text-neutral-400 text-sm mb-4">Reason (required):</p>
             <input
               type="text"
               value={rejectModal.reason}
               onChange={(e) => setRejectModal({ ...rejectModal, reason: e.target.value })}
               placeholder="Reason for rejection"
-              className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:ring-2 focus:ring-emerald-500/50"
+              className="input-dark w-full rounded-xl px-4 py-2.5"
             />
             <div className="flex gap-3 mt-4">
               <button
                 onClick={() => setRejectModal(null)}
-                className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl"
+                className="flex-1 px-4 py-2.5 bg-dark-elevated hover:bg-dark-hover text-white rounded-xl transition-colors"
               >
                 Cancel
               </button>

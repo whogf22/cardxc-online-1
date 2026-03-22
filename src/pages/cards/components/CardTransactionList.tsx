@@ -7,13 +7,13 @@ interface CardTransactionListProps {
 
 export default function CardTransactionList({ transactions, isLoading }: CardTransactionListProps) {
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
   };
 
   const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? '—' : d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
   const formatAmount = (amount: number, type: 'DEBIT' | 'CREDIT') => {

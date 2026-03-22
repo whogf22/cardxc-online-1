@@ -87,22 +87,22 @@ router.get('/dashboard', asyncHandler(async (req: AuthenticatedRequest, res: Res
 
 // Daily signups trend
 router.get('/signups', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const days = Math.min(parseInt(req.query.days as string) || 30, 90);
+  const days = Math.min(Math.max(parseInt(req.query.days as string) || 30, 1), 90);
   
   const signups = await query(`
     SELECT DATE(created_at) as date, COUNT(*) as count
     FROM users
-    WHERE created_at > NOW() - INTERVAL '${days} days'
+    WHERE created_at > NOW() - ($1 * INTERVAL '1 day')
     GROUP BY DATE(created_at)
     ORDER BY date DESC
-  `);
+  `, [days]);
 
   res.json({ success: true, data: { signups } });
 }));
 
 // Transaction volume trend
 router.get('/volume', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const days = Math.min(parseInt(req.query.days as string) || 30, 90);
+  const days = Math.min(Math.max(parseInt(req.query.days as string) || 30, 1), 90);
   
   const volume = await query(`
     SELECT 
@@ -113,10 +113,10 @@ router.get('/volume', asyncHandler(async (req: AuthenticatedRequest, res: Respon
       COUNT(*) FILTER (WHERE type = 'withdrawal') as withdrawals,
       COUNT(*) FILTER (WHERE type IN ('transfer_in', 'transfer_out')) as transfers
     FROM transactions
-    WHERE created_at > NOW() - INTERVAL '${days} days'
+    WHERE created_at > NOW() - ($1 * INTERVAL '1 day')
     GROUP BY DATE(created_at)
     ORDER BY date DESC
-  `);
+  `, [days]);
 
   const formatted = volume.map(v => ({
     date: v.date,

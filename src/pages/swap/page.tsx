@@ -5,26 +5,26 @@ export default function SwapPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50">
-      <header className="bg-white/80 backdrop-blur-lg border-b border-slate-100 sticky top-0 z-40">
+    <div className="min-h-screen bg-dark-bg">
+      <header className="bg-dark-card border-b border-dark-border sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => navigate(-1)}
-                className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
+                className="w-10 h-10 rounded-full hover:bg-dark-elevated flex items-center justify-center transition-colors cursor-pointer"
               >
-                <i className="ri-arrow-left-line text-xl text-slate-600"></i>
+                <i className="ri-arrow-left-line text-xl text-neutral-300"></i>
               </button>
               <div>
-                <h1 className="text-xl font-bold text-slate-900">Swap</h1>
-                <p className="text-sm text-slate-500">Exchange your assets instantly</p>
+                <h1 className="text-xl font-bold text-white">Swap</h1>
+                <p className="text-sm text-neutral-500">Exchange your assets instantly</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
               <button
                 onClick={() => navigate('/wallet')}
-                className="flex items-center space-x-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-colors cursor-pointer"
+                className="flex items-center space-x-2 px-4 py-2 bg-dark-elevated hover:bg-lime-500/20 text-lime-400 font-medium rounded-xl transition-colors cursor-pointer"
               >
                 <i className="ri-wallet-3-line"></i>
                 <span className="hidden sm:inline">Wallet</span>
@@ -35,14 +35,14 @@ export default function SwapPage() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6 p-4 bg-amber-50 rounded-xl border border-amber-200">
+        <div className="mb-6 p-4 bg-amber-500/20 rounded-xl border border-amber-500/30">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <i className="ri-tools-line text-amber-600 text-lg"></i>
+            <div className="w-10 h-10 bg-amber-500/30 rounded-full flex items-center justify-center flex-shrink-0">
+              <i className="ri-tools-line text-amber-400 text-lg"></i>
             </div>
             <div>
-              <p className="text-sm font-semibold text-amber-900">Coming Soon</p>
-              <p className="text-xs text-amber-700">
+              <p className="text-sm font-semibold text-amber-400">Coming Soon</p>
+              <p className="text-xs text-amber-400/80">
                 Crypto swap is currently under development. This feature will allow you to exchange assets instantly at competitive rates.
               </p>
             </div>
@@ -54,14 +54,14 @@ export default function SwapPage() {
         </div>
 
         <div className="mt-6 space-y-4">
-          <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
+          <div className="p-4 bg-dark-elevated rounded-xl border border-dark-border">
             <div className="flex items-start space-x-3">
-              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+              <div className="w-8 h-8 bg-lime-500 rounded-full flex items-center justify-center flex-shrink-0">
                 <i className="ri-shield-check-line text-white"></i>
               </div>
               <div>
-                <p className="text-sm font-semibold text-slate-900 mb-1">Secure & Instant</p>
-                <p className="text-xs text-slate-600">
+                <p className="text-sm font-semibold text-white mb-1">Secure & Instant</p>
+                <p className="text-xs text-neutral-400">
                   When launched, all swaps will be executed instantly at the best available rate. 
                   Your funds are always secure with our non-custodial swap protocol.
                 </p>

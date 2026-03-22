@@ -1,5 +1,15 @@
 // Locale utilities for international users - auto-detects locale and formats dates/numbers
 
+const INVALID_FALLBACK = '—';
+
+/** Parse date safely - handles ISO string, Unix ms, or invalid. Returns null if invalid. */
+export function parseDateSafe(date: Date | string | number | null | undefined): Date | null {
+  if (date == null) return null;
+  if (date instanceof Date) return isNaN(date.getTime()) ? null : date;
+  const parsed = typeof date === 'number' ? new Date(date) : new Date(String(date));
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export function getUserLocale(): string {
   if (typeof window === 'undefined') {
     return 'en-US';
@@ -35,48 +45,61 @@ export function getUserLanguageCode(): string {
 }
 
 export function formatDate(
-  date: Date | string,
+  date: Date | string | number | null | undefined,
   options?: Intl.DateTimeFormatOptions
 ): string {
+  const dateObj = parseDateSafe(date);
+  if (!dateObj) return INVALID_FALLBACK;
+
   try {
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
-    
-    if (isNaN(dateObj.getTime())) {
-      return 'Invalid Date';
-    }
-
     const locale = getUserLocale();
-
     const defaultOptions: Intl.DateTimeFormatOptions = {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       ...options,
     };
-
-    try {
-      return new Intl.DateTimeFormat(locale, defaultOptions).format(dateObj);
-    } catch {
-      return new Intl.DateTimeFormat('en-US', defaultOptions).format(dateObj);
-    }
+    return new Intl.DateTimeFormat(locale, defaultOptions).format(dateObj);
   } catch {
-    return typeof date === 'string' ? date : date.toISOString().split('T')[0];
+    return new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' }).format(dateObj);
+  }
+}
+
+export function formatTime(
+  date: Date | string | number | null | undefined,
+  options?: Intl.DateTimeFormatOptions
+): string {
+  const dateObj = parseDateSafe(date);
+  if (!dateObj) return INVALID_FALLBACK;
+  const locale = getUserLocale();
+  const defaultOptions: Intl.DateTimeFormatOptions = {
+    hour: '2-digit',
+    minute: '2-digit',
+    ...options,
+  };
+  try {
+    return new Intl.DateTimeFormat(locale, defaultOptions).format(dateObj);
+  } catch {
+    return new Intl.DateTimeFormat('en-US', defaultOptions).format(dateObj);
   }
 }
 
 export function formatDateTime(
-  date: Date | string,
+  date: Date | string | number | null | undefined,
   options?: Intl.DateTimeFormatOptions
 ): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  const locale = getUserLocale();
+  const dateObj = parseDateSafe(date);
+  if (!dateObj) return INVALID_FALLBACK;
 
+  const locale = getUserLocale();
+  const timeZone = typeof window !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
   const defaultOptions: Intl.DateTimeFormatOptions = {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone,
     ...options,
   };
 
@@ -87,13 +110,11 @@ export function formatDateTime(
   }
 }
 
-export function formatRelativeTime(date: Date | string): string {
+export function formatRelativeTime(date: Date | string | number | null | undefined): string {
+  const dateObj = parseDateSafe(date);
+  if (!dateObj) return INVALID_FALLBACK;
+
   try {
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
-    
-    if (isNaN(dateObj.getTime())) {
-      return 'Invalid Date';
-    }
 
     const now = new Date();
     const diffMs = now.getTime() - dateObj.getTime();
@@ -141,7 +162,7 @@ export function formatRelativeTime(date: Date | string): string {
       return formatDate(dateObj);
     }
   } catch {
-    return typeof date === 'string' ? date : date.toISOString().split('T')[0];
+    return INVALID_FALLBACK;
   }
 }
 
@@ -240,10 +261,12 @@ export function getUserTimezone(): string {
 }
 
 export function formatDateInUserTimezone(
-  date: Date | string,
+  date: Date | string | number | null | undefined,
   options?: Intl.DateTimeFormatOptions
 ): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  const dateObj = parseDateSafe(date);
+  if (!dateObj) return INVALID_FALLBACK;
+
   const locale = getUserLocale();
   const timeZone = getUserTimezone();
 

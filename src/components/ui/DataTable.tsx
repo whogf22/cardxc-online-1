@@ -74,12 +74,12 @@ export function DataTable<T>({
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-slate-200">
+          <tr className="border-b border-dark-border">
             {columns.map((col) => (
               <th
                 key={col.key}
-                className={`px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide ${
-                  col.sortable ? 'cursor-pointer hover:text-slate-700' : ''
+                className={`px-4 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wide ${
+                  col.sortable ? 'cursor-pointer hover:text-neutral-300' : ''
                 }`}
                 onClick={() => col.sortable && handleSort(col.key)}
               >
@@ -93,17 +93,17 @@ export function DataTable<T>({
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-dark-border">
           {sortedData.map((row) => (
             <tr
               key={keyExtractor(row)}
-              className={`hover:bg-slate-50 transition-colors ${
+              className={`hover:bg-dark-elevated transition-colors ${
                 onRowClick ? 'cursor-pointer' : ''
               }`}
               onClick={() => onRowClick?.(row)}
             >
               {columns.map((col) => (
-                <td key={col.key} className="px-4 py-3 text-sm text-slate-700">
+                <td key={col.key} className="px-4 py-3 text-sm text-neutral-300">
                   {col.render ? col.render(row) : String((row as Record<string, unknown>)[col.key] ?? '')}
                 </td>
               ))}

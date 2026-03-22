@@ -4,8 +4,34 @@ import { AppError, asyncHandler } from '../middleware/errorHandler';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { financialOpLimiter } from '../middleware/rateLimit';
 import { processWithdrawal } from '../services/withdrawalService';
+import {
+  getSupportedNetworks,
+  isCryptoProviderConfigured,
+  getCryptoProviderName,
+  getCryptoDepositAddresses,
+} from '../services/cryptoProviderService';
 
 const router = Router();
+
+/**
+ * GET /api/withdraw/crypto/config
+ * Returns provider/network status + deposit addresses configured on server
+ */
+router.get('/crypto/config',
+    authenticate,
+    asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
+        const addresses = getCryptoDepositAddresses();
+        res.json({
+            success: true,
+            data: {
+                providerName: getCryptoProviderName(),
+                providerConfigured: isCryptoProviderConfigured(),
+                supportedNetworks: getSupportedNetworks(),
+                addresses,
+            },
+        });
+    })
+);
 
 /**
  * POST /api/withdraw/bank

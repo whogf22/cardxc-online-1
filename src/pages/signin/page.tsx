@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { resetApiClient } from '../../lib/apiClient';
 import { trackLogin } from '../../lib/analytics';
@@ -9,6 +9,7 @@ export default function SignInPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isAuthenticated, isAdmin, loading: authLoading, signIn } = useAuthContext();
+  const submittingRef = useRef(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [twoFactorToken, setTwoFactorToken] = useState('');
@@ -57,6 +58,9 @@ export default function SignInPage() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setLoading(true);
     setError('');
 
@@ -65,19 +69,29 @@ export default function SignInPage() {
       
       if (!result.success) {
         setError(result.error || 'Failed to sign in. Please check your credentials.');
+        setTimeout(() => {
+          submittingRef.current = false;
+        }, 1000);
         return;
       }
 
       if (result.requiresTwoFactor) {
         setRequiresTwoFactor(true);
+        setTimeout(() => {
+          submittingRef.current = false;
+        }, 1000);
         return;
       }
 
       resetApiClient();
       trackLogin('email');
       console.log('[SignIn] Login successful');
+      // Don't reset submittingRef.current here - let navigation happen while button stays disabled
     } catch (err: any) {
       setError(err.message || 'Failed to sign in. Please check your credentials.');
+      setTimeout(() => {
+        submittingRef.current = false;
+      }, 1000);
     } finally {
       setLoading(false);
     }
@@ -306,7 +320,7 @@ export default function SignInPage() {
                 </button>
               </form>
 
-              {googleOAuthAvailable && (
+              {googleOAuthAvailable && import.meta.env.VITE_ALLOW_THIRD_PARTY_REDIRECTS === 'true' && (
                 <>
                   <div className="relative my-6">
                     <div className="absolute inset-0 flex items-center">

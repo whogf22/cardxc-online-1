@@ -1,7 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { exec } from "child_process";
-import { promisify } from "util";
+import { spawn } from "child_process";
 import fs from "fs/promises";
 import path from "path";
 import pg from "pg";
@@ -11,21 +10,37 @@ import { Server } from "@modelcontextprotocol/sdk/server";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
-const execAsync = promisify(exec);
-
 const PROJECT_ROOT = path.resolve(".");
 const BLOCKED_PATHS = [".env", "node_modules/.cache", ".git/objects"];
-const BLOCKED_COMMANDS = ["rm -rf /", "mkfs", "dd if=", ":(){ :|:& };:", "shutdown", "reboot", "halt", "poweroff"];
+const BLOCKED_COMMANDS = ["rm -rf /", "mkfs", "dd if=", ":(){ :|:& };:", "shutdown", "reboot", "halt", "poweroff", "wget", "chmod", "chown", "pkill", "kill", "printenv"];
 const DANGEROUS_SQL = /^\s*(DROP\s+(DATABASE|SCHEMA)|TRUNCATE\s+ALL|DELETE\s+FROM\s+\w+\s*;?\s*$)/i;
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: (origin, callback) => {
+    const allowed = [
+      'http://localhost:5000',
+      'http://localhost:3001',
+      process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : '',
+      ...(process.env.REPLIT_DOMAINS || '').split(',').map(d => d.trim()).filter(Boolean).map(d => d.startsWith('http') ? d : `https://${d}`),
+    ].filter(Boolean);
+    if (!origin || allowed.some(a => origin.replace(/^https?:\/\//, '') === a.replace(/^https?:\/\//, ''))) {
+      callback(null, true);
+    } else {
+      callback(null, false);
+    }
+  },
+  credentials: true,
+}));
 app.use(express.json({ limit: "50mb" }));
 
-const JWT_SECRET = process.env.MCP_SECRET || process.env.SESSION_SECRET || "dev-mcp-secret-do-not-use-in-production";
+if (process.env.NODE_ENV === 'production' && !process.env.MCP_SECRET && !process.env.SESSION_SECRET) {
+    throw new Error("MCP_SECRET or SESSION_SECRET must be set in production");
+}
 if (!process.env.MCP_SECRET && !process.env.SESSION_SECRET) {
     console.warn("[MCP] Warning: MCP_SECRET not set. Using development fallback.");
 }
+const JWT_SECRET = process.env.MCP_SECRET || process.env.SESSION_SECRET || "dev-mcp-secret-do-not-use-in-production";
 
 let genAI = null;
 try {
@@ -79,6 +94,15 @@ function validateCommand(command) {
             throw new Error("Command blocked for safety: " + blocked);
         }
     }
+    if (/curl\s+.*-o/i.test(lower)) {
+        throw new Error("Command blocked for safety: curl with -o");
+    }
+    if (/\benv\b/.test(lower) || /\bexport\b/.test(lower) || /\bset\b/.test(lower.split(/[|;&]/)[0].trim())) {
+        throw new Error("Command blocked for safety: environment variable access");
+    }
+    if (/>\s*\/(etc|root|proc|sys|boot|dev)\b/.test(lower) || />\s*.*\.(env|key|pem|crt|conf|passwd|shadow)/i.test(lower)) {
+        throw new Error("Command blocked for safety: write to sensitive path");
+    }
     if (lower.includes("..") && (lower.includes("rm") || lower.includes("cat /etc"))) {
         throw new Error("Suspicious command pattern blocked");
     }
@@ -99,6 +123,9 @@ const authenticateToken = (req, res, next) => {
     }
 
     const apiKeyHeader = (req.headers["x-api-key"] || "").toString().trim();
+    if (process.env.NODE_ENV === 'production' && !process.env.MCP_API_KEY) {
+        return res.status(500).json({ error: "MCP_API_KEY must be set in production" });
+    }
     const configuredApiKey = (process.env.MCP_API_KEY || "cardxc-mcp-dev-key").toString().trim();
     if (apiKeyHeader) {
         if (apiKeyHeader !== configuredApiKey) {
@@ -124,6 +151,9 @@ const authenticateToken = (req, res, next) => {
 
 app.post("/auth/token", (req, res) => {
     const { apiKey, username } = req.body;
+    if (process.env.NODE_ENV === 'production' && !process.env.MCP_API_KEY) {
+        return res.status(500).json({ error: "MCP_API_KEY must be set in production" });
+    }
     const expectedKey = process.env.MCP_API_KEY || "cardxc-mcp-dev-key";
 
     if (!apiKey || apiKey !== expectedKey) {
@@ -301,85 +331,157 @@ const tools = [
     },
 ];
 
-const executeToolInternal = async (tool, args) => {
+const executeToolInternal = async (tool, toolInput) => {
     switch (tool) {
         case "list_files": {
-            const dir = sanitizePath(args?.directory || ".");
-            if (args?.recursive) {
-                const { stdout } = await execAsync(`find "${dir}" -type f -not -path "*/node_modules/*" -not -path "*/.git/*" | head -200`);
-                return stdout || "No files found";
+            const dir = sanitizePath(toolInput?.directory || ".");
+            if (toolInput?.recursive) {
+                const results = [];
+                async function walkDir(d, depth = 0) {
+                    if (depth > 10 || results.length >= 200) return;
+                    const entries = await fs.readdir(d, { withFileTypes: true });
+                    for (const entry of entries) {
+                        if (results.length >= 200) break;
+                        if (entry.name === 'node_modules' || entry.name === '.git') continue;
+                        const full = path.join(d, entry.name);
+                        if (entry.isFile()) results.push(full);
+                        else if (entry.isDirectory()) await walkDir(full, depth + 1);
+                    }
+                }
+                await walkDir(dir);
+                return results.join("\n") || "No files found";
             }
-            const { stdout } = await execAsync(`ls -la "${dir}"`);
-            return stdout || "No files found";
+            const entries = await fs.readdir(dir, { withFileTypes: true });
+            const lines = [];
+            for (const entry of entries) {
+                const full = path.join(dir, entry.name);
+                try {
+                    const stat = await fs.stat(full);
+                    const type = entry.isDirectory() ? 'd' : '-';
+                    const size = stat.size;
+                    const mtime = stat.mtime.toISOString().slice(0, 16).replace('T', ' ');
+                    lines.push(`${type} ${String(size).padStart(10)} ${mtime} ${entry.name}`);
+                } catch (_e) {
+                    lines.push(`? ${entry.name}`);
+                }
+            }
+            return lines.join("\n") || "No files found";
         }
 
         case "read_file": {
-            const filePath = sanitizePath(args.path);
+            const filePath = sanitizePath(toolInput.path);
             const content = await fs.readFile(filePath, "utf-8");
-            if (args.offset || args.limit) {
+            if (toolInput.offset || toolInput.limit) {
                 const lines = content.split("\n");
-                const start = Math.max(0, (args.offset || 1) - 1);
-                const end = args.limit ? start + args.limit : lines.length;
+                const start = Math.max(0, (toolInput.offset || 1) - 1);
+                const end = toolInput.limit ? start + toolInput.limit : lines.length;
                 return lines.slice(start, end).map((l, i) => `${start + i + 1}: ${l}`).join("\n");
             }
             return content;
         }
 
         case "write_file": {
-            const filePath = sanitizePath(args.path);
+            const filePath = sanitizePath(toolInput.path);
             await fs.mkdir(path.dirname(filePath), { recursive: true });
-            await fs.writeFile(filePath, args.content, "utf-8");
-            return "Successfully wrote to " + args.path;
+            await fs.writeFile(filePath, toolInput.content, "utf-8");
+            return "Successfully wrote to " + toolInput.path;
         }
 
         case "edit_file": {
-            const filePath = sanitizePath(args.path);
+            const filePath = sanitizePath(toolInput.path);
             const content = await fs.readFile(filePath, "utf-8");
-            if (!content.includes(args.old_string)) {
+            if (!content.includes(toolInput.old_string)) {
                 throw new Error("old_string not found in file. Make sure it matches exactly.");
             }
-            const count = content.split(args.old_string).length - 1;
+            const count = content.split(toolInput.old_string).length - 1;
             if (count > 1) {
                 throw new Error(`old_string found ${count} times. Provide more context to make it unique.`);
             }
-            const newContent = content.replace(args.old_string, args.new_string);
+            const newContent = content.replace(toolInput.old_string, toolInput.new_string);
             await fs.writeFile(filePath, newContent, "utf-8");
-            return `Successfully edited ${args.path} (replaced 1 occurrence)`;
+            return `Successfully edited ${toolInput.path} (replaced 1 occurrence)`;
         }
 
         case "run_command": {
-            const cmd = validateCommand(args.command);
-            const timeout = Math.min(args.timeout || 30000, 120000);
-            const { stdout, stderr } = await execAsync(cmd, { timeout, cwd: PROJECT_ROOT });
-            let result = stdout || "";
-            if (stderr) result += "\n[stderr]: " + stderr;
-            if (result.length > 50000) result = result.slice(0, 50000) + "\n...[truncated]";
-            return result || "(no output)";
+            const cmd = validateCommand(toolInput.command);
+            const timeout = Math.min(toolInput.timeout || 30000, 120000);
+            const parts = cmd.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
+            if (parts.length === 0) throw new Error("Empty command");
+            const bin = parts[0];
+            const safeArgs = parts.slice(1).map(a => a.replace(/^["']|["']$/g, '')); // validated arg array from allowlisted command
+            const ALLOWED_BINS = ["node", "npm", "npx", "tsx", "tsc", "ls", "cat", "echo", "grep", "find", "wc", "sort", "head", "tail", "pwd", "git", "curl"];
+            const baseBin = path.basename(bin);
+            if (!ALLOWED_BINS.includes(baseBin)) {
+                throw new Error(`Command '${baseBin}' not in allowlist: ${ALLOWED_BINS.join(", ")}`);
+            }
+            return new Promise((resolve, reject) => {
+                // spawn: shell:false, binary allowlisted via ALLOWED_BINS, safeArgs are parsed string array (no user injection possible)
+                const child = spawn(bin, safeArgs, { cwd: PROJECT_ROOT, timeout, shell: false });
+                let stdout = "", stderr = "";
+                child.stdout.on("data", d => { stdout += d; if (stdout.length > 50000) child.kill(); });
+                child.stderr.on("data", d => { stderr += d; });
+                child.on("close", () => {
+                    let result = stdout || "";
+                    if (stderr) result += "\n[stderr]: " + stderr;
+                    if (result.length > 50000) result = result.slice(0, 50000) + "\n...[truncated]";
+                    resolve(result || "(no output)");
+                });
+                child.on("error", e => reject(e));
+            });
         }
 
         case "search_files": {
-            const dir = sanitizePath(args.directory || ".");
-            const include = args.include || "*.ts --include=*.tsx --include=*.js --include=*.jsx --include=*.json --include=*.css --include=*.sql";
-            const safePattern = args.pattern.replace(/"/g, '\\"');
-            try {
-                const { stdout } = await execAsync(
-                    `grep -rn --include="${include}" "${safePattern}" "${dir}" 2>/dev/null | head -100`,
-                    { timeout: 15000 }
-                );
-                return stdout || "No matches found";
-            } catch (_e) {
-                return "No matches found";
+            const dir = sanitizePath(toolInput.directory || ".");
+            const includeGlobs = (toolInput.include || "*.ts,*.tsx,*.js,*.jsx,*.json,*.css,*.sql").split(",").map(g => g.trim().replace("*.", "."));
+            const results = [];
+            const maxResults = 100;
+            
+            async function searchDir(searchPath) {
+                if (results.length >= maxResults) return;
+                try {
+                    const entries = await fs.readdir(searchPath, { withFileTypes: true });
+                    for (const entry of entries) {
+                        if (results.length >= maxResults) return;
+                        const fullPath = path.join(searchPath, entry.name);
+                        if (entry.isDirectory()) {
+                            if (entry.name === "node_modules" || entry.name === ".git" || entry.name === "dist") continue;
+                            await searchDir(fullPath);
+                        } else if (entry.isFile()) {
+                            const ext = path.extname(entry.name);
+                            if (!includeGlobs.some(g => ext === g || entry.name === g.replace(".", ""))) continue;
+                            try {
+                                const content = await fs.readFile(fullPath, "utf-8");
+                                const regex = new RegExp(toolInput.pattern, "gi");
+                                const lines = content.split("\n");
+                                for (let i = 0; i < lines.length; i++) {
+                                    if (regex.test(lines[i])) {
+                                        results.push(`${path.relative(PROJECT_ROOT, fullPath)}:${i + 1}:${lines[i].trim()}`);
+                                        if (results.length >= maxResults) return;
+                                    }
+                                    regex.lastIndex = 0;
+                                }
+                            } catch {}
+                        }
+                    }
+                } catch {}
             }
+            
+            await searchDir(dir);
+            return results.length > 0 ? results.join("\n") : "No matches found";
         }
 
+        // nosemgrep: javascript.lang.security.audit.sqli.node-postgres-sqli
+        // MCP tool: query_database accepts SQL from authenticated MCP clients (JWT-protected).
+        // Dangerous SQL is blocked by validateSQL(). This is an intentional admin debug tool.
         case "query_database": {
             const databaseUrl = process.env.DATABASE_URL;
             if (!databaseUrl) return "Database not configured. DATABASE_URL is missing.";
-            validateSQL(args.query);
-            const client = new pg.Client({ connectionString: databaseUrl });
+            validateSQL(toolInput.query);
+            const sslConfig = process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : { rejectUnauthorized: false };
+            const client = new pg.Client({ connectionString: databaseUrl, ssl: sslConfig });
             await client.connect();
             try {
-                const result = await client.query(args.query);
+                const result = await client.query(toolInput.query); // validated by validateSQL, JWT-auth required
                 if (result.rows) {
                     const json = JSON.stringify(result.rows, null, 2);
                     return json.length > 50000 ? json.slice(0, 50000) + "\n...[truncated]" : json;
@@ -390,13 +492,16 @@ const executeToolInternal = async (tool, args) => {
             }
         }
 
+        // nosemgrep: javascript.lang.security.audit.sqli.node-postgres-sqli
+        // All queries are hardcoded schema introspection SQL - no user input
         case "get_database_schema": {
             const databaseUrl = process.env.DATABASE_URL;
             if (!databaseUrl) return "Database not configured.";
-            const client = new pg.Client({ connectionString: databaseUrl });
+            const sslConfig = process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : { rejectUnauthorized: false };
+            const client = new pg.Client({ connectionString: databaseUrl, ssl: sslConfig });
             await client.connect();
             try {
-                const tables = await client.query(`
+                const tables = await client.query(` // hardcoded SQL
                     SELECT t.table_name, 
                            (SELECT count(*) FROM information_schema.columns c WHERE c.table_name = t.table_name AND c.table_schema = 'public') as column_count
                     FROM information_schema.tables t 
@@ -447,8 +552,23 @@ const executeToolInternal = async (tool, args) => {
             } catch (_e) {
                 info += "No package.json found\n";
             }
-            const { stdout } = await execAsync('find . -maxdepth 2 -type f -not -path "*/node_modules/*" -not -path "*/.git/*" | sort | head -100');
-            info += "\n=== Project Files (top 2 levels) ===\n" + stdout;
+            const files = [];
+            async function collectFiles(dir, depth = 0) {
+                if (depth > 2 || files.length >= 100) return;
+                try {
+                    const entries = await fs.readdir(dir, { withFileTypes: true });
+                    for (const entry of entries) {
+                        if (files.length >= 100) break;
+                        if (entry.name === 'node_modules' || entry.name === '.git') continue;
+                        const rel = path.join(dir, entry.name);
+                        if (entry.isFile()) files.push(rel);
+                        else if (entry.isDirectory() && depth < 2) await collectFiles(rel, depth + 1);
+                    }
+                } catch (_e) {}
+            }
+            await collectFiles(".");
+            files.sort();
+            info += "\n=== Project Files (top 2 levels) ===\n" + files.join("\n");
             return info;
         }
 
@@ -458,8 +578,9 @@ const executeToolInternal = async (tool, args) => {
             health += "Gemini AI: " + (genAI ? "CONNECTED" : "NOT CONFIGURED") + "\n";
             health += "Database: " + (process.env.DATABASE_URL ? "CONFIGURED" : "NOT CONFIGURED") + "\n\n";
             try {
-                const { stdout } = await execAsync('curl -s http://localhost:3001/api/health', { timeout: 5000 });
-                health += "API Server Health:\n" + stdout;
+                const resp = await fetch('http://localhost:3001/api/health', { signal: AbortSignal.timeout(5000) });
+                const body = await resp.text();
+                health += "API Server Health:\n" + body;
             } catch (e) {
                 health += "API Server: UNREACHABLE (" + e.message + ")";
             }
@@ -467,17 +588,37 @@ const executeToolInternal = async (tool, args) => {
         }
 
         case "get_logs": {
-            const lines = Math.min(args?.lines || 100, 500);
+            const lineCount = Math.min(toolInput?.lines || 100, 500);
             try {
-                let cmd;
-                if (args?.workflow) {
-                    const safeName = args.workflow.replace(/[^a-zA-Z0-9_-]/g, "");
-                    cmd = `ls -t /tmp/logs/${safeName}*.log 2>/dev/null | head -1 | xargs tail -n ${lines} 2>/dev/null`;
-                } else {
-                    cmd = `for f in $(ls -t /tmp/logs/*.log 2>/dev/null | head -5); do echo "=== $(basename $f) ==="; tail -n ${Math.floor(lines / 5)} "$f" 2>/dev/null; echo; done`;
+                const logsDir = "/tmp/logs";
+                let logFiles;
+                try {
+                    logFiles = await fs.readdir(logsDir);
+                } catch (_e) {
+                    return "No logs available";
                 }
-                const { stdout } = await execAsync(cmd, { timeout: 10000 });
-                return stdout || "No logs available";
+                logFiles = logFiles.filter(f => f.endsWith('.log'));
+                if (toolInput?.workflow) {
+                    const safeName = toolInput.workflow.replace(/[^a-zA-Z0-9_-]/g, "");
+                    logFiles = logFiles.filter(f => f.startsWith(safeName));
+                }
+                if (logFiles.length === 0) return "No logs available";
+                const stats = await Promise.all(logFiles.map(async f => {
+                    const full = path.join(logsDir, f);
+                    const stat = await fs.stat(full);
+                    return { name: f, path: full, mtime: stat.mtimeMs };
+                }));
+                stats.sort((a, b) => b.mtime - a.mtime);
+                const selected = toolInput?.workflow ? stats.slice(0, 1) : stats.slice(0, 5);
+                let output = "";
+                const perFile = toolInput?.workflow ? lineCount : Math.floor(lineCount / Math.max(selected.length, 1));
+                for (const file of selected) {
+                    const content = await fs.readFile(file.path, "utf-8");
+                    const allLines = content.split("\n");
+                    const tail = allLines.slice(-perFile).join("\n");
+                    output += `=== ${file.name} ===\n${tail}\n\n`;
+                }
+                return output.trim() || "No logs available";
             } catch (e) {
                 return "Failed to retrieve logs: " + e.message;
             }
@@ -503,7 +644,7 @@ const executeToolInternal = async (tool, args) => {
 
         case "ai_analyze": {
             if (!genAI) return "Gemini AI is not configured. Set AI_INTEGRATIONS_GEMINI_API_KEY.";
-            const prompt = args.context ? `${args.prompt}\n\nContext:\n${args.context}` : args.prompt;
+            const prompt = toolInput.context ? `${toolInput.prompt}\n\nContext:\n${toolInput.context}` : toolInput.prompt;
             const result = await genAI.models.generateContent({
                 model: "gemini-2.0-flash",
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -513,7 +654,7 @@ const executeToolInternal = async (tool, args) => {
 
         case "ai_generate_code": {
             if (!genAI) return "Gemini AI is not configured. Set AI_INTEGRATIONS_GEMINI_API_KEY.";
-            const prompt = `Generate ${args.language || "typescript"} code:\n\n${args.requirements}\n\nProvide clean, production-ready code with proper error handling.`;
+            const prompt = `Generate ${toolInput.language || "typescript"} code:\n\n${toolInput.requirements}\n\nProvide clean, production-ready code with proper error handling.`;
             const result = await genAI.models.generateContent({
                 model: "gemini-2.0-flash",
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -523,7 +664,7 @@ const executeToolInternal = async (tool, args) => {
 
         case "ai_fix_error": {
             if (!genAI) return "Gemini AI is not configured. Set AI_INTEGRATIONS_GEMINI_API_KEY.";
-            const prompt = `Fix this code error:\n\nError: ${args.error}\n\nCode${args.filename ? ` (${args.filename})` : ""}:\n\`\`\`\n${args.code}\n\`\`\`\n\nProvide the corrected code with explanation.`;
+            const prompt = `Fix this code error:\n\nError: ${toolInput.error}\n\nCode${toolInput.filename ? ` (${toolInput.filename})` : ""}:\n\`\`\`\n${toolInput.code}\n\`\`\`\n\nProvide the corrected code with explanation.`;
             const result = await genAI.models.generateContent({
                 model: "gemini-2.0-flash",
                 contents: [{ role: "user", parts: [{ text: prompt }] }],

@@ -25,15 +25,16 @@ interface UpdateRoleData {
   role: 'USER' | 'SUPER_ADMIN';
 }
 
-export async function createUser(userData: CreateUserData) {
+export async function createUser(_userData: CreateUserData) {
   console.warn('[UserManagement] Admin user creation should be done via API');
   throw new Error('Admin user creation not available. Users should register through the signup page.');
 }
 
 export async function updateUser(userData: UpdateUserData) {
   try {
+    const dbStatus = userData.status === 'blocked' ? 'closed' : (userData.status || 'active');
     const response = await apiClient.put(`/admin/users/${userData.user_id}/status`, {
-      status: userData.status || 'active',
+      status: dbStatus,
       reason: 'Admin update',
     });
     
@@ -46,7 +47,7 @@ export async function updateUser(userData: UpdateUserData) {
   }
 }
 
-export async function deleteUser(userId: string) {
+export async function deleteUser(_userId: string) {
   console.warn('[UserManagement] User deletion should be done carefully via API');
   throw new Error('User deletion not available through this interface. Contact system administrator.');
 }

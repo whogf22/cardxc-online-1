@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { aiApi } from '@/lib/api';
-import { MessageCircle, Send, Plus, Trash2, Bot, User, Loader2, X } from 'lucide-react';
+import { MessageCircle, Send, Plus, Bot, User, Loader2, X } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -25,6 +25,8 @@ export function AIAssistant() {
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -39,46 +41,50 @@ export function AIAssistant() {
   }, [messages, streamingContent]);
 
   const loadConversations = async () => {
+    setLoadError(null);
     const result = await aiApi.getConversations();
     if (result.success && result.data) {
       setConversations(result.data.conversations);
+    } else {
+      const msg = result.error?.message || 'Failed to load conversations. Please sign in and try again.';
+      setLoadError(msg);
     }
   };
 
   const loadConversation = async (id: string) => {
     setActiveConversation(id);
     setIsLoading(true);
+    setError(null);
     const result = await aiApi.getConversation(id);
     if (result.success && result.data) {
       setMessages(result.data.messages);
+    } else {
+      setError(result.error?.message || 'Failed to load conversation.');
     }
     setIsLoading(false);
   };
 
   const createNewConversation = async () => {
+    setError(null);
     const result = await aiApi.createConversation();
     if (result.success && result.data) {
       setConversations([result.data.conversation, ...conversations]);
       setActiveConversation(result.data.conversation.id);
       setMessages([]);
-    }
-  };
-
-  const deleteConversation = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    await aiApi.deleteConversation(id);
-    setConversations(conversations.filter(c => c.id !== id));
-    if (activeConversation === id) {
-      setActiveConversation(null);
-      setMessages([]);
+    } else {
+      setError(result.error?.message || 'Failed to create conversation. AI may not be configured.');
     }
   };
 
   const sendMessage = useCallback(async () => {
     if (!input.trim() || isStreaming) return;
+    setError(null);
     if (!activeConversation) {
       const result = await aiApi.createConversation();
-      if (!result.success || !result.data) return;
+      if (!result.success || !result.data) {
+        setError(result.error?.message || 'Failed to create conversation. AI may not be configured.');
+        return;
+      }
       setConversations([result.data.conversation, ...conversations]);
       setActiveConversation(result.data.conversation.id);
       await streamMessage(result.data.conversation.id, input.trim());
@@ -98,6 +104,7 @@ export function AIAssistant() {
     setInput('');
     setIsStreaming(true);
     setStreamingContent('');
+    setError(null);
 
     try {
       const response = await fetch(`/api/ai/conversations/${conversationId}/messages`, {
@@ -106,6 +113,25 @@ export function AIAssistant() {
         credentials: 'include',
         body: JSON.stringify({ content }),
       });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        let errMsg = 'Failed to get AI response.';
+        try {
+          const errJson = JSON.parse(errText);
+          errMsg = errJson?.error?.message || errJson?.message || errMsg;
+        } catch {
+          if (response.status === 401) errMsg = 'Please sign in to use AI Assistant.';
+          else if (response.status === 503) errMsg = 'AI service is temporarily unavailable.';
+        }
+        setMessages(prev => [...prev, {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: `⚠️ ${errMsg}`,
+          created_at: new Date().toISOString(),
+        }]);
+        return;
+      }
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -137,7 +163,13 @@ export function AIAssistant() {
                 setStreamingContent('');
               }
               if (data.error) {
-                console.error('AI Error:', data.error);
+                const errMsg = typeof data.error === 'string' ? data.error : (data.error?.message || 'AI error');
+                setMessages(prev => [...prev, {
+                  id: (Date.now() + 1).toString(),
+                  role: 'assistant',
+                  content: `⚠️ ${errMsg}`,
+                  created_at: new Date().toISOString(),
+                }]);
               }
             } catch (e) {
               console.error('Failed to parse SSE data:', e);
@@ -145,8 +177,14 @@ export function AIAssistant() {
           }
         }
       }
-    } catch (error) {
-      console.error('Stream error:', error);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Network error. Please try again.';
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: `⚠️ ${errMsg}`,
+        created_at: new Date().toISOString(),
+      }]);
     } finally {
       setIsStreaming(false);
     }
@@ -190,6 +228,9 @@ export function AIAssistant() {
           >
             <Plus className="w-4 h-4" />
           </button>
+          {loadError && (
+            <p className="px-2 py-1 text-xs text-amber-400 truncate" title={loadError}>{loadError}</p>
+          )}
           <div className="flex-1 overflow-y-auto">
             {conversations.slice(0, 10).map(conv => (
               <button
@@ -206,6 +247,12 @@ export function AIAssistant() {
         </div>
 
         <div className="flex-1 flex flex-col">
+          {error && (
+            <div className="mx-3 mt-2 p-2 rounded-lg bg-amber-500/20 text-amber-400 text-xs flex items-center justify-between gap-2">
+              <span>{error}</span>
+              <button onClick={() => setError(null)} className="text-amber-400 hover:text-white shrink-0">×</button>
+            </div>
+          )}
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
             {isLoading ? (
               <div className="flex items-center justify-center h-full">
@@ -213,8 +260,17 @@ export function AIAssistant() {
               </div>
             ) : messages.length === 0 && !streamingContent ? (
               <div className="flex flex-col items-center justify-center h-full text-gray-500 text-sm text-center px-4">
-                <Bot className="w-10 h-10 mb-2 text-purple-400" />
-                <p>Ask me about your account, transactions, cards, or anything!</p>
+                {error ? (
+                  <>
+                    <p className="text-amber-400 mb-2">⚠️ {error}</p>
+                    <p className="text-xs">Make sure AI_INTEGRATIONS_OPENAI_API_KEY is set in server env.</p>
+                  </>
+                ) : (
+                  <>
+                    <Bot className="w-10 h-10 mb-2 text-purple-400" />
+                    <p>Ask me about your account, transactions, cards, or anything!</p>
+                  </>
+                )}
               </div>
             ) : (
               <>

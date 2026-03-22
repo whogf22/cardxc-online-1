@@ -46,6 +46,7 @@ export default function AdminDashboardPage() {
     const hash = window.location.hash.slice(1);
     const tab = TAB_FROM_HASH[hash];
     if (tab && tab !== activeTab) setActiveTab(tab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

@@ -16,6 +16,7 @@ export default function PersonalInformationPage() {
 
   useEffect(() => {
     loadProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadProfile = async () => {
@@ -41,43 +42,43 @@ export default function PersonalInformationPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <i className="ri-loader-4-line animate-spin text-4xl text-blue-500"></i>
+      <div className="min-h-screen bg-dark-bg flex items-center justify-center">
+        <div className="w-14 h-14 border-4 border-lime-500/30 border-t-lime-500 rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="bg-white px-4 pt-12 pb-4 border-b border-gray-100">
+    <div className="min-h-screen bg-dark-bg pb-24">
+      <div className="bg-dark-card px-4 pt-12 pb-4 border-b border-dark-border">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/profile')}
-            className="w-10 h-10 flex items-center justify-center"
+            className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-dark-elevated transition-colors"
           >
-            <i className="ri-arrow-left-s-line text-2xl text-gray-800"></i>
+            <i className="ri-arrow-left-s-line text-2xl text-neutral-300"></i>
           </button>
-          <h1 className="text-xl font-semibold text-gray-900">Personal Information</h1>
+          <h1 className="text-xl font-semibold text-white">Personal Information</h1>
         </div>
       </div>
 
       <div className="px-4 mt-6">
-        <div className="bg-white rounded-2xl overflow-hidden border border-gray-100">
-          <div className="px-4 py-4 border-b border-gray-100">
-            <p className="text-xs text-gray-500 mb-1">Full Name</p>
-            <p className="text-sm font-medium text-gray-900">{profile?.full_name || 'Not set'}</p>
+        <div className="bg-dark-card rounded-2xl overflow-hidden border border-dark-border">
+          <div className="px-4 py-4 border-b border-dark-border">
+            <p className="text-xs text-neutral-500 mb-1">Full Name</p>
+            <p className="text-sm font-medium text-white">{profile?.full_name || 'Not set'}</p>
           </div>
-          <div className="px-4 py-4 border-b border-gray-100">
-            <p className="text-xs text-gray-500 mb-1">Email Address</p>
-            <p className="text-sm font-medium text-gray-900">{profile?.email || 'Not set'}</p>
+          <div className="px-4 py-4 border-b border-dark-border">
+            <p className="text-xs text-neutral-500 mb-1">Email Address</p>
+            <p className="text-sm font-medium text-white">{profile?.email || 'Not set'}</p>
           </div>
-          <div className="px-4 py-4 border-b border-gray-100">
-            <p className="text-xs text-gray-500 mb-1">Phone Number</p>
-            <p className="text-sm font-medium text-gray-900">{profile?.phone || 'Not set'}</p>
+          <div className="px-4 py-4 border-b border-dark-border">
+            <p className="text-xs text-neutral-500 mb-1">Phone Number</p>
+            <p className="text-sm font-medium text-white">{profile?.phone || 'Not set'}</p>
           </div>
           <div className="px-4 py-4">
-            <p className="text-xs text-gray-500 mb-1">Country</p>
-            <p className="text-sm font-medium text-gray-900">{profile?.country || 'Not set'}</p>
+            <p className="text-xs text-neutral-500 mb-1">Country</p>
+            <p className="text-sm font-medium text-white">{profile?.country || 'Not set'}</p>
           </div>
         </div>
       </div>

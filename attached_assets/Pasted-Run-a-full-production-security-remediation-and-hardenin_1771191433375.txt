@@ -1,0 +1,95 @@
+Run a full production security remediation and hardening pass across the entire codebase.
+
+MISSION:
+Eliminate vulnerabilities, remove secret exposure, enforce secure coding standards, and make the system compliant with fintech-grade security practices.
+
+========================================
+1. DEPENDENCY & VULNERABILITY FIX
+========================================
+• Upgrade vulnerable packages to latest stable versions:
+  - @modelcontextprotocol/sdk
+  - axios
+• Run audit and resolve remaining vulnerabilities.
+• Ensure build compatibility after updates.
+
+========================================
+2. REMOVE HARDCODED SECRETS & PRIVATE KEYS
+========================================
+• Detect and remove:
+  - private keys
+  - API keys
+  - DB credentials
+  - connection strings with passwords
+• Move all secrets to environment variables.
+• Replace usage with process.env.*
+• Create `.env.example`
+• Ensure `.env` is gitignored.
+• Prevent future leaks.
+
+========================================
+3. DATABASE SECURITY HARDENING
+========================================
+• Remove credentials from connection URLs.
+• Enforce environment variable usage:
+  DATABASE_URL
+  DB_PASSWORD
+• Enforce TLS security:
+  sslmode=verify-full
+• Ensure rejectUnauthorized = true.
+
+========================================
+4. COMMAND EXECUTION & INJECTION PROTECTION
+========================================
+• Locate child_process, exec, spawn usage.
+• Replace `{ shell: true }` → `{ shell: false }`
+• Sanitize all user-controlled input.
+• Replace shell commands with native Node APIs when possible.
+
+========================================
+5. DRIZZLE ORM COMPLIANCE & SQL SAFETY
+========================================
+• Replace raw SQL calls:
+  pool.query()
+  db.execute()
+  sql.raw()
+• Convert to:
+  Drizzle query builder
+  OR sql`template literals`
+• Ensure type-safe queries.
+
+========================================
+6. PRIVACY & SENSITIVE DATA PROTECTION
+========================================
+• Remove logging of:
+  - card numbers
+  - bank details
+  - tokens
+  - personal data
+• Mask sensitive values:
+  **** **** **** 1234
+• Implement centralized secure logger.
+
+========================================
+7. APPLICATION SECURITY HARDENING
+========================================
+• Ensure TLS verification is enabled.
+• Remove NODE_TLS_REJECT_UNAUTHORIZED overrides.
+• Add security middleware:
+  - helmet
+  - rate limiting
+  - input validation
+• Validate and sanitize all user input.
+
+========================================
+8. VERIFY & TEST
+========================================
+Confirm:
+✔ no vulnerabilities remain
+✔ no secrets in repository
+✔ command injection risks removed
+✔ secure DB connection enforced
+✔ sensitive data masked
+✔ application builds successfully
+
+OUTPUT:
+Provide a remediation summary and confirm production security readiness.

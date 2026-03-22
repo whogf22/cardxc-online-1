@@ -83,6 +83,7 @@ router.post('/virtual-cards',
   body('spendLimitDuration').isIn(['DAILY', 'WEEKLY', 'MONTHLY', 'ANNUAL', 'LIFETIME']).withMessage('Invalid spend limit duration'),
   body('cardNickname').optional().trim().isLength({ max: 100 }),
   body('lockCardNextUse').optional().isBoolean(),
+  body('offerId').optional().isUUID().withMessage('Invalid offer ID'),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -93,7 +94,7 @@ router.post('/virtual-cards',
       throw new AppError('Card service not configured', 503, 'PROVIDER_NOT_CONFIGURED');
     }
 
-    const { spendLimit, spendLimitDuration, cardNickname, lockCardNextUse } = req.body;
+    const { spendLimit, spendLimitDuration, cardNickname, lockCardNextUse, offerId } = req.body;
 
     const card = await fluzApi.createVirtualCard({
       spendLimit,
@@ -102,6 +103,7 @@ router.post('/virtual-cards',
       primaryFundingSource: 'FLUZ_BALANCE',
       lockCardNextUse: lockCardNextUse || false,
       idempotencyKey: uuidv4(),
+      offerId: offerId || undefined,
     });
 
     await createAuditLog({
@@ -350,6 +352,51 @@ router.get('/merchants', asyncHandler(async (req: AuthenticatedRequest, res: Res
   res.json({ success: true, data: { merchants: offers } });
 }));
 
+// Get user's purchased gift cards (Fluz API)
+router.get('/gift-cards', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  if (!fluzApi.isConfigured()) {
+    throw new AppError('Card service not configured', 503, 'PROVIDER_NOT_CONFIGURED');
+  }
+
+  const { status, limit, offset } = req.query;
+  const statusArr = status ? (Array.isArray(status) ? status as string[] : [status as string]) : undefined;
+  const giftCards = await fluzApi.getGiftCards({
+    status: statusArr,
+    limit: limit ? parseInt(limit as string) : undefined,
+    offset: offset ? parseInt(offset as string) : undefined,
+  });
+
+  res.json({ success: true, data: { giftCards } });
+}));
+
+// Reveal gift card code
+router.post('/gift-cards/:id/reveal',
+  param('id').isUUID().withMessage('Invalid gift card ID'),
+  sensitiveOpLimiter,
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError('Invalid gift card ID format', 400, 'VALIDATION_ERROR');
+    }
+
+    if (!fluzApi.isConfigured()) {
+      throw new AppError('Card service not configured', 503, 'PROVIDER_NOT_CONFIGURED');
+    }
+
+    const giftCardId = req.params.id as string;
+    const revealed = await fluzApi.revealGiftCard(giftCardId);
+
+    await createAuditLog({
+      userId: req.user!.id,
+      action: 'GIFT_CARD_REVEALED',
+      entityType: 'gift_card',
+      entityId: giftCardId,
+    });
+
+    res.json({ success: true, data: { code: revealed.code, pin: revealed.pin, url: revealed.url } });
+  })
+);
+
 router.post('/gift-cards/purchase',
   sensitiveOpLimiter,
   body('offerId').notEmpty().isUUID().withMessage('Invalid offer ID'),
@@ -548,6 +595,36 @@ router.get('/referral/url/:merchantId', asyncHandler(async (req: AuthenticatedRe
   res.json({ success: true, data: { referralUrl } });
 }));
 
+// Get virtual card offers (before creating)
+router.get('/virtual-cards/offers', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  if (!fluzApi.isConfigured()) {
+    throw new AppError('Card service not configured', 503, 'PROVIDER_NOT_CONFIGURED');
+  }
+
+  const cardNetwork = req.query.cardNetwork as string | undefined;
+  const input = cardNetwork ? { cardBrandLocked: true, cardType: 'DEBIT', cardNetwork: cardNetwork.toUpperCase() } : undefined;
+  const offers = await fluzApi.getVirtualCardOffers(input);
+  res.json({ success: true, data: { offers } });
+}));
+
+// Get virtual card balances
+router.post('/virtual-cards/balance',
+  body('cardIds').isArray({ min: 1 }).withMessage('cardIds array required'),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(errors.array()[0].msg, 400, 'VALIDATION_ERROR');
+    }
+    if (!fluzApi.isConfigured()) {
+      throw new AppError('Card service not configured', 503, 'PROVIDER_NOT_CONFIGURED');
+    }
+
+    const { cardIds } = req.body;
+    const balances = await fluzApi.getVirtualCardBalance(cardIds);
+    res.json({ success: true, data: { balances } });
+  })
+);
+
 // New: Bulk create virtual cards
 router.post('/virtual-cards/bulk',
   requireSuperAdmin,
@@ -564,7 +641,20 @@ router.post('/virtual-cards/bulk',
     }
 
     const { cards } = req.body;
-    const createdCards = await fluzApi.bulkCreateVirtualCards(cards, uuidv4());
+    const mappedCards = cards.map((c: any) => {
+      const duration = c.spendLimitDuration === 'TRANSACTION' || c.spendLimitDuration === 'ALL_TIME' ? 'LIFETIME'
+        : c.spendLimitDuration === 'YEARLY' ? 'ANNUAL'
+        : ['DAILY', 'WEEKLY', 'MONTHLY'].includes(c.spendLimitDuration) ? c.spendLimitDuration : 'MONTHLY';
+      return {
+        spendLimit: c.spendLimit ?? 100,
+        spendLimitDuration: duration,
+        cardNickname: c.cardholderName || c.cardNickname || undefined,
+        primaryFundingSource: 'FLUZ_BALANCE' as const,
+        lockCardNextUse: duration === 'LIFETIME' && c.spendLimitDuration === 'TRANSACTION',
+        offerId: c.offerId || undefined,
+      };
+    });
+    const createdCards = await fluzApi.bulkCreateVirtualCards(mappedCards, uuidv4());
 
     await createAuditLog({
       userId: req.user!.id,

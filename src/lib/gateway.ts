@@ -110,12 +110,12 @@ export const gateway = {
 
   async approveWithdrawal(withdrawal_id: string, admin_notes?: string) {
     await ensureAuthenticated();
-    return apiClient.post(`/admin/withdrawals/${withdrawal_id}/approve`, { admin_notes });
+    return apiClient.post(`/admin/withdrawals/${withdrawal_id}/approve`, { notes: admin_notes });
   },
 
   async rejectWithdrawal(withdrawal_id: string, admin_notes?: string) {
     await ensureAuthenticated();
-    return apiClient.post(`/admin/withdrawals/${withdrawal_id}/reject`, { admin_notes });
+    return apiClient.post(`/admin/withdrawals/${withdrawal_id}/reject`, { reason: admin_notes });
   },
 
   async adminGetAuditLogs(params?: { limit?: number; offset?: number }) {

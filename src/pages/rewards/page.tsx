@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../components/DashboardLayout';
 import { Card, CardHeader, Tabs, StatusBadge, DataTable } from '../../components/ui';
-import { EmptyState } from '../../components/EmptyState';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { useToastContext } from '../../contexts/ToastContext';
 import { rewardsApi } from '../../lib/api';
@@ -86,12 +85,12 @@ export default function RewardsPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center">
-                <i className="ri-money-dollar-circle-fill text-2xl text-emerald-600"></i>
+              <div className="w-12 h-12 bg-emerald-500/20 rounded-2xl flex items-center justify-center">
+                <i className="ri-money-dollar-circle-fill text-2xl text-emerald-400"></i>
               </div>
               <div>
-                <p className="text-sm text-slate-500">Cashback Balance</p>
-                <p className="text-2xl font-bold text-slate-900">
+                <p className="text-sm text-neutral-500">Cashback Balance</p>
+                <p className="text-2xl font-bold text-white">
                   ${((cashback?.balance_cents || 0) / 100).toFixed(2)}
                 </p>
               </div>
@@ -100,12 +99,12 @@ export default function RewardsPage() {
 
           <Card>
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center">
-                <i className="ri-user-star-fill text-2xl text-purple-600"></i>
+              <div className="w-12 h-12 bg-purple-500/20 rounded-2xl flex items-center justify-center">
+                <i className="ri-user-star-fill text-2xl text-purple-400"></i>
               </div>
               <div>
-                <p className="text-sm text-slate-500">Successful Referrals</p>
-                <p className="text-2xl font-bold text-slate-900">
+                <p className="text-sm text-neutral-500">Successful Referrals</p>
+                <p className="text-2xl font-bold text-white">
                   {referrals.filter(r => r.status === 'completed').length}
                 </p>
               </div>
@@ -114,12 +113,12 @@ export default function RewardsPage() {
 
           <Card>
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center">
-                <i className="ri-repeat-fill text-2xl text-amber-600"></i>
+              <div className="w-12 h-12 bg-amber-500/20 rounded-2xl flex items-center justify-center">
+                <i className="ri-repeat-fill text-2xl text-amber-400"></i>
               </div>
               <div>
-                <p className="text-sm text-slate-500">Monthly Subscriptions</p>
-                <p className="text-2xl font-bold text-slate-900">
+                <p className="text-sm text-neutral-500">Monthly Subscriptions</p>
+                <p className="text-2xl font-bold text-white">
                   ${(totalSubCost / 100).toFixed(2)}
                 </p>
               </div>
@@ -134,20 +133,20 @@ export default function RewardsPage() {
             <Card>
               <CardHeader title="Your Cashback" icon="ri-money-dollar-circle-line" />
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-emerald-50 rounded-xl">
+                <div className="flex items-center justify-between p-4 bg-emerald-500/20 rounded-xl">
                   <div>
-                    <p className="text-sm text-emerald-700">Available Balance</p>
-                    <p className="text-3xl font-bold text-emerald-700">
+                    <p className="text-sm text-emerald-400">Available Balance</p>
+                    <p className="text-3xl font-bold text-emerald-400">
                       ${((cashback?.balance_cents || 0) / 100).toFixed(2)}
                     </p>
                   </div>
-                  <button className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-xl transition-colors">
+                  <button className="px-4 py-2 bg-lime-500 hover:bg-lime-600 text-white font-medium rounded-xl transition-colors">
                     Withdraw
                   </button>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500">Lifetime Earned</span>
-                  <span className="font-medium text-slate-900">
+                  <span className="text-neutral-500">Lifetime Earned</span>
+                  <span className="font-medium text-white">
                     ${((cashback?.lifetime_cents || 0) / 100).toFixed(2)}
                   </span>
                 </div>
@@ -157,22 +156,22 @@ export default function RewardsPage() {
             <Card>
               <CardHeader title="How to Earn" icon="ri-lightbulb-line" />
               <div className="space-y-3">
-                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
-                  <div className="w-8 h-8 bg-sky-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <i className="ri-bank-card-line text-sky-600"></i>
+                <div className="flex items-start gap-3 p-3 bg-dark-elevated rounded-xl">
+                  <div className="w-8 h-8 bg-lime-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i className="ri-bank-card-line text-lime-400"></i>
                   </div>
                   <div>
-                    <p className="font-medium text-slate-900">Card Purchases</p>
-                    <p className="text-sm text-slate-500">Earn up to 2% on eligible purchases</p>
+                    <p className="font-medium text-white">Card Purchases</p>
+                    <p className="text-sm text-neutral-500">Earn up to 2% on eligible purchases</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
-                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <i className="ri-user-add-line text-purple-600"></i>
+                <div className="flex items-start gap-3 p-3 bg-dark-elevated rounded-xl">
+                  <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i className="ri-user-add-line text-purple-400"></i>
                   </div>
                   <div>
-                    <p className="font-medium text-slate-900">Refer Friends</p>
-                    <p className="text-sm text-slate-500">Get $10 for each successful referral</p>
+                    <p className="font-medium text-white">Refer Friends</p>
+                    <p className="text-sm text-neutral-500">Get $10 for each successful referral</p>
                   </div>
                 </div>
               </div>
@@ -186,14 +185,14 @@ export default function RewardsPage() {
               <CardHeader title="Your Referral Code" icon="ri-share-line" />
               {referralCode ? (
                 <div className="flex items-center gap-3">
-                  <div className="flex-1 p-4 bg-slate-100 rounded-xl">
-                    <p className="text-2xl font-mono font-bold text-slate-900 tracking-wider">
+                  <div className="flex-1 p-4 bg-dark-elevated rounded-xl">
+                    <p className="text-2xl font-mono font-bold text-white tracking-wider">
                       {referralCode.code}
                     </p>
                   </div>
                   <button
                     onClick={handleCopyCode}
-                    className="p-3 bg-sky-100 hover:bg-sky-200 text-sky-600 rounded-xl transition-colors"
+                    className="p-3 bg-lime-500/20 hover:bg-lime-500/30 text-lime-400 rounded-xl transition-colors"
                   >
                     <i className="ri-file-copy-line text-xl"></i>
                   </button>
@@ -201,7 +200,7 @@ export default function RewardsPage() {
               ) : (
                 <button
                   onClick={handleGenerateCode}
-                  className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-xl transition-colors"
+                  className="w-full py-3 bg-lime-500 hover:bg-lime-600 text-white font-medium rounded-xl transition-colors"
                 >
                   Generate Referral Code
                 </button>
@@ -209,13 +208,13 @@ export default function RewardsPage() {
             </Card>
 
             <Card padding="none">
-              <div className="p-4 border-b border-slate-100">
-                <h3 className="font-semibold text-slate-900">Your Referrals</h3>
+              <div className="p-4 border-b border-dark-border">
+                <h3 className="font-semibold text-white">Your Referrals</h3>
               </div>
               <DataTable
                 columns={[
                   { key: 'referee_email', label: 'Email', render: (row: any) => (
-                    <span className="text-slate-600">{row.referee_email || 'Pending signup'}</span>
+                    <span className="text-neutral-400">{row.referee_email || 'Pending signup'}</span>
                   )},
                   { key: 'status', label: 'Status', render: (row: any) => (
                     <StatusBadge status={row.status} />
@@ -239,10 +238,10 @@ export default function RewardsPage() {
 
         {activeTab === 'subscriptions' && (
           <Card padding="none">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="p-4 border-b border-dark-border flex items-center justify-between">
               <div>
-                <h3 className="font-semibold text-slate-900">Tracked Subscriptions</h3>
-                <p className="text-sm text-slate-500">
+                <h3 className="font-semibold text-white">Tracked Subscriptions</h3>
+                <p className="text-sm text-neutral-500">
                   Total: ${(totalSubCost / 100).toFixed(2)}/month
                 </p>
               </div>

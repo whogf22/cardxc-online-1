@@ -1,0 +1,69 @@
+FINAL SECURITY CLEANUP — must reduce scan to 0 issues.
+
+You will fix the remaining findings in 3 categories:
+(A) child_process called with argument `args`
+(B) raw SQL usage violating Drizzle standards
+(C) card number leakage in logs
+
+DO NOT stop until the vulnerability scanner shows 0 active issues.
+
+==================================================
+A) child_process(args) — ELIMINATE INJECTION RISK
+==================================================
+1. Search the repo for all uses of:
+   - child_process
+   - exec / execSync
+   - spawn / spawnSync
+   - any wrapper that passes `args` into spawn/exec
+2. If any part of `args` comes from request input, query params, body, headers, env, database, or user content:
+   - Replace with strict allowlist commands only (no dynamic command names).
+   - Replace free-form args with allowlisted flags/values only.
+   - Reject anything not matching allowlist (return 400).
+3. Mandatory rules:
+   - Never pass a single string command; always use spawn(file, [args...])
+   - Enforce { shell: false } always
+   - Prefer Node APIs (fs/path/crypto) instead of shell utilities
+4. If child_process is not strictly required, remove it entirely and implement the same functionality with Node APIs.
+5. Add unit tests (or minimal runtime guards) proving no user-controlled input can reach spawn/exec.
+
+==================================================
+B) Drizzle SQL compliance — REMOVE ALL raw SQL
+==================================================
+1. Find and replace every occurrence of:
+   - pool.query(...)
+   - db.execute(...)
+   - sql.raw(...)
+   - any raw string SQL (including migrations/scripts)
+2. Convert to one of:
+   - Drizzle query builder
+   - sql`...` template literal with bound params (NO string concatenation)
+3. Ensure all queries are parameterized and typed.
+4. Refactor helpers so no raw SQL entrypoints remain.
+5. Re-run TypeScript checks and ensure builds pass.
+
+==================================================
+C) Privacy: Card number exposed to logs — FIX & PROVE
+==================================================
+1. Search for any logging of:
+   - cardNumber / card_number / pan
+   - payment details
+   - request.body or headers containing payment fields
+2. Remove those logs OR mask them:
+   - Mask PAN to last 4 digits only (************1234)
+   - Mask CVV fully (***)
+3. Implement a centralized logger utility that:
+   - auto-redacts patterns matching PAN-like sequences (13–19 digits)
+   - redacts known keys (cardNumber, pan, cvv, token, password, secret)
+4. Replace all console.log / console.error in request paths with the safe logger.
+5. Add a quick test or sample run proving masked logs.
+
+==================================================
+VERIFICATION — REQUIRED
+==================================================
+1. Run lint/typecheck/tests/build.
+2. Re-run Replit security scan and confirm 0 active issues.
+3. Output:
+   - list of files changed
+   - before/after examples for spawn hardening
+   - before/after examples for Drizzle query conversion
+   - proof that logs no longer contain card numbers

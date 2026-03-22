@@ -12,6 +12,7 @@ export default function SupportPage() {
 
   useEffect(() => {
     checkAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -48,32 +49,32 @@ export default function SupportPage() {
 
   if (!authChecked || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-green-500"></div>
+      <div className="min-h-screen bg-dark-bg flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-lime-500/30 border-t-lime-500 rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="bg-white border-b border-gray-100 px-4 py-4 sticky top-0 z-40">
+    <div className="min-h-screen bg-dark-bg pb-24">
+      <div className="bg-dark-card border-b border-dark-border px-4 py-4 sticky top-0 z-40">
         <div className="max-w-lg mx-auto">
-          <h1 className="text-xl font-semibold text-gray-900">Support</h1>
+          <h1 className="text-xl font-semibold text-white">Support</h1>
         </div>
       </div>
 
       <div className="max-w-lg mx-auto px-4 py-8">
-        <div className="bg-white rounded-xl border border-gray-100 p-6 text-center">
-          <div className="w-16 h-16 mx-auto mb-4 bg-green-50 rounded-full flex items-center justify-center">
-            <i className="ri-customer-service-2-line text-3xl text-green-600"></i>
+        <div className="bg-dark-card rounded-2xl border border-dark-border p-6 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 bg-lime-500/20 rounded-full flex items-center justify-center">
+            <i className="ri-customer-service-2-line text-3xl text-lime-400"></i>
           </div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">Contact us</h2>
-          <p className="text-gray-600 mb-4">
+          <h2 className="text-lg font-semibold text-white mb-2">Contact us</h2>
+          <p className="text-neutral-400 mb-4">
             Need help? Email us and we&apos;ll get back to you as soon as we can.
           </p>
           <a
             href={`mailto:${supportEmail}`}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-lime-500 text-black font-semibold rounded-xl hover:bg-lime-400 transition-colors"
           >
             <i className="ri-mail-line"></i>
             {supportEmail}

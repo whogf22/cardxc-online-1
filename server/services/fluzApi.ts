@@ -1,5 +1,7 @@
 import { AppError } from '../middleware/errorHandler';
 import { logger } from '../middleware/logger';
+import { sanitizeApiError, sanitizeForLog } from '../lib/sanitizeLog';
+import { getUserFriendlyMessage } from '../lib/fluzErrorMessages';
 
 const FLUZ_GRAPHQL_URL =
   process.env.FLUZ_GRAPHQL_URL ||
@@ -14,7 +16,7 @@ const FLUZ_BUSINESS_ACCOUNT_ID = process.env.FLUZ_BUSINESS_ACCOUNT_ID;
 let cachedToken: string | null = null;
 let tokenExpiresAt: number = 0;
 let lastAuthFailure: number = 0;
-const AUTH_FAILURE_COOLDOWN = 60_000;
+const AUTH_FAILURE_COOLDOWN = 300_000;
 
 export interface FluzBalanceDetail {
   available: number;
@@ -127,12 +129,14 @@ export type FundingSource = 'FLUZ_BALANCE';
 
 export interface CreateVirtualCardInput {
   spendLimit: number;
-  spendLimitDuration: SpendLimitDuration;
+  spendLimitDuration?: SpendLimitDuration;
   cardNickname?: string;
   primaryFundingSource?: FundingSource;
   idempotencyKey?: string;
   lockDate?: string;
   lockCardNextUse?: boolean;
+  /** Fluz offer ID from getVirtualCardOffers - required for card creation */
+  offerId?: string;
 }
 
 export interface EditVirtualCardInput {
@@ -176,30 +180,29 @@ async function graphqlRequest<T = any>(
     const errorText = await response.text().catch(() => 'unknown');
     logger.error('Card provider GraphQL HTTP error', {
       status: response.status,
-      errorPreview: errorText.substring(0, 500),
+      errorPreview: sanitizeApiError(errorText, 80),
       operationName,
     });
-    throw new AppError(
-      'Card service request failed. Please try again later.',
-      response.status,
-      'PROVIDER_API_HTTP_ERROR'
-    );
+    const userMsg = response.status === 503
+      ? 'Service temporarily unavailable. Please try again in a few minutes.'
+      : response.status === 401
+        ? 'Card provider authentication failed. Please check API configuration.'
+        : 'Card service request failed. Please try again later.';
+    throw new AppError(userMsg, response.status, 'PROVIDER_API_HTTP_ERROR');
   }
 
   const json: GraphQLResponse<T> = await response.json();
 
   if (json.errors && json.errors.length > 0) {
     const firstError = json.errors[0];
+    const rawMessage = firstError.message || '';
     logger.error('Card provider GraphQL error', {
-      message: firstError.message,
-      extensions: firstError.extensions,
+      message: sanitizeForLog(rawMessage),
+      extensions: firstError.extensions ? '[present]' : undefined,
       operationName,
     });
-    throw new AppError(
-      'Card service encountered an error. Please try again.',
-      400,
-      'PROVIDER_GRAPHQL_ERROR'
-    );
+    const userMsg = getUserFriendlyMessage(rawMessage, 'Card service encountered an error. Please try again.');
+    throw new AppError(userMsg, 400, 'PROVIDER_GRAPHQL_ERROR');
   }
 
   if (!json.data) {
@@ -215,6 +218,7 @@ function buildBasicAuthHeader(): string {
   }
 
   const cleanKey = FLUZ_API_KEY.trim();
+  logger.debug('Card provider: auth header format detected', { format: cleanKey.startsWith('Basic ') ? 'prefixed' : cleanKey.includes(':') ? 'credentials' : 'raw' });
 
   if (cleanKey.toLowerCase().startsWith('basic basic')) {
     return `Basic ${cleanKey.substring(6).trim()}`;
@@ -264,7 +268,7 @@ export async function generateAccessToken(): Promise<string> {
     input: {
       userId: FLUZ_USER_ID,
       accountId: FLUZ_BUSINESS_ACCOUNT_ID,
-      scopes: ['VIRTUAL_CARD_READ', 'VIRTUAL_CARD_WRITE', 'WALLET_READ', 'WALLET_WRITE', 'PURCHASE_READ', 'PURCHASE_WRITE'],
+      scopes: ['VIRTUAL_CARD_READ', 'VIRTUAL_CARD_WRITE', 'WALLET_READ', 'WALLET_WRITE', 'PURCHASE_READ', 'PURCHASE_WRITE', 'LIST_PURCHASES', 'REVEAL_GIFTCARD'],
     },
   };
 
@@ -275,9 +279,12 @@ export async function generateAccessToken(): Promise<string> {
     }>(query, variables, authHeader, 'generateUserAccessToken');
   } catch (err: any) {
     if (err?.statusCode === 401 || err?.message?.includes('401')) {
+      cachedToken = null;
+      tokenExpiresAt = 0;
       lastAuthFailure = Date.now();
-      logger.error('Card provider auth failed - will retry after cooldown', {
+      logger.error('Card provider auth failed - credentials invalid or expired', {
         cooldownMs: AUTH_FAILURE_COOLDOWN,
+        errorCode: err?.statusCode || err?.code,
       });
     }
     throw err;
@@ -397,13 +404,14 @@ export async function createVirtualCard(input: CreateVirtualCardInput): Promise<
 
   const variables: Record<string, any> = {
     spendLimit: input.spendLimit,
-    spendLimitDuration: input.spendLimitDuration,
+    spendLimitDuration: input.spendLimitDuration || 'LIFETIME',
   };
   if (input.cardNickname) variables.cardNickname = input.cardNickname;
   if (input.primaryFundingSource) variables.primaryFundingSource = input.primaryFundingSource;
   if (input.idempotencyKey) variables.idempotencyKey = input.idempotencyKey;
   if (input.lockDate) variables.lockDate = input.lockDate;
   if (input.lockCardNextUse !== undefined) variables.lockCardNextUse = input.lockCardNextUse;
+  if (input.offerId) variables.offerId = input.offerId;
 
   const data = await authenticatedRequest<{ createVirtualCard: FluzVirtualCard }>(
     query,
@@ -1010,6 +1018,151 @@ export async function getBulkOrderStatus(orderId: string): Promise<{
   return data.getVirtualCardBulkOrderStatus;
 }
 
+// Get user's purchased gift cards (Fluz API docs: https://docs.fluz.app/docs/overview)
+export interface FluzGiftCard {
+  giftCardId: string;
+  purchaserUserId: string;
+  endDate: string;
+  status: string;
+  createdAt: string;
+  merchant?: { merchantId: string; name: string; logoUrl?: string };
+}
+
+export async function getGiftCards(filters?: {
+  status?: string[];
+  limit?: number;
+  offset?: number;
+}): Promise<FluzGiftCard[]> {
+  logger.info('Card provider: getGiftCards', filters);
+
+  const query = `query getGiftCards($status: [GiftCardStatus], $paginate: OffsetInput) {
+  getGiftCards(status: $status, paginate: $paginate) {
+    giftCardId
+    purchaserUserId
+    endDate
+    status
+    createdAt
+    merchant {
+      merchantId
+      name
+      logoUrl
+    }
+  }
+}`;
+
+  const variables: Record<string, any> = {};
+  if (filters?.status?.length) variables.status = filters.status;
+  if (filters?.limit !== undefined || filters?.offset !== undefined) {
+    variables.paginate = { limit: filters.limit ?? 50, offset: filters.offset ?? 0 };
+  }
+
+  const data = await authenticatedRequest<{ getGiftCards: FluzGiftCard[] }>(
+    query,
+    Object.keys(variables).length > 0 ? variables : undefined,
+    'getGiftCards'
+  );
+  return data.getGiftCards || [];
+}
+
+// Reveal gift card code (irreversible - changes status)
+export interface FluzGiftCardCode {
+  code: string;
+  pin?: string;
+  url?: string;
+}
+
+export async function revealGiftCard(giftCardId: string): Promise<FluzGiftCardCode> {
+  logger.info('Card provider: revealGiftCard', { giftCardId });
+
+  const query = `mutation revealGiftCardByGiftCardId($giftCardId: UUID!) {
+  revealGiftCardByGiftCardId(giftCardId: $giftCardId) {
+    code
+    pin
+    url
+  }
+}`;
+
+  const data = await authenticatedRequest<{ revealGiftCardByGiftCardId: FluzGiftCardCode }>(
+    query,
+    { giftCardId },
+    'revealGiftCardByGiftCardId'
+  );
+  return data.revealGiftCardByGiftCardId;
+}
+
+// Get virtual card offers before creating (Fluz API docs)
+export interface FluzVirtualCardOffer {
+  offerId: string;
+  bin?: string;
+  bankName: string;
+  rewardValue: string;
+  programLimits?: { dailyLimit?: string; weeklyLimit?: string; monthlyLimit?: string };
+  programName: string;
+}
+
+export async function getVirtualCardOffers(input?: {
+  cardBrandLocked?: boolean;
+  cardType?: string;
+  cardNetwork?: string;
+}): Promise<FluzVirtualCardOffer[]> {
+  logger.info('Card provider: getVirtualCardOffers');
+
+  const query = `query getVirtualCardOffers($input: GetVirtualCardOffersInput) {
+  getVirtualCardOffers(input: $input) {
+    offerId
+    bin
+    bankName
+    rewardValue
+    programLimits {
+      dailyLimit
+      weeklyLimit
+      monthlyLimit
+    }
+    programName
+  }
+}`;
+
+  const defaultInput = { cardBrandLocked: true, cardType: 'DEBIT', cardNetwork: 'MASTERCARD' };
+  const data = await authenticatedRequest<{ getVirtualCardOffers: FluzVirtualCardOffer[] }>(
+    query,
+    { input: input || defaultInput },
+    'getVirtualCardOffers'
+  );
+  return data.getVirtualCardOffers || [];
+}
+
+// Get balance for multiple virtual cards
+export interface FluzVirtualCardBalance {
+  virtualCardId: string;
+  spentAmount: number;
+  remainingBalance: number;
+  spendLimit: number;
+  spendLimitDuration: string;
+}
+
+export async function getVirtualCardBalance(virtualCardIds: string[]): Promise<FluzVirtualCardBalance[]> {
+  if (virtualCardIds.length === 0) return [];
+
+  logger.info('Card provider: getVirtualCardBalance', { count: virtualCardIds.length });
+
+  const query = `query getVirtualCardBalance($input: GetVirtualCardBalanceInput!) {
+  getVirtualCardBalance(input: $input) {
+    virtualCardId
+    spentAmount
+    remainingBalance
+    spendLimit
+    spendLimitDuration
+  }
+}`;
+
+  const data = await authenticatedRequest<{ getVirtualCardBalance: FluzVirtualCardBalance[] }>(
+    query,
+    { input: { virtualCardIds } },
+    'getVirtualCardBalance'
+  );
+  return data.getVirtualCardBalance || [];
+}
+
 export async function testConnection(): Promise<{ success: boolean; error?: string }> {
   if (!isConfigured()) {
     return { success: false, error: 'Card provider credentials not configured' };
@@ -1020,7 +1173,7 @@ export async function testConnection(): Promise<{ success: boolean; error?: stri
     return { success: true };
   } catch (err: any) {
     logger.error('Card provider connection test failed', {
-      message: err?.message,
+      message: sanitizeForLog(err?.message),
     });
     if (err?.statusCode === 401 || err?.message?.toLowerCase().includes('unauthorized')) {
       return { success: false, error: 'auth_failed' };

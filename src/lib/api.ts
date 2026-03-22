@@ -116,7 +116,7 @@ export const authApi = {
   async signOut() {
     try {
       return await request('/auth/logout', { method: 'POST' });
-    } catch (err) {
+    } catch {
       // Fallback to signout if logout fails
       return await request('/auth/signout', { method: 'POST' });
     }
@@ -186,6 +186,13 @@ export const authApi = {
       body: JSON.stringify({ password }),
     });
   },
+
+  async changePassword(currentPassword: string, newPassword: string) {
+    return request('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  },
 };
 
 export const userApi = {
@@ -201,7 +208,7 @@ export const userApi = {
   },
 
   async getWallets() {
-    return request<{ wallets: any[] }>('/user/wallets');
+    return request<{ wallets: any[]; usdBalance?: number; usdtBalance?: number }>('/user/wallets');
   },
 
   async getTransactions(params?: { limit?: number; offset?: number; type?: string }) {
@@ -217,6 +224,66 @@ export const userApi = {
     accountName: string;
   }) {
     return request<{ withdrawalId: string; status: string }>('/user/withdraw', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async requestCryptoWithdrawal(data: {
+    amount: number;
+    walletAddress: string;
+    network: 'TRC20' | 'ERC20' | 'BEP20' | 'POLYGON';
+  }) {
+    return request<{ withdrawalId: string; txHash?: string; message?: string }>('/withdraw/crypto', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getCryptoConfig() {
+    return request<{
+      providerName: string;
+      providerConfigured: boolean;
+      supportedNetworks: Array<'TRC20' | 'ERC20' | 'BEP20' | 'POLYGON'>;
+      addresses: Record<string, Record<string, string>>;
+    }>('/crypto/config');
+  },
+
+  async createDepositIntent(data: { amount: number; fromAddress?: string }) {
+    return request<{ depositId: string; depositAddress: string }>('/crypto/deposit/intent', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getDepositStatus(depositId: string) {
+    return request<{
+      id: string; status: string; amount: number; tx_hash: string | null;
+      confirmations: number; required_confirmations: number;
+      from_address: string | null; to_address: string; created_at: string; confirmed_at: string | null;
+    }>(`/crypto/deposit/${depositId}/status`);
+  },
+
+  async getCryptoTransactions(limit = 20) {
+    return request<Array<{
+      id: string; type: string; status: string; amount: number; currency: string;
+      network: string; tx_hash: string | null; from_address: string | null;
+      to_address: string | null; confirmations: number; fee: number;
+      created_at: string; confirmed_at: string | null; error_message: string | null;
+    }>>(`/crypto/transactions?limit=${limit}`);
+  },
+
+  async verifyTxHash(txHash: string) {
+    return request<any>(`/crypto/tx/${txHash}`);
+  },
+
+  async requestPlatformTransfer(data: {
+    amount: number;
+    recipientEmail: string;
+    walletType: 'fiat' | 'usdt';
+    message?: string;
+  }) {
+    return request<{ message: string }>('/withdraw/platform', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -278,6 +345,34 @@ export const userApi = {
 
   async getFluzReferralInfo() {
     return request<{ referral: any }>('/fluz/referral/info');
+  },
+
+  // Fluz gift cards - user's purchased cards
+  async getFluzGiftCards(filters?: { status?: string[]; limit?: number; offset?: number }) {
+    const params = new URLSearchParams();
+    if (filters?.status?.length) params.append('status', filters.status.join(','));
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.offset) params.append('offset', filters.offset.toString());
+    return request<{ giftCards: any[] }>(`/fluz/gift-cards${params.toString() ? `?${params}` : ''}`);
+  },
+
+  async revealFluzGiftCard(giftCardId: string) {
+    return request<{ code: string; pin?: string; url?: string }>(`/fluz/gift-cards/${giftCardId}/reveal`, {
+      method: 'POST',
+    });
+  },
+
+  // Fluz virtual card offers (before creating)
+  async getFluzVirtualCardOffers() {
+    return request<{ offers: any[] }>('/fluz/virtual-cards/offers');
+  },
+
+  // Fluz virtual card balances
+  async getFluzVirtualCardBalances(cardIds: string[]) {
+    return request<{ balances: any[] }>('/fluz/virtual-cards/balance', {
+      method: 'POST',
+      body: JSON.stringify({ cardIds }),
+    });
   },
 };
 
@@ -342,6 +437,10 @@ export const adminApi = {
 
   async getUserBalances() {
     return request<{ balances: any[] }>('/admin/users');
+  },
+
+  async getWallets() {
+    return request<{ wallets: Array<{ user_id: string; currency: string; balance_cents: number; reserved_cents: number; user_email: string; user_name: string }> }>('/admin/wallets');
   },
 
   async getPendingWithdrawals() {
@@ -447,7 +546,7 @@ export const adminApi = {
     });
   },
 
-  async getWebhookEvents(_limit = 50) {
+  async getWebhookEvents() {
     return { success: true, data: { events: [] } };
   },
 
@@ -679,6 +778,18 @@ export const checkoutApi = {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  },
+  async getStripeConfig() {
+    return request<{ publishableKey: string }>('/checkout/stripe-config');
+  },
+  async createStripeSession(data: { amount: number; currency: string; returnUrl: string }) {
+    return request<{ clientSecret: string; sessionId: string }>('/checkout/stripe-session', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  async getStripeSessionStatus(sessionId: string) {
+    return request<{ status: string; paymentStatus: string }>(`/checkout/stripe-session/${sessionId}/status`);
   },
 };
 

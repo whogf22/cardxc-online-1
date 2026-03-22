@@ -27,6 +27,7 @@ export default function RecentTransactions({ transactions }: RecentTransactionsP
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '—';
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
@@ -42,59 +43,59 @@ export default function RecentTransactions({ transactions }: RecentTransactionsP
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-slate-100">
-      <div className="p-6 border-b border-slate-100">
+    <div className="bg-dark-card rounded-2xl border border-dark-border">
+      <div className="p-6 border-b border-dark-border">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-slate-900">Recent Transactions</h2>
-          <a href="/transactions" className="text-sm font-medium text-emerald-600 hover:text-emerald-700 cursor-pointer whitespace-nowrap">
+          <h2 className="text-xl font-bold text-white">Recent Transactions</h2>
+          <a href="/transactions" className="text-sm font-medium text-lime-400 hover:text-lime-300 cursor-pointer whitespace-nowrap">
             View All
           </a>
         </div>
       </div>
 
-      <div className="divide-y divide-slate-100">
+      <div className="divide-y divide-dark-border">
         {transactions.length > 0 ? (
           transactions.slice(0, 10).map((transaction) => (
-            <div key={transaction.id} className="p-6 hover:bg-slate-50 transition-colors">
+            <div key={transaction.id} className="p-6 hover:bg-dark-elevated transition-colors">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
                     transaction.entry_type === 'credit'
-                      ? 'bg-emerald-100'
-                      : 'bg-red-100'
+                      ? 'bg-lime-500/20'
+                      : 'bg-red-500/20'
                   }`}>
                     <i className={`text-xl ${
                       transaction.entry_type === 'credit'
-                        ? 'ri-arrow-down-line text-emerald-600'
-                        : 'ri-arrow-up-line text-red-600'
+                        ? 'ri-arrow-down-line text-lime-400'
+                        : 'ri-arrow-up-line text-red-400'
                     }`}></i>
                   </div>
                   <div>
-                    <p className="font-semibold text-slate-900">{transaction.merchantDisplayName || transaction.merchant_display_name || transaction.description || 'Transaction'}</p>
-                    <p className="text-sm text-slate-500">{formatDate(transaction.created_at)}</p>
-                    <p className="text-xs text-slate-400 mt-1">Ref: {transaction.reference}</p>
+                    <p className="font-semibold text-white">{transaction.merchantDisplayName || transaction.merchant_display_name || transaction.description || 'Transaction'}</p>
+                    <p className="text-sm text-neutral-500">{formatDate(transaction.created_at)}</p>
+                    <p className="text-xs text-neutral-400 mt-1">Ref: {transaction.reference}</p>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className={`text-lg font-bold ${
                     transaction.entry_type === 'credit'
-                      ? 'text-emerald-600'
-                      : 'text-red-600'
+                      ? 'text-lime-400'
+                      : 'text-red-400'
                   }`}>
                     {transaction.entry_type === 'credit' ? '+' : '-'}{formatAmount(transaction.amount, transaction.currency)}
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">{transaction.currency}</p>
+                  <p className="text-xs text-neutral-500 mt-1">{transaction.currency}</p>
                 </div>
               </div>
             </div>
           ))
         ) : (
           <div className="p-12 text-center">
-            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <i className="ri-history-line text-3xl text-slate-400"></i>
+            <div className="w-16 h-16 bg-dark-elevated rounded-full flex items-center justify-center mx-auto mb-4">
+              <i className="ri-history-line text-3xl text-neutral-500"></i>
             </div>
-            <h3 className="text-lg font-bold text-slate-900 mb-2">No Transactions Yet</h3>
-            <p className="text-slate-600">Your transaction history will appear here once you start using your wallet.</p>
+            <h3 className="text-lg font-bold text-white mb-2">No Transactions Yet</h3>
+            <p className="text-neutral-400">Your transaction history will appear here once you start using your wallet.</p>
           </div>
         )}
       </div>

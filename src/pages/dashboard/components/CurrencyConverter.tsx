@@ -18,6 +18,16 @@ export default function CurrencyConverter({ currencyRates }: CurrencyConverterPr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [amount, fromCurrency, toCurrency, transactionType, currencyRates]);
 
+  const FALLBACK_RATES: Record<string, number> = { USD: 1, NGN: 1580, BDT: 110, EUR: 0.92, GBP: 0.79 };
+  const FALLBACK_CURRENCIES = [
+    { currency_code: 'USD' },
+    { currency_code: 'NGN' },
+    { currency_code: 'BDT' },
+    { currency_code: 'EUR' },
+    { currency_code: 'GBP' },
+  ];
+  const ratesForSelect = currencyRates?.length ? currencyRates : FALLBACK_CURRENCIES;
+
   const calculateConversion = () => {
     if (!amount || parseFloat(amount) <= 0) {
       setConvertedAmount('0');
@@ -26,12 +36,12 @@ export default function CurrencyConverter({ currencyRates }: CurrencyConverterPr
 
     const fromRate = currencyRates.find(r => r.currency_code === fromCurrency);
     const toRate = currencyRates.find(r => r.currency_code === toCurrency);
-
-    if (!fromRate || !toRate) return;
+    const fromVal = fromRate?.rate_to_usd ?? FALLBACK_RATES[fromCurrency] ?? 1;
+    const toVal = toRate?.rate_to_usd ?? FALLBACK_RATES[toCurrency] ?? 1;
 
     const amountNum = parseFloat(amount);
-    const usdAmount = amountNum * fromRate.rate_to_usd;
-    const result = usdAmount / toRate.rate_to_usd;
+    const usdAmount = amountNum / fromVal;
+    const result = usdAmount * toVal;
     
     setConvertedAmount(result.toFixed(2));
   };
@@ -92,7 +102,7 @@ export default function CurrencyConverter({ currencyRates }: CurrencyConverterPr
             onChange={(e) => setFromCurrency(e.target.value)}
             className="px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none text-sm cursor-pointer"
           >
-            {currencyRates.map((rate) => (
+            {ratesForSelect.map((rate) => (
               <option key={rate.currency_code} value={rate.currency_code}>
                 {rate.currency_code}
               </option>
@@ -131,7 +141,7 @@ export default function CurrencyConverter({ currencyRates }: CurrencyConverterPr
             onChange={(e) => setToCurrency(e.target.value)}
             className="px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none text-sm cursor-pointer"
           >
-            {currencyRates.map((rate) => (
+            {ratesForSelect.map((rate) => (
               <option key={rate.currency_code} value={rate.currency_code}>
                 {rate.currency_code}
               </option>

@@ -1,6 +1,7 @@
 import { BrowserRouter } from 'react-router-dom';
 import { AppRoutes } from './router';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { SkipToContent } from './components/SkipToContent';
 import { SessionGuard } from './components/SessionGuard';
 import { MaintenanceGate } from './components/MaintenanceGate';
 import { AdminDomainGuard } from './components/AdminDomainGuard';
@@ -17,6 +18,7 @@ function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter basename={__BASE_PATH__}>
+        <SkipToContent />
         <AuthProvider>
           <ToastProvider>
             <LocaleProvider>

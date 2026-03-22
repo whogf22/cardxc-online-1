@@ -27,6 +27,7 @@ export default function RiskMonitorTab() {
 
   useEffect(() => {
     filterIndicators();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [riskIndicators, severityFilter]);
 
   const loadRiskIndicators = async () => {

@@ -52,7 +52,7 @@ export async function checkBiometricSupport(): Promise<{
       available: true,
       message: 'Biometric authentication is available',
     };
-  } catch (error) {
+  } catch {
     return {
       available: false,
       message: 'Error checking biometric support',

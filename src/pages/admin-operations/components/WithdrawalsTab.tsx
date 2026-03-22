@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { adminApi } from '../../../lib/api';
 import { gateway } from '../../../lib/gateway';
+import { formatDateTime } from '../../../lib/localeUtils';
 
 interface WithdrawalRequest {
   id: string;
@@ -46,6 +47,7 @@ export default function WithdrawalsTab() {
 
   useEffect(() => {
     filterWithdrawals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [withdrawals, statusFilter]);
 
   const loadWithdrawals = async () => {
@@ -99,18 +101,18 @@ export default function WithdrawalsTab() {
     const balance = parseFloat(withdrawal.user_balance?.toString() || '0');
 
     if (amount > balance) {
-      return { level: 'CRITICAL', color: 'bg-red-100 text-red-700 border-red-300' };
+      return { level: 'CRITICAL', color: 'bg-red-500/20 text-red-400 border-red-500/30' };
     }
 
     if (amount > 10000) {
-      return { level: 'HIGH', color: 'bg-orange-100 text-orange-700 border-orange-300' };
+      return { level: 'HIGH', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' };
     }
 
     if (amount > 5000) {
-      return { level: 'MEDIUM', color: 'bg-amber-100 text-amber-700 border-amber-300' };
+      return { level: 'MEDIUM', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' };
     }
 
-    return { level: 'LOW', color: 'bg-green-100 text-green-700 border-green-300' };
+    return { level: 'LOW', color: 'bg-lime-500/20 text-lime-400 border-lime-500/30' };
   };
 
   const openConfirmModal = (type: 'approve' | 'reject', withdrawal: WithdrawalRequest) => {
@@ -179,11 +181,11 @@ export default function WithdrawalsTab() {
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      pending: 'bg-amber-100 text-amber-700 border-amber-200',
-      approved: 'bg-green-100 text-green-700 border-green-200',
-      rejected: 'bg-red-100 text-red-700 border-red-200',
-      completed: 'bg-blue-100 text-blue-700 border-blue-200',
-      failed: 'bg-red-100 text-red-700 border-red-200',
+      pending: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+      approved: 'bg-lime-500/20 text-lime-400 border-lime-500/30',
+      rejected: 'bg-red-500/20 text-red-400 border-red-500/30',
+      completed: 'bg-lime-500/20 text-lime-400 border-lime-500/30',
+      failed: 'bg-red-500/20 text-red-400 border-red-500/30',
     };
     return styles[status as keyof typeof styles] || styles.pending;
   };
@@ -191,11 +193,11 @@ export default function WithdrawalsTab() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="bg-white rounded-lg border border-slate-200 p-6 animate-pulse">
-          <div className="h-8 bg-slate-200 rounded w-48 mb-4"></div>
+        <div className="bg-dark-card rounded-lg border border-dark-border p-6 animate-pulse">
+          <div className="h-8 bg-dark-elevated rounded w-48 mb-4"></div>
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-24 bg-slate-100 rounded"></div>
+              <div key={i} className="h-24 bg-dark-elevated rounded"></div>
             ))}
           </div>
         </div>
@@ -206,12 +208,12 @@ export default function WithdrawalsTab() {
   return (
     <div className="space-y-6">
       {/* Critical Security Banner */}
-      <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4">
+      <div className="bg-red-500/10 border-2 border-red-500/30 rounded-lg p-4">
         <div className="flex items-start gap-3">
-          <i className="ri-shield-check-line text-red-600 text-2xl mt-0.5"></i>
+          <i className="ri-shield-check-line text-red-400 text-2xl mt-0.5"></i>
           <div className="flex-1">
-            <h3 className="text-red-900 font-bold text-sm">CRITICAL: Withdrawal Approval System</h3>
-            <p className="text-red-700 text-sm mt-1">
+            <h3 className="text-red-400 font-bold text-sm">CRITICAL: Withdrawal Approval System</h3>
+            <p className="text-red-300/90 text-sm mt-1">
               All withdrawal approvals are processed via API Gateway with server-side validation.
               Balance checks, cooldown enforcement, and fraud detection are performed server-side.
               All actions are logged for audit compliance. NO direct database modifications allowed.
@@ -222,13 +224,13 @@ export default function WithdrawalsTab() {
 
       {/* Error Display */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
           <div className="flex items-center gap-3">
-            <i className="ri-error-warning-line text-red-600 text-xl"></i>
-            <p className="text-red-700 text-sm">{error}</p>
+            <i className="ri-error-warning-line text-red-400 text-xl"></i>
+            <p className="text-red-300 text-sm">{error}</p>
             <button
               onClick={() => setError('')}
-              className="ml-auto text-red-600 hover:text-red-800"
+              className="ml-auto text-red-400 hover:text-red-300"
             >
               <i className="ri-close-line text-xl"></i>
             </button>
@@ -238,45 +240,45 @@ export default function WithdrawalsTab() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <p className="text-sm text-slate-600 mb-1">Total Requests</p>
-          <p className="text-2xl font-bold text-slate-900">{withdrawals.length}</p>
+        <div className="bg-dark-card rounded-lg border border-dark-border p-4">
+          <p className="text-sm text-neutral-400 mb-1">Total Requests</p>
+          <p className="text-2xl font-bold text-white">{withdrawals.length}</p>
         </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <p className="text-sm text-slate-600 mb-1">Pending</p>
-          <p className="text-2xl font-bold text-amber-600">
+        <div className="bg-dark-card rounded-lg border border-dark-border p-4">
+          <p className="text-sm text-neutral-400 mb-1">Pending</p>
+          <p className="text-2xl font-bold text-amber-400">
             {withdrawals.filter((w) => w.status === 'pending').length}
           </p>
         </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <p className="text-sm text-slate-600 mb-1">Approved</p>
-          <p className="text-2xl font-bold text-green-600">
+        <div className="bg-dark-card rounded-lg border border-dark-border p-4">
+          <p className="text-sm text-neutral-400 mb-1">Approved</p>
+          <p className="text-2xl font-bold text-lime-400">
             {withdrawals.filter((w) => w.status === 'approved').length}
           </p>
         </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <p className="text-sm text-slate-600 mb-1">Rejected</p>
-          <p className="text-2xl font-bold text-red-600">
+        <div className="bg-dark-card rounded-lg border border-dark-border p-4">
+          <p className="text-sm text-neutral-400 mb-1">Rejected</p>
+          <p className="text-2xl font-bold text-red-400">
             {withdrawals.filter((w) => w.status === 'rejected').length}
           </p>
         </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <p className="text-sm text-slate-600 mb-1">Completed</p>
-          <p className="text-2xl font-bold text-blue-600">
+        <div className="bg-dark-card rounded-lg border border-dark-border p-4">
+          <p className="text-sm text-neutral-400 mb-1">Completed</p>
+          <p className="text-2xl font-bold text-lime-400">
             {withdrawals.filter((w) => w.status === 'completed').length}
           </p>
         </div>
       </div>
 
       {/* Filter */}
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
-        <label className="block text-sm font-medium text-slate-700 mb-2">
+      <div className="bg-dark-card rounded-lg border border-dark-border p-6">
+        <label className="block text-sm font-medium text-neutral-400 mb-2">
           Filter by Status
         </label>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="w-full md:w-64 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sm"
+          className="input-dark w-full md:w-64 px-4 py-2 rounded-lg text-sm"
         >
           <option value="all">All Statuses</option>
           <option value="pending">Pending (Action Required)</option>
@@ -290,9 +292,9 @@ export default function WithdrawalsTab() {
       {/* Withdrawals List */}
       <div className="space-y-4">
         {filteredWithdrawals.length === 0 ? (
-          <div className="bg-white rounded-lg border border-slate-200 p-12 text-center">
-            <i className="ri-bank-card-line text-slate-300 text-5xl mb-4"></i>
-            <p className="text-slate-500 text-lg">No withdrawal requests found</p>
+          <div className="bg-dark-card rounded-lg border border-dark-border p-12 text-center">
+            <i className="ri-bank-card-line text-neutral-500 text-5xl mb-4"></i>
+            <p className="text-neutral-400 text-lg">No withdrawal requests found</p>
           </div>
         ) : (
           filteredWithdrawals.map((withdrawal) => {
@@ -302,20 +304,20 @@ export default function WithdrawalsTab() {
             return (
               <div
                 key={withdrawal.id}
-                className="bg-white rounded-lg border border-slate-200 p-6 hover:shadow-lg transition-shadow"
+                className="bg-dark-card rounded-lg border border-dark-border p-6 hover:border-lime-500/30 transition-colors"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-sky-500 to-purple-600 rounded-full flex items-center justify-center">
-                      <span className="text-white text-lg font-semibold">
+                    <div className="w-12 h-12 bg-lime-500 rounded-full flex items-center justify-center">
+                      <span className="text-black text-lg font-semibold">
                         {withdrawal.user_email?.charAt(0).toUpperCase() || 'U'}
                       </span>
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-slate-900">
+                      <h3 className="text-lg font-semibold text-white">
                         {withdrawal.user_name || 'N/A'}
                       </h3>
-                      <p className="text-sm text-slate-600">{withdrawal.user_email}</p>
+                      <p className="text-sm text-neutral-400">{withdrawal.user_email}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -334,26 +336,26 @@ export default function WithdrawalsTab() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                   <div>
-                    <p className="text-xs text-slate-500 mb-1">Withdrawal Amount</p>
-                    <p className="text-xl font-bold text-slate-900">
+                    <p className="text-xs text-neutral-500 mb-1">Withdrawal Amount</p>
+                    <p className="text-xl font-bold text-white">
                       {withdrawal.currency} {parseFloat(withdrawal.amount.toString()).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500 mb-1">Current Balance</p>
-                    <p className="text-xl font-bold text-green-600">
+                    <p className="text-xs text-neutral-500 mb-1">Current Balance</p>
+                    <p className="text-xl font-bold text-lime-400">
                       {withdrawal.currency} {parseFloat(withdrawal.user_balance?.toString() || '0').toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500 mb-1">Bank Name</p>
-                    <p className="text-sm font-medium text-slate-900">
+                    <p className="text-xs text-neutral-500 mb-1">Bank Name</p>
+                    <p className="text-sm font-medium text-white">
                       {withdrawal.bank_name || 'N/A'}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500 mb-1">Account Number</p>
-                    <p className="text-sm font-mono text-slate-900">
+                    <p className="text-xs text-neutral-500 mb-1">Account Number</p>
+                    <p className="text-sm font-mono text-white">
                       {withdrawal.account_number || 'N/A'}
                     </p>
                   </div>
@@ -361,31 +363,31 @@ export default function WithdrawalsTab() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <p className="text-xs text-slate-500 mb-1">Account Name</p>
-                    <p className="text-sm font-medium text-slate-900">
+                    <p className="text-xs text-neutral-500 mb-1">Account Name</p>
+                    <p className="text-sm font-medium text-white">
                       {withdrawal.account_name || 'N/A'}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500 mb-1">Request Date</p>
-                    <p className="text-sm text-slate-900">
-                      {new Date(withdrawal.created_at).toLocaleString()}
+                    <p className="text-xs text-neutral-500 mb-1">Request Date</p>
+                    <p className="text-sm text-neutral-300">
+                      {formatDateTime(withdrawal.created_at)}
                     </p>
                   </div>
                 </div>
 
                 {withdrawal.admin_notes && (
-                  <div className="bg-slate-50 rounded-lg p-3 mb-4">
-                    <p className="text-xs text-slate-500 mb-1">Admin Notes</p>
-                    <p className="text-sm text-slate-900">{withdrawal.admin_notes}</p>
+                  <div className="bg-dark-elevated rounded-lg p-3 mb-4">
+                    <p className="text-xs text-neutral-500 mb-1">Admin Notes</p>
+                    <p className="text-sm text-white">{withdrawal.admin_notes}</p>
                   </div>
                 )}
 
                 {parseFloat(withdrawal.amount.toString()) > parseFloat(withdrawal.user_balance?.toString() || '0') && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                  <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4">
                     <div className="flex items-center gap-2">
-                      <i className="ri-error-warning-line text-red-600"></i>
-                      <p className="text-sm text-red-700 font-semibold">
+                      <i className="ri-error-warning-line text-red-400"></i>
+                      <p className="text-sm text-red-300 font-semibold">
                         INSUFFICIENT BALANCE - Cannot approve this withdrawal
                       </p>
                     </div>
@@ -393,11 +395,11 @@ export default function WithdrawalsTab() {
                 )}
 
                 {withdrawal.status === 'pending' && (
-                  <div className="flex gap-3 pt-4 border-t border-slate-200">
+                  <div className="flex gap-3 pt-4 border-t border-dark-border">
                     <button
                       onClick={() => openConfirmModal('approve', withdrawal)}
                       disabled={isProcessing || parseFloat(withdrawal.amount.toString()) > parseFloat(withdrawal.user_balance?.toString() || '0')}
-                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 px-4 py-2 bg-lime-500 text-black rounded-lg hover:bg-lime-400 transition-colors text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isProcessing ? (
                         <>
@@ -430,25 +432,25 @@ export default function WithdrawalsTab() {
       {/* Confirmation Modal */}
       {confirmModal.show && confirmModal.withdrawal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-slate-900 mb-4">
+          <div className="bg-dark-card rounded-lg max-w-md w-full p-6 border border-dark-border">
+            <h3 className="text-xl font-bold text-white mb-4">
               {confirmModal.type === 'approve' ? 'Approve Withdrawal' : 'Reject Withdrawal'}
             </h3>
 
-            <div className="bg-slate-50 rounded-lg p-4 mb-4">
-              <p className="text-sm text-slate-600 mb-2">Withdrawal Details:</p>
-              <p className="text-lg font-bold text-slate-900">
+            <div className="bg-dark-elevated rounded-lg p-4 mb-4">
+              <p className="text-sm text-neutral-400 mb-2">Withdrawal Details:</p>
+              <p className="text-lg font-bold text-white">
                 {confirmModal.withdrawal.currency}{' '}
                 {parseFloat(confirmModal.withdrawal.amount.toString()).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
-              <p className="text-sm text-slate-600 mt-2">
+              <p className="text-sm text-neutral-400 mt-2">
                 User: {confirmModal.withdrawal.user_name} ({confirmModal.withdrawal.user_email})
               </p>
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Admin Notes {confirmModal.type === 'reject' && <span className="text-red-600">*</span>}
+              <label className="block text-sm font-medium text-neutral-400 mb-2">
+                Admin Notes {confirmModal.type === 'reject' && <span className="text-red-400">*</span>}
               </label>
               <textarea
                 value={adminNotes}
@@ -458,13 +460,13 @@ export default function WithdrawalsTab() {
                     ? 'Optional notes...'
                     : 'Required: Reason for rejection...'
                 }
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sm"
+                className="input-dark w-full px-4 py-2 rounded-lg text-sm"
                 rows={3}
               />
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-              <p className="text-xs text-blue-700">
+            <div className="bg-neutral-500/10 border border-neutral-500/30 rounded-lg p-3 mb-4">
+              <p className="text-xs text-neutral-400">
                 <i className="ri-information-line"></i> This action will be logged server-side for audit compliance.
                 All validations are performed by the backend.
               </p>
@@ -474,7 +476,7 @@ export default function WithdrawalsTab() {
               <button
                 onClick={closeConfirmModal}
                 disabled={!!processing}
-                className="flex-1 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors text-sm font-medium disabled:opacity-50"
+                className="flex-1 px-4 py-2 bg-dark-elevated text-neutral-300 rounded-lg hover:bg-dark-hover transition-colors text-sm font-medium disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -483,7 +485,7 @@ export default function WithdrawalsTab() {
                 disabled={!!processing}
                 className={`flex-1 px-4 py-2 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50 ${
                   confirmModal.type === 'approve'
-                    ? 'bg-green-600 hover:bg-green-700'
+                    ? 'bg-lime-500 hover:bg-lime-400 text-black'
                     : 'bg-red-600 hover:bg-red-700'
                 }`}
               >

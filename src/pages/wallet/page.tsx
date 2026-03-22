@@ -1,12 +1,16 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userApi, authApi } from '../../lib/api';
+import { formatDateTime } from '../../lib/localeUtils';
 import WalletHeader from './components/WalletHeader';
 import BalanceCards from './components/BalanceCards';
 import QuickActions from './components/QuickActions';
 import RecentTransactions from './components/RecentTransactions';
 import DepositModal from './components/DepositModal';
 import WithdrawModal from './components/WithdrawModal';
+import WithdrawTypeModal from '../dashboard/components/WithdrawTypeModal';
+import CryptoWithdrawModal from './components/CryptoWithdrawModal';
+import PlatformTransferModal from '../dashboard/components/PlatformTransferModal';
 import {
   AreaChart,
   Area,
@@ -43,7 +47,14 @@ export default function WalletPage() {
 
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [showWithdrawTypeModal, setShowWithdrawTypeModal] = useState(false);
+  const [showCryptoWithdrawModal, setShowCryptoWithdrawModal] = useState(false);
+  const [showPlatformTransferModal, setShowPlatformTransferModal] = useState(false);
   const [selectedCurrency, setSelectedCurrency] = useState('NGN');
+  const [usdBalance, setUsdBalance] = useState(0);
+  const [usdtBalance, setUsdtBalance] = useState(0);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const balanceChartData = useMemo(() => {
     if (transactions.length === 0) return [];
@@ -60,6 +71,7 @@ export default function WalletPage() {
 
   useEffect(() => {
     checkAuthAndLoadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkAuthAndLoadData = async () => {
@@ -71,6 +83,7 @@ export default function WalletPage() {
       }
       setUser(sessionResult.data.user);
       await Promise.all([loadBalances(), loadTransactions()]);
+      setLastUpdatedAt(new Date());
     } catch (error) {
       console.error('[WalletPage] Auth check failed:', error);
       navigate('/signin');
@@ -81,33 +94,18 @@ export default function WalletPage() {
 
   const loadBalances = async () => {
     try {
-      // Fetch combined wallet data (USD + USDT)
-      const response = await fetch('/api/user/wallet', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      const data = await response.json();
-
-      if (data.success && data.data) {
-        const walletData = data.data;
-
-        // Format as expected by BalanceCards
-        setBalances([{
-          currency: walletData.currency || 'USD',
-          available_balance: (walletData.balance || 0) / 100,
-          reserved_balance: (walletData.reserved_cents || 0) / 100,
-          total_balance: ((walletData.balance || 0) + (walletData.reserved_cents || 0)) / 100,
-        }]);
-      } else {
-        // Fallback to existing API method if dedicated endpoint fails
-        const result = await userApi.getWallets();
-        if (result.success) {
-          setBalances(result.data.wallets.map((w: any) => ({
-            currency: w.currency,
-            available_balance: w.available_balance || 0,
-            reserved_balance: w.reserved_balance || 0,
-            total_balance: (w.available_balance || 0) + (w.reserved_balance || 0)
-          })));
-        }
+      const result = await userApi.getWallets();
+      if (result.success && result.data) {
+        const { wallets = [], usdBalance: usd = 0, usdtBalance: usdt = 0 } = result.data;
+        setUsdBalance(usd);
+        setUsdtBalance(usdt);
+        setBalances((wallets as any[]).map((w: any) => ({
+          currency: w.currency,
+          available_balance: w.available ?? w.balance ?? 0,
+          reserved_balance: w.reserved ?? 0,
+          total_balance: (w.available ?? w.balance ?? 0) + (w.reserved ?? 0),
+          usdtBalance: w.currency === 'USD' ? usdt : undefined,
+        })));
       }
     } catch (e) {
       console.error('Failed to load balances', e);
@@ -123,33 +121,59 @@ export default function WalletPage() {
     }
   };
 
+  const refreshData = async () => {
+    await Promise.all([loadBalances(), loadTransactions()]);
+    setLastUpdatedAt(new Date());
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refreshData();
+    setRefreshing(false);
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-dark-bg flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400 font-medium">Loading Wallet...</p>
+          <div className="w-16 h-16 border-4 border-lime-500/30 border-t-lime-500 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-neutral-400 font-medium">Loading Wallet...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50">
+    <div className="min-h-screen bg-dark-bg text-white">
       <WalletHeader user={user} />
 
-      <main className="max-w-7xl mx-auto px-4 py-12 space-y-12">
+      <main id="main-content" className="max-w-7xl mx-auto px-4 py-12 space-y-12" tabIndex={-1}>
         {/* Hero Section with Glassmorphism */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
-            <div className="relative overflow-hidden bg-gradient-to-br from-emerald-600/20 to-teal-600/20 rounded-3xl border border-white/10 p-8 backdrop-blur-xl">
+            <div className="relative overflow-hidden bg-dark-card rounded-3xl border border-dark-border p-8">
               <div className="relative z-10 flex justify-between items-start">
                 <div>
                   <h1 className="text-4xl font-extrabold tracking-tight mb-2">My Balance</h1>
-                  <p className="text-slate-400 font-medium">Global Multi-Currency Account</p>
+                  <p className="text-neutral-400 font-medium">Global Multi-Currency Account</p>
+                  {lastUpdatedAt && (
+                    <p className="text-xs text-neutral-500 mt-1">
+                      Last updated: {formatDateTime(lastUpdatedAt)}
+                    </p>
+                  )}
                 </div>
-                <div className="bg-white/10 p-4 rounded-2xl border border-white/10">
-                  <i className="ri-safe-2-line text-3xl text-emerald-400"></i>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    className="bg-dark-elevated hover:bg-dark-hover p-3 rounded-xl border border-dark-border transition-colors disabled:opacity-50"
+                    title="Refresh balance"
+                  >
+                    <i className={`ri-refresh-line text-xl text-lime-400 ${refreshing ? 'animate-spin' : ''}`}></i>
+                  </button>
+                  <div className="bg-dark-elevated p-4 rounded-2xl border border-dark-border">
+                    <i className="ri-safe-2-line text-3xl text-lime-400"></i>
+                  </div>
                 </div>
               </div>
 
@@ -157,32 +181,32 @@ export default function WalletPage() {
                 <BalanceCards
                   balances={balances}
                   onDeposit={(curr) => { setSelectedCurrency(curr); setShowDepositModal(true); }}
-                  onWithdraw={(curr) => { setSelectedCurrency(curr); setShowWithdrawModal(true); }}
+                  onWithdraw={() => setShowWithdrawTypeModal(true)}
                 />
               </div>
             </div>
 
             {/* Dynamic Chart Integration */}
-            <div className="bg-slate-900/50 rounded-3xl border border-slate-800 p-6">
+            <div className="bg-dark-card rounded-3xl border border-dark-border p-6">
               <div className="flex items-center justify-between mb-8">
-                <h3 className="text-xl font-bold">Balance Analytics</h3>
-                <span className="text-xs font-bold text-slate-500 bg-slate-500/10 px-3 py-1 rounded-full uppercase">Weekly</span>
+                <h3 className="text-xl font-bold text-white">Balance Analytics</h3>
+                <span className="text-xs font-bold text-neutral-500 bg-dark-elevated px-3 py-1 rounded-full uppercase">Weekly</span>
               </div>
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={balanceChartData}>
                     <defs>
                       <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                        <stop offset="5%" stopColor="#84CC16" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#84CC16" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
-                    <XAxis dataKey="day" stroke="#475569" fontSize={12} axisLine={false} tickLine={false} />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1a1a1a" />
+                    <XAxis dataKey="day" stroke="#737373" fontSize={12} axisLine={false} tickLine={false} />
                     <Tooltip
-                      contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '16px' }}
+                      contentStyle={{ backgroundColor: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: '16px' }}
                     />
-                    <Area type="monotone" dataKey="amount" stroke="#10b981" fillOpacity={1} fill="url(#colorAmount)" strokeWidth={3} />
+                    <Area type="monotone" dataKey="amount" stroke="#84CC16" fillOpacity={1} fill="url(#colorAmount)" strokeWidth={3} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -192,23 +216,23 @@ export default function WalletPage() {
           <div className="space-y-6">
             <QuickActions
               onDeposit={() => { setSelectedCurrency('USD'); setShowDepositModal(true); }}
-              onWithdraw={() => { setSelectedCurrency('USD'); setShowWithdrawModal(true); }}
+              onWithdraw={() => setShowWithdrawTypeModal(true)}
             />
 
-            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-8 text-white shadow-2xl shadow-blue-500/20">
-              <h3 className="text-xl font-bold mb-4">Security Insights</h3>
+            <div className="bg-dark-card rounded-3xl border border-dark-border p-8">
+              <h3 className="text-xl font-bold text-white mb-4">Security Insights</h3>
               <div className="space-y-4">
                 <div className="flex gap-3">
-                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
-                    <i className="ri-shield-check-line"></i>
+                  <div className="w-10 h-10 bg-lime-500/20 rounded-xl flex items-center justify-center shrink-0">
+                    <i className="ri-shield-check-line text-lime-400"></i>
                   </div>
-                  <p className="text-sm opacity-90">Your account is secured with advanced encryption and monitoring.</p>
+                  <p className="text-sm text-neutral-400">Your account is secured with advanced encryption and monitoring.</p>
                 </div>
                 <div className="flex gap-3">
-                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
-                    <i className="ri-earth-line"></i>
+                  <div className="w-10 h-10 bg-lime-500/20 rounded-xl flex items-center justify-center shrink-0">
+                    <i className="ri-earth-line text-lime-400"></i>
                   </div>
-                  <p className="text-sm opacity-90">All transactions are monitored for suspicious activity.</p>
+                  <p className="text-sm text-neutral-400">All transactions are monitored for suspicious activity.</p>
                 </div>
               </div>
             </div>
@@ -221,8 +245,46 @@ export default function WalletPage() {
       </main>
 
       {/* Modals Mapping */}
-      {showDepositModal && <DepositModal currency={selectedCurrency} onClose={() => setShowDepositModal(false)} onSuccess={() => { loadBalances(); loadTransactions(); }} />}
-      {showWithdrawModal && <WithdrawModal currency={selectedCurrency} availableBalance={balances.find(b => b.currency === selectedCurrency)?.available_balance || 0} onClose={() => setShowWithdrawModal(false)} onSuccess={() => { loadBalances(); loadTransactions(); }} />}
+      {showDepositModal && <DepositModal currency={selectedCurrency} onClose={() => setShowDepositModal(false)} onSuccess={refreshData} />}
+
+      {showWithdrawTypeModal && (
+        <WithdrawTypeModal
+          isOpen={showWithdrawTypeModal}
+          onClose={() => setShowWithdrawTypeModal(false)}
+          onSelectCrypto={() => { setShowWithdrawTypeModal(false); setShowCryptoWithdrawModal(true); }}
+          onSelectFiat={() => { setShowWithdrawTypeModal(false); setSelectedCurrency('USD'); setShowWithdrawModal(true); }}
+          onSelectPlatform={() => { setShowWithdrawTypeModal(false); setShowPlatformTransferModal(true); }}
+          usdtBalance={usdtBalance}
+          usdBalance={usdBalance}
+        />
+      )}
+
+      {showWithdrawModal && (
+        <WithdrawModal
+          currency="USD"
+          availableBalance={usdBalance}
+          onClose={() => setShowWithdrawModal(false)}
+          onSuccess={() => { setShowWithdrawModal(false); refreshData(); }}
+        />
+      )}
+
+      {showCryptoWithdrawModal && (
+        <CryptoWithdrawModal
+          initialAsset="USDT"
+          cryptoBalances={{ USDT: usdtBalance }}
+          onClose={() => setShowCryptoWithdrawModal(false)}
+          onSuccess={() => { setShowCryptoWithdrawModal(false); refreshData(); }}
+        />
+      )}
+
+      {showPlatformTransferModal && (
+        <PlatformTransferModal
+          isOpen={showPlatformTransferModal}
+          onClose={() => setShowPlatformTransferModal(false)}
+          onSuccess={() => { setShowPlatformTransferModal(false); refreshData(); }}
+          totalBalance={usdBalance + usdtBalance}
+        />
+      )}
     </div>
   );
 }

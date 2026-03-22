@@ -91,3 +91,11 @@ Pictures/
 Movies/
 Music/
 Applications/
+
+# Security - keys and certificates
+*.key
+*.p12
+*.pfx
+*.cert
+%HOMEPATH%*
+.gitleaksignore

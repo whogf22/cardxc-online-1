@@ -26,7 +26,7 @@ export default function AuthCallbackPage() {
       
       const accessToken = hashParams.get('access_token') || queryParams.get('access_token');
       const refreshToken = hashParams.get('refresh_token') || queryParams.get('refresh_token');
-      const type = hashParams.get('type') || queryParams.get('type');
+      void (hashParams.get('type') || queryParams.get('type'));
 
       console.log('[AuthCallback] Error check performed');
       console.log('[AuthCallback] Token status checked');

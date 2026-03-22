@@ -2,12 +2,11 @@ import { Link } from 'react-router-dom';
 import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_TEL, SUPPORT_WHATSAPP_URL } from '../../../lib/contactPlaceholders';
 
 const QUICK_LINKS = [
-  { label: 'About Us', href: '#about' },
-  { label: 'How It Works', href: '#how-it-works' },
-  { label: 'FAQ', href: '#faq' },
-  { label: 'Exchange Rates', href: '#rates' },
-  { label: 'Contact', href: '#contact' },
-] as const;
+  { label: 'Features', href: '/#features' },
+  { label: 'How It Works', to: '/how-it-works' },
+  { label: 'FAQ', to: '/how-it-works' },
+  { label: 'Contact', href: '/#contact' },
+];
 
 const LEGAL_LINKS = [
   { label: 'Terms of Service', to: '/terms' },
@@ -29,9 +28,9 @@ interface FooterProps {
 
 export default function Footer({ onOpenContact }: FooterProps) {
   return (
-    <footer className="bg-[#0a0a0a] border-t border-white/[0.06] text-white">
-      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 py-14 lg:py-16">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-12">
+    <footer id="contact" className="bg-[#0a0a0a] border-t border-white/[0.06] text-white w-full overflow-x-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-10 sm:py-14 lg:py-16 w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-10 lg:gap-12">
           <div className="space-y-5">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-lime-500 rounded-lg flex items-center justify-center shadow-glow-sm">
@@ -71,6 +70,13 @@ export default function Footer({ onOpenContact }: FooterProps) {
                     >
                       {link.label}
                     </button>
+                  ) : 'to' in link && link.to ? (
+                    <Link
+                      to={link.to}
+                      className="text-sm text-neutral-400 hover:text-white transition-colors py-1 inline-block"
+                    >
+                      {link.label}
+                    </Link>
                   ) : (
                     <a
                       href={link.href}

@@ -80,6 +80,16 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '/mcp': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/auth/token': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
   preview: {

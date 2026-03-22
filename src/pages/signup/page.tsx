@@ -237,7 +237,7 @@ export default function SignUpPage() {
             </button>
           </form>
 
-          {googleOAuthAvailable && (
+          {googleOAuthAvailable && import.meta.env.VITE_ALLOW_THIRD_PARTY_REDIRECTS === 'true' && (
             <>
               <div className="relative my-8">
                 <div className="absolute inset-0 flex items-center">

@@ -63,14 +63,34 @@ export default function PurchaseModal({ isOpen, onClose, card }: PurchaseModalPr
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={handleClose} />
 
-      <div className="relative bg-dark-card rounded-3xl border border-dark-border w-full max-w-md max-h-[90vh] overflow-hidden">
+      <div className="relative bg-dark-card rounded-3xl border border-dark-border w-full max-w-md max-h-[90vh] overflow-hidden mx-4 sm:mx-0">
         <div className="flex items-center justify-between p-4 border-b border-dark-border">
           <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center"
-              style={{ backgroundColor: card.bgColor }}
-            >
-              <i className={`${card.icon} text-xl`} style={{ color: card.color }}></i>
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden bg-white/10">
+              {(card.logoUrl || card.logoUrlFallback) ? (
+                <>
+                  <img
+                    src={card.logoUrl || card.logoUrlFallback}
+                    alt={`${card.name} logo`}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-10 h-10 object-contain"
+                    onError={(e) => {
+                      const img = e.currentTarget;
+                      img.onerror = null;
+                      if (card.logoUrlFallback && img.src !== card.logoUrlFallback) {
+                        img.src = card.logoUrlFallback;
+                      } else {
+                        img.style.display = 'none';
+                        (img.nextElementSibling as HTMLElement)?.classList.remove('hidden');
+                      }
+                    }}
+                  />
+                  <i className={`${card.icon} text-xl hidden`} style={{ color: card.color }}></i>
+                </>
+              ) : (
+                <i className={`${card.icon} text-xl`} style={{ color: card.color }}></i>
+              )}
             </div>
             <div>
               <h2 className="font-semibold text-white">{card.name}</h2>
@@ -156,11 +176,31 @@ export default function PurchaseModal({ isOpen, onClose, card }: PurchaseModalPr
           {step === 'confirm' && (
             <div className="space-y-5">
               <div className="text-center py-4">
-                <div
-                  className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                  style={{ backgroundColor: card.bgColor }}
-                >
-                  <i className={`${card.icon} text-4xl`} style={{ color: card.color }}></i>
+                <div className="w-24 h-24 rounded-2xl flex items-center justify-center overflow-hidden mx-auto mb-4 bg-white/10">
+                  {(card.logoUrl || card.logoUrlFallback) ? (
+                    <>
+                      <img
+                        src={card.logoUrl || card.logoUrlFallback}
+                        alt={`${card.name} logo`}
+                        loading="lazy"
+                        decoding="async"
+                        className="w-16 h-16 object-contain"
+                        onError={(e) => {
+                          const img = e.currentTarget;
+                          img.onerror = null;
+                          if (card.logoUrlFallback && img.src !== card.logoUrlFallback) {
+                            img.src = card.logoUrlFallback;
+                          } else {
+                            img.style.display = 'none';
+                            (img.nextElementSibling as HTMLElement)?.classList.remove('hidden');
+                          }
+                        }}
+                      />
+                      <i className={`${card.icon} text-4xl hidden`} style={{ color: card.color }}></i>
+                    </>
+                  ) : (
+                    <i className={`${card.icon} text-4xl`} style={{ color: card.color }}></i>
+                  )}
                 </div>
                 <h3 className="text-xl font-bold text-white mb-1">Confirm Purchase</h3>
                 <p className="text-neutral-400">Review your order details</p>

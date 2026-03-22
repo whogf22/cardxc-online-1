@@ -20,6 +20,8 @@ export interface VirtualCard {
   created_at: string;
   updated_at: string;
   is_frozen?: boolean;
+  /** True if card is backed by Fluz (can reveal details) */
+  hasProviderCard?: boolean;
 }
 
 export interface CardTransaction {
@@ -43,10 +45,18 @@ export interface CardTransaction {
 export interface CreateCardRequest {
   card_brand?: 'VISA' | 'MASTERCARD';
   card_name?: string;
-  initial_balance?: number;
+  /** Spend limit (max amount card can be charged) - maps to Fluz spendLimit */
+  spending_limit?: number;
+  /** Daily limit - fallback when spending_limit not set */
   daily_limit?: number;
   monthly_limit?: number;
   per_transaction_limit?: number;
+  /** Fluz offer ID from getVirtualCardOffers */
+  offer_id?: string;
+  /** DAILY | WEEKLY | MONTHLY | ANNUAL | LIFETIME */
+  spend_limit_duration?: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'ANNUAL' | 'LIFETIME';
+  /** Lock card after first use */
+  is_single_use?: boolean;
 }
 
 export interface UpdateLimitsRequest {

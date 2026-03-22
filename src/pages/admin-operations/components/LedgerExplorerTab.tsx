@@ -33,6 +33,7 @@ export default function LedgerExplorerTab() {
 
   useEffect(() => {
     filterEntries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entries, searchTerm, typeFilter, statusFilter]);
 
   const loadLedgerEntries = async () => {

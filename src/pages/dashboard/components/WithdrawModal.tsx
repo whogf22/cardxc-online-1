@@ -13,7 +13,7 @@ interface WithdrawModalProps {
   currentBalance: number;
 }
 
-export default function WithdrawModal({ isOpen, onClose, onSuccess, userId, currentBalance }: WithdrawModalProps) {
+export default function WithdrawModal({ isOpen, onClose, onSuccess, userId: _userId, currentBalance }: WithdrawModalProps) {
   const { currency, rates } = useCurrency();
   const format = useCurrencyFormat();
   
@@ -171,7 +171,7 @@ export default function WithdrawModal({ isOpen, onClose, onSuccess, userId, curr
                     className="w-full pl-10 pr-4 py-4 text-lg font-bold border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
-                {amount && parseFloat(amount) > currentBalance && (
+                {amount && parseToUSD(parseFloat(amount), currency, rates) > currentBalance && (
                   <p className="text-sm text-red-600 mt-2 flex items-center gap-1">
                     <i className="ri-error-warning-line"></i>
                     Insufficient balance
@@ -187,7 +187,7 @@ export default function WithdrawModal({ isOpen, onClose, onSuccess, userId, curr
                     <button
                       key={value}
                       onClick={() => handleAmountSelect(value)}
-                      disabled={parseFloat(value) > currentBalance}
+                      disabled={parseToUSD(parseFloat(value), currency, rates) > currentBalance}
                       className="py-3 px-4 bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed text-slate-700 font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap"
                     >
                       ₦{parseInt(value).toLocaleString()}
@@ -250,7 +250,7 @@ export default function WithdrawModal({ isOpen, onClose, onSuccess, userId, curr
               {/* Submit Button */}
               <button
                 onClick={handleWithdrawRequest}
-                disabled={isProcessing || !amount || parseFloat(amount) <= 0 || parseFloat(amount) > currentBalance || !bankName || !accountNumber || !accountName}
+                disabled={isProcessing || !amount || parseFloat(amount) <= 0 || parseToUSD(parseFloat(amount), currency, rates) > currentBalance || !bankName || !accountNumber || !accountName}
                 className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-2"
               >
                 {isProcessing ? (

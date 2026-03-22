@@ -6,7 +6,7 @@ interface PhoneVerificationProps {
   onClose: () => void;
   onVerified: () => void;
   currentPhone?: string | null;
-  userId: string;
+  userId?: string;
 }
 
 type Step = 'phone' | 'otp' | 'success';
@@ -16,7 +16,6 @@ export default function PhoneVerification({
   onClose, 
   onVerified, 
   currentPhone,
-  userId 
 }: PhoneVerificationProps) {
   const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState(currentPhone || '');

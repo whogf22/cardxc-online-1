@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { userApi, authApi } from '../../../lib/api';
+import { userApi } from '../../../lib/api';
 import { useAuth } from '../../../hooks/useAuth';
+import { getCartoonAvatarUrl } from '../../../utils/avatar';
 
 interface Notification {
   id: string;
@@ -23,6 +24,7 @@ export default function DashboardHeader() {
   useEffect(() => {
     if (!user?.id) return;
     loadNotifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   const loadNotifications = async () => {
@@ -110,18 +112,26 @@ export default function DashboardHeader() {
 
   const displayName = user?.full_name || user?.email?.split('@')[0] || 'User';
 
+  const getAvatarAnimation = () => {
+    const seed = (user?.id || user?.email || 'default').toString();
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+    const idx = Math.abs(hash) % 5;
+    return ['avatar-bounce', 'avatar-wiggle', 'avatar-float', 'avatar-pulse', 'avatar-pop'][idx];
+  };
+
   return (
     <header className="px-5 pt-4 pb-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div
-            className="w-12 h-12 rounded-full bg-gradient-to-br from-lime-400 to-emerald-600 flex items-center justify-center cursor-pointer overflow-hidden"
+            className={`w-12 h-12 rounded-full flex items-center justify-center cursor-pointer overflow-hidden bg-[#fde047]/20 ${getAvatarAnimation()}`}
             onClick={() => navigate('/profile')}
           >
             {user?.profile_picture ? (
               <img src={user.profile_picture} alt="" className="w-full h-full object-cover rounded-full" />
             ) : (
-              <span className="text-white font-bold text-lg">{displayName.charAt(0).toUpperCase()}</span>
+              <img src={getCartoonAvatarUrl((user?.id || user?.email || 'default').toString(), 96)} alt="" className="w-full h-full object-cover rounded-full" />
             )}
           </div>
           <div>
@@ -233,6 +243,39 @@ export default function DashboardHeader() {
           )}
         </div>
       </div>
+      <style>{`
+        @keyframes avatarBounce {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.08); }
+        }
+        @keyframes avatarWiggle {
+          0%, 100% { transform: rotate(0deg); }
+          25% { transform: rotate(-8deg); }
+          75% { transform: rotate(8deg); }
+        }
+        @keyframes avatarFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
+        @keyframes avatarPulse {
+          0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(132, 204, 22, 0.4); }
+          50% { opacity: 0.95; box-shadow: 0 0 0 8px rgba(132, 204, 22, 0); }
+        }
+        @keyframes avatarPop {
+          0%, 100% { transform: scale(1); }
+          25% { transform: scale(1.1); }
+          50% { transform: scale(0.95); }
+          75% { transform: scale(1.05); }
+        }
+        .avatar-bounce { animation: avatarBounce 2s ease-in-out infinite; }
+        .avatar-wiggle { animation: avatarWiggle 1.5s ease-in-out infinite; }
+        .avatar-float { animation: avatarFloat 2.5s ease-in-out infinite; }
+        .avatar-pulse { animation: avatarPulse 2s ease-in-out infinite; }
+        .avatar-pop { animation: avatarPop 2s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .avatar-bounce, .avatar-wiggle, .avatar-float, .avatar-pulse, .avatar-pop { animation: none; }
+        }
+      `}</style>
     </header>
   );
 }

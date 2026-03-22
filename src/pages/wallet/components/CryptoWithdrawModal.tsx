@@ -140,14 +140,16 @@ const CRYPTO_ASSETS: CryptoAsset[] = [
 ];
 
 export default function CryptoWithdrawModal({ initialAsset, cryptoBalances, onClose, onSuccess }: CryptoWithdrawModalProps) {
+  const usdtAsset = CRYPTO_ASSETS.find(a => a.symbol === 'USDT');
   const [selectedAsset, setSelectedAsset] = useState<string | null>(initialAsset || null);
-  const [selectedNetwork, setSelectedNetwork] = useState<string>('');
+  const [selectedNetwork, setSelectedNetwork] = useState<string>(initialAsset === 'USDT' ? (usdtAsset?.networks[0]?.id || 'usdt-trc20') : '');
   const [amount, setAmount] = useState('');
   const [destinationAddress, setDestinationAddress] = useState('');
-  const [step, setStep] = useState<'asset' | 'form' | 'confirm' | 'success'>('asset');
+  const [step, setStep] = useState<'asset' | 'form' | 'confirm' | 'success'>(initialAsset ? 'form' : 'asset');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showAddressBook, setShowAddressBook] = useState(false);
+  const [txHash, setTxHash] = useState<string | null>(null);
 
   const handleSelectFromAddressBook = (savedAddress: SavedAddress) => {
     setDestinationAddress(savedAddress.address);
@@ -209,17 +211,40 @@ export default function CryptoWithdrawModal({ initialAsset, cryptoBalances, onCl
     }
   };
 
+  const networkIdToApi = (id: string): 'TRC20' | 'ERC20' | 'BEP20' | 'POLYGON' => {
+    if (id.includes('trc20')) return 'TRC20';
+    if (id.includes('erc20')) return 'ERC20';
+    if (id.includes('bep20')) return 'BEP20';
+    return 'TRC20';
+  };
+
   const handleSubmit = async () => {
     setLoading(true);
     setError('');
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      if (selectedAsset === 'USDT') {
+        const { userApi } = await import('../../../lib/api');
+        const network = networkIdToApi(selectedNetwork);
+        const result = await userApi.requestCryptoWithdrawal({
+          amount: parseFloat(amount),
+          walletAddress: destinationAddress.trim(),
+          network,
+        });
+        if (!result.success) {
+          throw new Error(result.error?.message || 'Withdrawal failed');
+        }
+        if (result.data?.txHash) {
+          setTxHash(result.data.txHash);
+        }
+      } else {
+        throw new Error(`${selectedAsset} withdrawals are not yet supported. Only USDT is available for withdrawal at this time.`);
+      }
       setStep('success');
       setTimeout(() => {
         onSuccess();
         onClose();
-      }, 3000);
+      }, 2500);
     } catch (err: any) {
       setError(err.message || 'Withdrawal failed');
     } finally {
@@ -238,21 +263,21 @@ export default function CryptoWithdrawModal({ initialAsset, cryptoBalances, onCl
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-slate-200">
+      <div className="bg-[#0d0d0d] rounded-3xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-white/[0.08]">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               {(step === 'form' || step === 'confirm') && (
                 <button
                   onClick={handleBack}
-                  className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
+                  className="w-10 h-10 rounded-full hover:bg-white/[0.06] flex items-center justify-center transition-colors cursor-pointer"
                 >
-                  <i className="ri-arrow-left-line text-xl text-slate-600"></i>
+                  <i className="ri-arrow-left-line text-xl text-white/60"></i>
                 </button>
               )}
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">Withdraw Crypto</h2>
-                <p className="text-sm text-slate-600 mt-1">
+                <h2 className="text-2xl font-bold text-white">Withdraw Crypto</h2>
+                <p className="text-sm text-white/60 mt-1">
                   {step === 'asset' && 'Select an asset to withdraw'}
                   {step === 'form' && `Send ${selectedAsset} to external wallet`}
                   {step === 'confirm' && 'Confirm withdrawal details'}
@@ -262,10 +287,10 @@ export default function CryptoWithdrawModal({ initialAsset, cryptoBalances, onCl
             </div>
             <button
               onClick={onClose}
-              className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
+              className="w-10 h-10 rounded-full hover:bg-white/[0.06] flex items-center justify-center transition-colors cursor-pointer"
               disabled={loading}
             >
-              <i className="ri-close-line text-2xl text-slate-600"></i>
+              <i className="ri-close-line text-2xl text-white/60"></i>
             </button>
           </div>
         </div>
@@ -273,29 +298,29 @@ export default function CryptoWithdrawModal({ initialAsset, cryptoBalances, onCl
         <div className="p-6">
           {step === 'asset' && (
             <div className="space-y-3">
-              <label className="block text-sm font-semibold text-slate-700 mb-4">
+              <label className="block text-sm font-semibold text-white/80 mb-4">
                 Select Cryptocurrency
               </label>
-              {CRYPTO_ASSETS.map((asset) => {
+              {CRYPTO_ASSETS.filter((a) => a.symbol === 'USDT').map((asset) => {
                 const assetBalance = cryptoBalances[asset.symbol] || 0;
                 return (
                   <button
                     key={asset.symbol}
                     onClick={() => handleAssetSelect(asset.symbol)}
-                    className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 transition-all cursor-pointer"
+                    className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-white/[0.08] hover:border-lime-500 hover:bg-lime-500/[0.08] transition-all cursor-pointer"
                   >
                     <div className="flex items-center space-x-3">
                       <div className={`w-12 h-12 bg-gradient-to-br ${asset.color} rounded-xl flex items-center justify-center shadow-lg`}>
                         <i className={`${asset.icon} text-white text-xl`}></i>
                       </div>
                       <div className="text-left">
-                        <p className="font-bold text-slate-900">{asset.symbol}</p>
-                        <p className="text-sm text-slate-500">{asset.name}</p>
+                        <p className="font-bold text-white">{asset.symbol}</p>
+                        <p className="text-sm text-white/50">{asset.name}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-slate-900">{assetBalance.toFixed(8)}</p>
-                      <p className="text-xs text-slate-500">{asset.symbol}</p>
+                      <p className="font-bold text-white">{assetBalance.toFixed(8)}</p>
+                      <p className="text-xs text-white/50">{asset.symbol}</p>
                     </div>
                   </button>
                 );
@@ -305,10 +330,10 @@ export default function CryptoWithdrawModal({ initialAsset, cryptoBalances, onCl
 
           {step === 'form' && assetData && (
             <div className="space-y-6">
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+              <div className="p-4 bg-white/[0.04] rounded-xl border border-white/[0.08]">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-600">Available Balance</span>
-                  <span className="text-lg font-bold text-slate-900">
+                  <span className="text-sm font-medium text-white/60">Available Balance</span>
+                  <span className="text-lg font-bold text-white">
                     {balance.toFixed(8)} {selectedAsset}
                   </span>
                 </div>
@@ -323,7 +348,7 @@ export default function CryptoWithdrawModal({ initialAsset, cryptoBalances, onCl
               )}
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                <label className="block text-sm font-semibold text-white/80 mb-2">
                   Amount
                 </label>
                 <div className="relative">
@@ -333,11 +358,11 @@ export default function CryptoWithdrawModal({ initialAsset, cryptoBalances, onCl
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder="0.00000000"
                     step="0.00000001"
-                    className="w-full px-4 py-4 pr-20 text-lg font-bold border-2 border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
+                    className="w-full px-4 py-4 pr-20 text-lg font-bold border border-white/[0.08] rounded-xl bg-white/[0.04] text-white focus:border-lime-500 focus:outline-none transition-colors"
                   />
                   <button
                     onClick={handleMaxClick}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 px-3 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-semibold text-sm rounded-lg transition-colors cursor-pointer"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 px-3 py-1 bg-lime-500/[0.12] hover:bg-lime-500/[0.15] text-lime-500 font-semibold text-sm rounded-lg transition-colors cursor-pointer"
                   >
                     MAX
                   </button>
@@ -346,12 +371,12 @@ export default function CryptoWithdrawModal({ initialAsset, cryptoBalances, onCl
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-semibold text-slate-700">
+                  <label className="block text-sm font-semibold text-white/80">
                     Destination Address
                   </label>
                   <button
                     onClick={() => setShowAddressBook(true)}
-                    className="text-sm text-emerald-600 hover:text-emerald-700 font-medium flex items-center space-x-1 cursor-pointer"
+                    className="text-sm text-lime-400 hover:text-lime-400 font-medium flex items-center space-x-1 cursor-pointer"
                   >
                     <i className="ri-book-line"></i>
                     <span>Address Book</span>
@@ -366,19 +391,19 @@ export default function CryptoWithdrawModal({ initialAsset, cryptoBalances, onCl
                     selectedNetwork?.includes('trc20') ? 'T...' :
                     '0x...'
                   }
-                  className="w-full px-4 py-4 text-sm font-mono border-2 border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
+                  className="w-full px-4 py-4 text-sm font-mono border border-white/[0.08] rounded-xl bg-white/[0.04] text-white focus:border-lime-500 focus:outline-none transition-colors"
                 />
               </div>
 
               {networkData && (
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <div className="p-4 bg-white/[0.04] rounded-xl border border-white/[0.08] space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-600">Network Fee</span>
-                    <span className="text-sm font-semibold text-slate-900">{networkData.fee}</span>
+                    <span className="text-sm text-white/60">Network Fee</span>
+                    <span className="text-sm font-semibold text-white">{networkData.fee}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-600">You will receive</span>
-                    <span className="text-sm font-semibold text-emerald-600">
+                    <span className="text-sm text-white/60">You will receive</span>
+                    <span className="text-sm font-semibold text-lime-400">
                       {amount ? `~${parseFloat(amount).toFixed(8)} ${selectedAsset}` : '--'}
                     </span>
                   </div>
@@ -386,15 +411,15 @@ export default function CryptoWithdrawModal({ initialAsset, cryptoBalances, onCl
               )}
 
               {error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
-                  <p className="text-sm text-red-600">{error}</p>
+                <div className="p-3 bg-red-500/[0.08] border border-red-500/20 rounded-xl">
+                  <p className="text-sm text-red-400">{error}</p>
                 </div>
               )}
 
               <button
                 onClick={handleContinue}
                 disabled={!amount || !destinationAddress}
-                className="w-full py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 disabled:from-slate-300 disabled:to-slate-400 text-white font-bold rounded-xl transition-all cursor-pointer shadow-lg shadow-emerald-500/30"
+                className="w-full py-4 bg-gradient-to-r from-lime-500 to-lime-600 hover:from-lime-600 hover:to-lime-700 disabled:from-white/20 disabled:to-white/10 text-white font-bold rounded-xl transition-all cursor-pointer shadow-lg shadow-lime-500/30"
               >
                 Continue
               </button>
@@ -407,53 +432,53 @@ export default function CryptoWithdrawModal({ initialAsset, cryptoBalances, onCl
                 <div className={`w-20 h-20 bg-gradient-to-br ${assetData.color} rounded-2xl flex items-center justify-center mx-auto shadow-xl mb-4`}>
                   <i className={`${assetData.icon} text-white text-3xl`}></i>
                 </div>
-                <p className="text-3xl font-bold text-slate-900">{amount} {selectedAsset}</p>
-                <p className="text-sm text-slate-500 mt-1">via {networkData.name}</p>
+                <p className="text-3xl font-bold text-white">{amount} {selectedAsset}</p>
+                <p className="text-sm text-white/50 mt-1">via {networkData.name}</p>
               </div>
 
               <div className="space-y-3">
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                  <p className="text-xs text-slate-500 mb-1">To Address</p>
-                  <p className="text-sm font-mono text-slate-900 break-all">{destinationAddress}</p>
+                <div className="p-4 bg-white/[0.04] rounded-xl border border-white/[0.08]">
+                  <p className="text-xs text-white/50 mb-1">To Address</p>
+                  <p className="text-sm font-mono text-white break-all">{destinationAddress}</p>
                 </div>
 
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="p-4 bg-white/[0.04] rounded-xl border border-white/[0.08]">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-slate-600">Amount</span>
-                    <span className="text-sm font-semibold text-slate-900">{amount} {selectedAsset}</span>
+                    <span className="text-sm text-white/60">Amount</span>
+                    <span className="text-sm font-semibold text-white">{amount} {selectedAsset}</span>
                   </div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-slate-600">Network Fee</span>
-                    <span className="text-sm font-semibold text-slate-900">{networkData.fee}</span>
+                    <span className="text-sm text-white/60">Network Fee</span>
+                    <span className="text-sm font-semibold text-white">{networkData.fee}</span>
                   </div>
-                  <div className="border-t border-slate-200 my-2 pt-2">
+                  <div className="border-t border-white/[0.08] my-2 pt-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-700">Total Deducted</span>
-                      <span className="text-sm font-bold text-slate-900">{amount} {selectedAsset}</span>
+                      <span className="text-sm font-medium text-white/80">Total Deducted</span>
+                      <span className="text-sm font-bold text-white">{amount} {selectedAsset}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+              <div className="p-4 bg-amber-500/[0.08] border border-amber-500/20 rounded-xl">
                 <div className="flex items-start space-x-2">
-                  <i className="ri-error-warning-line text-amber-600 mt-0.5"></i>
-                  <p className="text-sm text-amber-800">
+                  <i className="ri-error-warning-line text-amber-400 mt-0.5"></i>
+                  <p className="text-sm text-amber-300">
                     Please verify the address carefully. Crypto transactions are irreversible.
                   </p>
                 </div>
               </div>
 
               {error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
-                  <p className="text-sm text-red-600">{error}</p>
+                <div className="p-3 bg-red-500/[0.08] border border-red-500/20 rounded-xl">
+                  <p className="text-sm text-red-400">{error}</p>
                 </div>
               )}
 
               <button
                 onClick={handleSubmit}
                 disabled={loading}
-                className="w-full py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 disabled:from-slate-300 disabled:to-slate-400 text-white font-bold rounded-xl transition-all cursor-pointer shadow-lg shadow-emerald-500/30 flex items-center justify-center space-x-2"
+                className="w-full py-4 bg-gradient-to-r from-lime-500 to-lime-600 hover:from-lime-600 hover:to-lime-700 disabled:from-white/20 disabled:to-white/10 text-white font-bold rounded-xl transition-all cursor-pointer shadow-lg shadow-lime-500/30 flex items-center justify-center space-x-2"
               >
                 {loading ? (
                   <>
@@ -469,16 +494,29 @@ export default function CryptoWithdrawModal({ initialAsset, cryptoBalances, onCl
 
           {step === 'success' && (
             <div className="text-center py-8">
-              <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <i className="ri-check-line text-4xl text-emerald-600"></i>
+              <div className="w-20 h-20 bg-lime-500/[0.12] rounded-full flex items-center justify-center mx-auto mb-6">
+                <i className="ri-check-line text-4xl text-lime-400"></i>
               </div>
-              <h3 className="text-2xl font-bold text-slate-900 mb-2">Withdrawal Submitted</h3>
-              <p className="text-slate-600 mb-6">
+              <h3 className="text-2xl font-bold text-white mb-2">Withdrawal Submitted</h3>
+              <p className="text-white/60 mb-6">
                 Your withdrawal of {amount} {selectedAsset} has been submitted and is being processed.
               </p>
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <p className="text-xs text-slate-500 mb-1">Estimated Processing Time</p>
-                <p className="text-sm font-semibold text-slate-900">10-30 minutes</p>
+              {txHash && (
+                <div className="p-4 bg-white/[0.04] rounded-xl border border-white/[0.08] mb-4 text-left">
+                  <p className="text-xs text-white/50 mb-1">Transaction Hash</p>
+                  <a
+                    href={`https://tronscan.org/#/transaction/${txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-mono text-lime-400 break-all hover:text-lime-300 cursor-pointer"
+                  >
+                    {txHash}
+                  </a>
+                </div>
+              )}
+              <div className="p-4 bg-white/[0.04] rounded-xl border border-white/[0.08]">
+                <p className="text-xs text-white/50 mb-1">Estimated Processing Time</p>
+                <p className="text-sm font-semibold text-white">{txHash ? '1-5 minutes' : '10-30 minutes'}</p>
               </div>
             </div>
           )}

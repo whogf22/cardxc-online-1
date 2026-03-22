@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback, type ReactElement } from 'react';
-import { useCurrencyFormat } from '../../../hooks/useCurrencyFormat';
 import { useCurrency } from '../../../contexts/CurrencyContext';
-import { parseToUSD, getCurrencySymbol } from '../../../lib/currencyUtils';
+import { parseToUSD } from '../../../lib/currencyUtils';
 import { trackDeposit } from '../../../lib/analytics';
 import { checkoutApi, userApi } from '../../../lib/api';
 
@@ -31,9 +30,6 @@ interface BillingAddress {
   state: string;
 }
 
-const MONTHS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
-const getYears = () => Array.from({ length: 15 }, (_, i) => String(new Date().getFullYear() + i));
-
 const detectCardType = (cardNumber: string): string => {
   const cleaned = cardNumber.replace(/\s/g, '');
   if (/^4/.test(cleaned)) return 'visa';
@@ -49,10 +45,8 @@ const formatCardNumber = (value: string): string => {
   return groups ? groups.join(' ') : cleaned;
 };
 
-export default function DepositPanel({ isOpen, onClose, onSuccess, userId, onOpenCryptoDeposit }: DepositPanelProps) {
+export default function DepositPanel({ isOpen, onClose, onSuccess, onOpenCryptoDeposit }: DepositPanelProps) {
   const { currency, rates } = useCurrency();
-  const format = useCurrencyFormat();
-  const currencySymbol = getCurrencySymbol(currency);
   
   const [step, setStep] = useState<Step>('method-selection');
   const [amount, setAmount] = useState('');

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../components/DashboardLayout';
-import { Card, CardHeader, Tabs, Modal, StatusBadge, DataTable } from '../../components/ui';
-import { EmptyState } from '../../components/EmptyState';
+import { Card, Tabs, Modal, StatusBadge, DataTable } from '../../components/ui';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { useToastContext } from '../../contexts/ToastContext';
 import { paymentsApi } from '../../lib/api';
@@ -75,7 +74,7 @@ export default function PaymentsPage() {
   const handleCreateLink = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const result = await paymentsApi.createPaymentLink({
+      await paymentsApi.createPaymentLink({
         amount: linkForm.amount ? parseFloat(linkForm.amount) : undefined,
         currency: linkForm.currency,
         description: linkForm.description,
@@ -113,7 +112,7 @@ export default function PaymentsPage() {
       action={
         <button
           onClick={() => setShowSendModal(true)}
-          className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium rounded-xl transition-colors"
+          className="px-4 py-2 bg-lime-500 hover:bg-lime-600 text-white text-sm font-medium rounded-xl transition-colors"
         >
           <i className="ri-send-plane-fill mr-2"></i>
           Send Money
@@ -127,36 +126,36 @@ export default function PaymentsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <Card hover onClick={() => setShowSendModal(true)}>
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-sky-100 rounded-2xl flex items-center justify-center">
-                  <i className="ri-user-line text-2xl text-sky-600"></i>
+                <div className="w-12 h-12 bg-lime-500/20 rounded-2xl flex items-center justify-center">
+                  <i className="ri-user-line text-2xl text-lime-400"></i>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-slate-900">Send to Contact</h3>
-                  <p className="text-sm text-slate-500">Email, phone, or username</p>
+                  <h3 className="font-semibold text-white">Send to Contact</h3>
+                  <p className="text-sm text-neutral-500">Email, phone, or username</p>
                 </div>
               </div>
             </Card>
 
             <Card hover onClick={() => setShowLinkModal(true)}>
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center">
-                  <i className="ri-link text-2xl text-emerald-600"></i>
+                <div className="w-12 h-12 bg-emerald-500/20 rounded-2xl flex items-center justify-center">
+                  <i className="ri-link text-2xl text-emerald-400"></i>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-slate-900">Request Money</h3>
-                  <p className="text-sm text-slate-500">Create a payment link</p>
+                  <h3 className="font-semibold text-white">Request Money</h3>
+                  <p className="text-sm text-neutral-500">Create a payment link</p>
                 </div>
               </div>
             </Card>
 
             <Card hover>
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center">
-                  <i className="ri-qr-code-line text-2xl text-purple-600"></i>
+                <div className="w-12 h-12 bg-purple-500/20 rounded-2xl flex items-center justify-center">
+                  <i className="ri-qr-code-line text-2xl text-purple-400"></i>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-slate-900">QR Payment</h3>
-                  <p className="text-sm text-slate-500">Scan or show QR code</p>
+                  <h3 className="font-semibold text-white">QR Payment</h3>
+                  <p className="text-sm text-neutral-500">Scan or show QR code</p>
                 </div>
               </div>
             </Card>
@@ -165,11 +164,11 @@ export default function PaymentsPage() {
 
         {activeTab === 'links' && (
           <Card padding="none">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="font-semibold text-slate-900">Your Payment Links</h3>
+            <div className="p-4 border-b border-dark-border flex items-center justify-between">
+              <h3 className="font-semibold text-white">Your Payment Links</h3>
               <button
                 onClick={() => setShowLinkModal(true)}
-                className="px-3 py-1.5 text-sm font-medium text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+                className="px-3 py-1.5 text-sm font-medium text-lime-400 hover:bg-lime-500/20 rounded-lg transition-colors"
               >
                 <i className="ri-add-line mr-1"></i>
                 Create Link
@@ -201,8 +200,8 @@ export default function PaymentsPage() {
 
         {activeTab === 'recurring' && (
           <Card padding="none">
-            <div className="p-4 border-b border-slate-100">
-              <h3 className="font-semibold text-slate-900">Recurring Transfers</h3>
+            <div className="p-4 border-b border-dark-border">
+              <h3 className="font-semibold text-white">Recurring Transfers</h3>
             </div>
             <DataTable
               columns={[
@@ -229,8 +228,8 @@ export default function PaymentsPage() {
 
         {activeTab === 'splits' && (
           <Card padding="none">
-            <div className="p-4 border-b border-slate-100">
-              <h3 className="font-semibold text-slate-900">Bill Splits</h3>
+            <div className="p-4 border-b border-dark-border">
+              <h3 className="font-semibold text-white">Bill Splits</h3>
             </div>
             <DataTable
               columns={[
@@ -258,11 +257,11 @@ export default function PaymentsPage() {
       <Modal isOpen={showSendModal} onClose={() => setShowSendModal(false)} title="Send Money" size="md">
         <form onSubmit={handleSendMoney} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Recipient Type</label>
+            <label className="block text-sm font-medium text-neutral-400 mb-1">Recipient Type</label>
             <select
               value={sendForm.recipientType}
               onChange={(e) => setSendForm({ ...sendForm, recipientType: e.target.value })}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+              className="input-dark w-full px-4 py-3 rounded-xl"
             >
               <option value="email">Email</option>
               <option value="phone">Phone</option>
@@ -270,18 +269,18 @@ export default function PaymentsPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Recipient</label>
+            <label className="block text-sm font-medium text-neutral-400 mb-1">Recipient</label>
             <input
               type="text"
               value={sendForm.recipient}
               onChange={(e) => setSendForm({ ...sendForm, recipient: e.target.value })}
               placeholder={sendForm.recipientType === 'email' ? 'email@example.com' : sendForm.recipientType === 'phone' ? '+1234567890' : 'username'}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+              className="input-dark w-full px-4 py-3 rounded-xl"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Amount</label>
+            <label className="block text-sm font-medium text-neutral-400 mb-1">Amount</label>
             <div className="flex gap-2">
               <input
                 type="number"
@@ -290,13 +289,13 @@ export default function PaymentsPage() {
                 value={sendForm.amount}
                 onChange={(e) => setSendForm({ ...sendForm, amount: e.target.value })}
                 placeholder="0.00"
-                className="flex-1 px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                className="input-dark flex-1 px-4 py-3 rounded-xl"
                 required
               />
               <select
                 value={sendForm.currency}
                 onChange={(e) => setSendForm({ ...sendForm, currency: e.target.value })}
-                className="px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                className="input-dark px-4 py-3 rounded-xl"
               >
                 <option value="USD">USD</option>
                 <option value="EUR">EUR</option>
@@ -305,18 +304,18 @@ export default function PaymentsPage() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Note (optional)</label>
+            <label className="block text-sm font-medium text-neutral-400 mb-1">Note (optional)</label>
             <input
               type="text"
               value={sendForm.note}
               onChange={(e) => setSendForm({ ...sendForm, note: e.target.value })}
               placeholder="What's this for?"
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+              className="input-dark w-full px-4 py-3 rounded-xl"
             />
           </div>
           <button
             type="submit"
-            className="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-xl transition-colors"
+            className="w-full py-3 bg-lime-500 hover:bg-lime-600 text-white font-semibold rounded-xl transition-colors"
           >
             Send Money
           </button>
@@ -326,7 +325,7 @@ export default function PaymentsPage() {
       <Modal isOpen={showLinkModal} onClose={() => setShowLinkModal(false)} title="Create Payment Link" size="md">
         <form onSubmit={handleCreateLink} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Amount (optional)</label>
+            <label className="block text-sm font-medium text-neutral-400 mb-1">Amount (optional)</label>
             <div className="flex gap-2">
               <input
                 type="number"
@@ -335,12 +334,12 @@ export default function PaymentsPage() {
                 value={linkForm.amount}
                 onChange={(e) => setLinkForm({ ...linkForm, amount: e.target.value })}
                 placeholder="Leave empty for any amount"
-                className="flex-1 px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                className="input-dark flex-1 px-4 py-3 rounded-xl"
               />
               <select
                 value={linkForm.currency}
                 onChange={(e) => setLinkForm({ ...linkForm, currency: e.target.value })}
-                className="px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                className="input-dark px-4 py-3 rounded-xl"
               >
                 <option value="USD">USD</option>
                 <option value="EUR">EUR</option>
@@ -349,18 +348,18 @@ export default function PaymentsPage() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+            <label className="block text-sm font-medium text-neutral-400 mb-1">Description</label>
             <input
               type="text"
               value={linkForm.description}
               onChange={(e) => setLinkForm({ ...linkForm, description: e.target.value })}
               placeholder="What is this payment for?"
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+              className="input-dark w-full px-4 py-3 rounded-xl"
             />
           </div>
           <button
             type="submit"
-            className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-colors"
+            className="w-full py-3 bg-lime-500 hover:bg-lime-600 text-white font-semibold rounded-xl transition-colors"
           >
             Create Link
           </button>

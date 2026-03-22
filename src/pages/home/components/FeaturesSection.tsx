@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { AnimateOnScroll } from "../../../components/AnimateOnScroll";
 
 const features = [
   {
@@ -11,6 +12,7 @@ const features = [
     bgTint: "bg-lime-500/[0.08]",
     borderTint: "border-lime-500/20",
     path: "/features/instant-transfers",
+  highlight: false,
   },
   {
     icon: "ri-bank-card-fill",
@@ -22,6 +24,7 @@ const features = [
     bgTint: "bg-cyan-500/[0.08]",
     borderTint: "border-cyan-500/20",
     path: "/features/universal-wallet",
+  highlight: false,
   },
   {
     icon: "ri-gift-fill",
@@ -32,10 +35,12 @@ const features = [
     gradient: "from-amber-500 to-orange-500",
     bgTint: "bg-amber-500/[0.08]",
     borderTint: "border-amber-500/20",
-    path: "/signup",
+    path: "/giftcards",
+    highlight: true,
   },
   {
     icon: "ri-wallet-3-fill",
+    highlight: false,
     title: "Multi-Currency",
     description:
       "Hold and manage money in multiple currencies with no hidden fees",
@@ -56,6 +61,7 @@ const features = [
     bgTint: "bg-emerald-500/[0.08]",
     borderTint: "border-emerald-500/20",
     path: "/features/elite-security",
+  highlight: false,
   },
   {
     icon: "ri-customer-service-2-fill",
@@ -67,6 +73,7 @@ const features = [
     bgTint: "bg-rose-500/[0.08]",
     borderTint: "border-rose-500/20",
     path: "/support",
+    highlight: false,
   },
 ];
 
@@ -74,26 +81,31 @@ export default function FeaturesSection() {
   const navigate = useNavigate();
 
   return (
-    <section id="features" className="py-24 bg-[#030303]">
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-lime-500/[0.08] rounded-full border border-lime-500/20 mb-6">
-            <span className="text-lime-400 text-xs font-semibold uppercase tracking-wider">Features</span>
+    <section id="features" className="py-16 sm:py-20 lg:py-24 bg-[#030303] w-full overflow-x-hidden">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 w-full">
+        <AnimateOnScroll>
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-lime-500/[0.08] rounded-full border border-lime-500/20 mb-6">
+              <span className="text-lime-400 text-xs font-semibold uppercase tracking-wider">Explore</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4 tracking-tight">
+              Everything You Need
+            </h2>
+            <p className="text-base sm:text-lg text-neutral-400 max-w-2xl mx-auto px-2 sm:px-0">
+              One platform for transfers, gift cards, virtual cards, and more. Hover for details.
+            </p>
           </div>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4 tracking-tight">
-            Everything You Need
-          </h2>
-          <p className="text-lg text-neutral-400 max-w-2xl mx-auto">
-            One platform for all your financial needs. Simple, fast, and secure.
-          </p>
-        </div>
+        </AnimateOnScroll>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {features.map((feature, index) => (
+            <AnimateOnScroll key={index} delay={index * 60}>
             <div
-              key={index}
-              className="feature-flip-card h-[280px] cursor-pointer"
+              className={`feature-flip-card h-[280px] cursor-pointer select-none ${feature.highlight ? 'feature-highlight' : ''}`}
               onClick={() => navigate(feature.path)}
+              onKeyDown={(e) => e.key === 'Enter' && navigate(feature.path)}
+              role="button"
+              tabIndex={0}
             >
               <div className="feature-flip-inner relative w-full h-full">
                 <div className="feature-flip-front absolute inset-0 p-6 bg-[#0d0d0d] rounded-2xl border border-white/[0.06] hover:border-white/[0.1] transition-colors">
@@ -139,6 +151,7 @@ export default function FeaturesSection() {
                 </div>
               </div>
             </div>
+            </AnimateOnScroll>
           ))}
         </div>
       </div>
@@ -165,6 +178,15 @@ export default function FeaturesSection() {
 
         .feature-flip-back {
           transform: rotateY(180deg);
+        }
+
+        .feature-highlight .feature-flip-front {
+          border-color: rgba(251, 191, 36, 0.25);
+          box-shadow: 0 0 24px rgba(251, 191, 36, 0.08);
+        }
+
+        .feature-highlight {
+          animation: float 4s ease-in-out infinite;
         }
       `}</style>
     </section>

@@ -29,9 +29,9 @@ CardXC is a secure, scalable, and feature-rich fintech application designed for 
 Ensure the following variables are set in your `.env` file:
 
 ```env
-DATABASE_URL=postgresql://user:pass@host:5432/db
-SESSION_SECRET=your_secure_secret_64_chars_min
-STRIPE_SECRET_KEY=sk_live_...
+DATABASE_URL=<your-database-url>
+SESSION_SECRET=<your-session-secret-64-chars-min>
+STRIPE_SECRET_KEY=<your-stripe-secret-key>
 NODE_ENV=production
 ```
 

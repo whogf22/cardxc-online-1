@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Filter, Download, Search, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import { Calendar, Filter, Download, Search, TrendingUp, DollarSign } from 'lucide-react';
 import { userApi } from '../../lib/api';
+import { formatDate } from '../../lib/localeUtils';
 
 interface FluzTransaction {
   transactionId: string;
@@ -25,6 +26,7 @@ export default function FluzTransactionsPage() {
 
   useEffect(() => {
     loadTransactions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadTransactions = async () => {
@@ -39,7 +41,7 @@ export default function FluzTransactionsPage() {
         startDate,
         endDate
       });
-      setTransactions(response.transactions);
+      setTransactions(response.data?.transactions ?? []);
     } catch (error) {
       console.error('Failed to load transactions:', error);
     } finally {
@@ -62,7 +64,7 @@ export default function FluzTransactionsPage() {
     const csv = [
       ['Date', 'Merchant', 'Amount', 'Status', 'Type', 'Description'],
       ...filteredTransactions.map(tx => [
-        new Date(tx.createdAt).toLocaleDateString(),
+        formatDate(tx.createdAt),
         tx.merchantName || 'N/A',
         tx.amount.toFixed(2),
         tx.status,
@@ -80,46 +82,43 @@ export default function FluzTransactionsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 py-8 px-4">
+    <div className="min-h-screen bg-dark-bg py-8 px-4">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Transaction History</h1>
-          <p className="text-gray-600">Complete transaction history from Fluz</p>
+          <h1 className="text-4xl font-bold text-white mb-2">Transaction History</h1>
+          <p className="text-neutral-400">Complete transaction history from Fluz</p>
         </div>
 
-        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-purple-100">
+          <div className="bg-dark-card rounded-2xl border border-dark-border p-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600 text-sm font-medium">Total Transactions</span>
-              <TrendingUp className="w-5 h-5 text-purple-600" />
+              <span className="text-neutral-400 text-sm font-medium">Total Transactions</span>
+              <TrendingUp className="w-5 h-5 text-lime-400" />
             </div>
-            <p className="text-3xl font-bold text-gray-900">{filteredTransactions.length}</p>
+            <p className="text-3xl font-bold text-white">{filteredTransactions.length}</p>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-green-100">
+          <div className="bg-dark-card rounded-2xl border border-dark-border p-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600 text-sm font-medium">Successful</span>
-              <TrendingUp className="w-5 h-5 text-green-600" />
+              <span className="text-neutral-400 text-sm font-medium">Successful</span>
+              <TrendingUp className="w-5 h-5 text-emerald-400" />
             </div>
-            <p className="text-3xl font-bold text-green-600">{successCount}</p>
+            <p className="text-3xl font-bold text-emerald-400">{successCount}</p>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-blue-100">
+          <div className="bg-dark-card rounded-2xl border border-dark-border p-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600 text-sm font-medium">Total Amount</span>
-              <DollarSign className="w-5 h-5 text-blue-600" />
+              <span className="text-neutral-400 text-sm font-medium">Total Amount</span>
+              <DollarSign className="w-5 h-5 text-lime-400" />
             </div>
-            <p className="text-3xl font-bold text-blue-600">${totalAmount.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-lime-400">${totalAmount.toFixed(2)}</p>
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
+        <div className="bg-dark-card rounded-2xl border border-dark-border p-6 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-neutral-400 mb-2">
                 <Calendar className="w-4 h-4 inline mr-1" />
                 Start Date
               </label>
@@ -127,12 +126,12 @@ export default function FluzTransactionsPage() {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                className="input-dark w-full px-4 py-2 rounded-lg"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-neutral-400 mb-2">
                 <Calendar className="w-4 h-4 inline mr-1" />
                 End Date
               </label>
@@ -140,19 +139,19 @@ export default function FluzTransactionsPage() {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                className="input-dark w-full px-4 py-2 rounded-lg"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-neutral-400 mb-2">
                 <Filter className="w-4 h-4 inline mr-1" />
                 Status
               </label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                className="input-dark w-full px-4 py-2 rounded-lg"
               >
                 <option value="all">All Status</option>
                 <option value="success">Success</option>
@@ -162,7 +161,7 @@ export default function FluzTransactionsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-neutral-400 mb-2">
                 <Search className="w-4 h-4 inline mr-1" />
                 Search
               </label>
@@ -171,7 +170,7 @@ export default function FluzTransactionsPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Merchant or description..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                className="input-dark w-full px-4 py-2 rounded-lg"
               />
             </div>
           </div>
@@ -179,13 +178,13 @@ export default function FluzTransactionsPage() {
           <div className="flex gap-4 mt-4">
             <button
               onClick={loadTransactions}
-              className="px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:shadow-lg transition-all"
+              className="px-6 py-2 bg-lime-500 hover:bg-lime-600 text-white rounded-lg transition-all"
             >
               Apply Filters
             </button>
             <button
               onClick={handleExport}
-              className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all flex items-center gap-2"
+              className="px-6 py-2 bg-dark-elevated text-neutral-300 rounded-lg hover:bg-dark-border transition-all flex items-center gap-2"
             >
               <Download className="w-4 h-4" />
               Export CSV
@@ -193,62 +192,61 @@ export default function FluzTransactionsPage() {
           </div>
         </div>
 
-        {/* Transactions List */}
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+        <div className="bg-dark-card rounded-2xl border border-dark-border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gradient-to-r from-purple-600 to-blue-600 text-white">
+              <thead className="bg-dark-elevated">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold">Date</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold">Merchant</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold">Description</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold">Type</th>
-                  <th className="px-6 py-4 text-right text-sm font-semibold">Amount</th>
-                  <th className="px-6 py-4 text-center text-sm font-semibold">Status</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-neutral-400">Date</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-neutral-400">Merchant</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-neutral-400">Description</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-neutral-400">Type</th>
+                  <th className="px-6 py-4 text-right text-sm font-semibold text-neutral-400">Amount</th>
+                  <th className="px-6 py-4 text-center text-sm font-semibold text-neutral-400">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-dark-border">
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={6} className="px-6 py-12 text-center text-neutral-500">
                       Loading transactions...
                     </td>
                   </tr>
                 ) : filteredTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={6} className="px-6 py-12 text-center text-neutral-500">
                       No transactions found
                     </td>
                   </tr>
                 ) : (
                   filteredTransactions.map((tx) => (
-                    <tr key={tx.transactionId} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {new Date(tx.createdAt).toLocaleDateString()}
+                    <tr key={tx.transactionId} className="hover:bg-dark-elevated transition-colors">
+                      <td className="px-6 py-4 text-sm text-neutral-300">
+                        {formatDate(tx.createdAt)}
                       </td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      <td className="px-6 py-4 text-sm font-medium text-white">
                         {tx.merchantName || 'N/A'}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
+                      <td className="px-6 py-4 text-sm text-neutral-400">
                         {tx.description || '-'}
                       </td>
                       <td className="px-6 py-4 text-sm">
-                        <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                        <span className="px-3 py-1 bg-lime-500/20 text-lime-400 rounded-full text-xs font-medium">
                           {tx.type}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-right font-semibold">
-                        <span className={tx.amount >= 0 ? 'text-green-600' : 'text-red-600'}>
+                        <span className={tx.amount >= 0 ? 'text-emerald-400' : 'text-red-400'}>
                           ${Math.abs(tx.amount).toFixed(2)}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center">
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                           tx.status === 'SUCCESS' 
-                            ? 'bg-green-100 text-green-700'
+                            ? 'bg-emerald-500/20 text-emerald-400'
                             : tx.status === 'PENDING'
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-red-100 text-red-700'
+                            ? 'bg-amber-500/20 text-amber-400'
+                            : 'bg-red-500/20 text-red-400'
                         }`}>
                           {tx.status}
                         </span>

@@ -29,7 +29,7 @@ export default function CalculatorPage() {
   const [targetRate, setTargetRate] = useState('');
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [currencies, setCurrencies] = useState<CurrencyDisplay[]>([]);
-  const [rates, setRates] = useState<Record<string, number>>({});
+  const [, setRates] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

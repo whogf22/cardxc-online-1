@@ -1,0 +1,941 @@
+name,slug,denominations,denomination_type,rate
+Grand Concourse,grand-concourse,"[25,500]",VARIABLE,10.5
+WorldHotels Elite,worldhotels-elite,"[25,1000]",VARIABLE,7.5
+Tops Markets,tops-markets,"[10,500]",VARIABLE,4
+Chili's,chilis,"[10,100]",VARIABLE,7.5
+Chipotle,chipotle,"[10,250]",VARIABLE,3
+Soothe,soothe,"[50,1000]",VARIABLE,12.5
+Chico's,chicos,"[15,500]",VARIABLE,7.5
+RedCoin Voucher $1000 B2B,redcoin-voucher-b2b,[1050],FIXED,1
+IndieFlix,indieflix,"[9.98,14.97,29.94,49.99]",FIXED,20
+Tractor Supply Company,tractor-supply-company,"[10,250]",VARIABLE,4
+Krispy Kreme Doughnut,krispy-kreme-doughnut,"[10,200]",VARIABLE,9.5
+Logan's Roadhouse,logans-roadhouse,"[10,250]",VARIABLE,6
+Shake Shack,shake-shack,"[10,500]",VARIABLENOCENTS,6
+ThirdLove,thirdlove,"[25,500]",VARIABLE,8
+The Popcorn Factory,the-popcorn-factory,"[15,500]",VARIABLE,10.5
+SureStay,surestay,"[25,1000]",VARIABLE,7.5
+Your Gift Choice,your-gift-choice,[25],FIXED,3
+Your Gift Choice,your-gift-choice,"[50,100,200]",FIXED,2.5
+Smashburger,smashburger,"[15,100]",VARIABLE,9.5
+Four Points by Sheraton,four-points-by-sheraton,"[100,250,350,500,850]",FIXED,9
+Four Points by Sheraton,four-points-by-sheraton,"[25,2000]",VARIABLE,4.5
+KingsIsle Pirate101,kingsisle-pirate101,[10],FIXED,12
+KingsIsle Pirate101,kingsisle-pirate101,[20],FIXED,8
+AC Hotels,ac-hotels-by-marriott,"[100,250,350,500,850]",FIXED,9
+AC Hotels,ac-hotels-by-marriott,"[25,2000]",VARIABLE,4.5
+Office Depot & OfficeMax,office-depot-office-max,"[10,500]",VARIABLE,8
+SweetFrog,sweetfrog,"[10,25]",FIXED,11.5
+SweetFrog,sweetfrog,"[10,100]",VARIABLE,8
+Equal Justice Initiative - Charity on Top,equal-justice-initiative,"[10,500]",VARIABLE,7.5
+Texas Roadhouse,texas-roadhouse,"[10,100]",VARIABLE,6
+Great American Days,great-american-days,"[25,50]",FIXED,5
+Kids Foot Locker,kids-foot-locker,"[10,250]",VARIABLE,5.5
+The Land of Nod,the-land-of-nod,"[10,1000]",VARIABLE,6
+Panera Bread,panera-bread,"[10,25,50,100]",FIXED,5
+Panera Bread,panera-bread,"[10,200]",VARIABLE,4.5
+Gander Outdoors,gander-outdoors,"[10,500]",VARIABLE,5
+Lane Bryant,lane-bryant,"[15,200]",VARIABLE,8.5
+Tom Thumb,tom-thumb,"[10,250]",VARIABLE,3
+Brick House Tavern & Tap,brick-house-tavern-tap,"[25,500]",VARIABLE,10.5
+Horatio's,horatios,"[25,500]",VARIABLE,10.5
+Fairfield Inn & Suites,fairfield-inn-suites,"[100,250,350,500,850]",FIXED,9
+Fairfield Inn & Suites,fairfield-inn-suites,"[25,2000]",VARIABLE,4.5
+Beans & Brews,beans-brews,"[10,250]",VARIABLE,10.5
+Happy Card/One4all - Self Care,Happy-Card-One4all-Self-Care,"[25,500]",VARIABLE,4
+Cabela's,cabelas,"[10,500]",VARIABLE,7.5
+Disney World Epcot,disney-world-epcot,"[50,100]",FIXED,5
+Disney World Epcot,disney-world-epcot,"[15,500]",VARIABLE,4
+Gaylord Hotels,gaylord-hotels,"[100,250,350,500,850]",FIXED,9
+Gaylord Hotels,gaylord-hotels,"[25,2000]",VARIABLE,4.5
+Metro Market,metro-market,"[10,500]",VARIABLE,2.75
+Saks Fifth Avenue OFF 5TH,saks-fifth-avenue-off-5th,"[10,500]",VARIABLE,7
+Cadillac Ranch,cadillac-ranch,"[25,500]",VARIABLE,10.5
+TY Inc,ty-inc,[125],FIXED,15
+Nexon Karma Koin,nexon-karma-koin,"[10,500]",VARIABLE,5
+GLAAD - Charity on Top,glaad,"[10,500]",VARIABLE,7.5
+Abercrombie & Fitch,abercrombie-fitch,"[25,500]",VARIABLE,6.5
+Pep Boys,pep-boys,"[25,50]",FIXED,7
+Xsolla,xsolla,"[10,200]",VARIABLE,5.5
+Schlotzsky's,schlotzskys,"[10,200]",VARIABLE,8.5
+Direct Relief,direct-relief,"[10,500]",VARIABLE,6
+Kansas City Steak Company,kansas-city-steak-company,"[25,50]",FIXED,4.5
+O'Charley's,ocharleys,"[15,500]",VARIABLE,11
+Instacart+,instacart-plus,"[59,99]",FIXED,3
+Meijer,meijer,"[10,500]",VARIABLE,2.5
+Del Frisco's Double Eagle Steakhouse,del-friscos-double-eagle-steakhouse,"[25,500]",VARIABLE,10.5
+1-800-Baskets,1-800-baskets,"[15,500]",VARIABLE,10.5
+Fleming's Prime Steakhouse & Wine Bar,flemings-prime-steakhouse-wine-bar,"[20,200]",VARIABLE,9.5
+Bristol Seafood Grill,bristol-seafood-grill,"[25,500]",VARIABLE,10.5
+Jakes Grill,jakes-grill,"[25,500]",VARIABLE,10.5
+Xbox Live Gold Membership,xbox-live-gold-membership,"[24.99,59.99]",FIXED,10
+Guild Wars 2 Gem Card,guild-wars-2-gem-card,[25],FIXED,5
+VALORANT,valorant,"[10,25,50,100]",FIXED,5
+StubHub,stubhub,"[25,500]",VARIABLE,6
+Romano's Macaroni Grill,romanos-macaroni-grill,"[25,250]",VARIABLE,10.5
+Ruby Tuesday,ruby-tuesday,"[10,250]",VARIABLE,9
+Postmates,postmates,[50],FIXED,8
+Postmates,postmates,"[15,150]",VARIABLE,3.5
+Collars & Co,collars-co,"[25,500]",VARIABLE,7
+NAACP,naacp,"[10,500]",VARIABLE,6
+Clean Origin,clean-origin,"[25,2000]",VARIABLE,10
+Cheddar's Scratch Kitchen,cheddars-scratch-kitchen,"[10,250]",VARIABLE,6
+Buca Di Beppo,buca-di-beppo,"[15,500]",VARIABLE,12.5
+Renaissance Hotels,renaissance-hotels,"[100,250,350,500,850]",FIXED,9
+Renaissance Hotels,renaissance-hotels,"[25,2000]",VARIABLE,4.5
+WorldHotels Distinctive,worldhotels-distinctive,"[25,1000]",VARIABLE,7.5
+Flying Dutchman,flying-dutchman,"[25,500]",VARIABLE,10.5
+Ulta Beauty,ulta-beauty,[50],FIXED,10
+Ulta Beauty,ulta-beauty,"[10,500]",VARIABLE,6
+Thredup,thredup,"[10,500]",VARIABLE,9.5
+Hotels.com,hotels-com,"[50,100]",FIXED,10
+Hotels.com,hotels-com,"[10,500]",VARIABLE,7
+Bill's Bar & Burger,bills-bar-burger,"[25,500]",VARIABLE,10.5
+Nida Al Harb 3,nida-al-harb-3,"[10,20,50,100,250,500,1000]",FIXED,5.5
+Babylist,babylist,"[25,500]",VARIABLE,6.5
+XBOX Game Pass Core,xbox-game-pass-core,"[9.99,24.99,39.99,79.99]",FIXED,12
+Goodcents,goodcents,"[10,500]",VARIABLE,10.5
+Go Play Golf,go-play-golf,"[25,500]",VARIABLE,11
+Regal Cinemas,regal-cinemas,"[10,200]",VARIABLE,6.5
+Happy Card/One4all Favorites - HOME SWEET HOME,happy-card-one4all-favorites-home-sweet-home,"[50,100]",FIXED,6
+Happy Card/One4all Favorites - HOME SWEET HOME,happy-card-one4all-favorites-home-sweet-home,"[25,500]",VARIABLE,3.5
+For the love of Movies,for-the-love-of-movies,"[20,1900]",VARIABLE,7
+Outdoorsy,Outdoorsy,"[10,1000]",VARIABLE,10
+Disneyland Resort,disneyland-resort,"[50,100]",FIXED,5
+Disneyland Resort,disneyland-resort,"[15,500]",VARIABLE,4
+Elements Massage,elements-massage,"[25,500]",VARIABLE,10.5
+Primark,primark,[65],FIXED,10
+Primark,primark,"[10,300]",VARIABLE,4.5
+Happy Card/One4all Favorites - Cheers to You,happy-card-one4all-favorites-cheers-to-you,"[25,500]",VARIABLE,3
+Hilton Galveston Island,hilton-galveston-island,"[25,500]",VARIABLE,10.5
+KingSize,kingsize,"[20,250]",VARIABLE,10.5
+BucketlistGift,bucketlistgift,"[50,2000]",VARIABLE,5.5
+Maggiano's Little Italy,maggianos-little-italy,"[10,100]",VARIABLE,7.5
+Eddie V's,eddie-vs,"[10,250]",VARIABLE,6
+AT&T Prepaid,at&t prepaid,[25],FIXED,6
+Uber Eats,uber-eats,[50],FIXED,8
+Uber Eats,uber-eats,"[15,150]",VARIABLE,3.5
+Seamless,seamless,"[10,500]",VARIABLE,5
+Athleta,athleta,"[50,100]",FIXED,15.5
+Athleta,athleta,"[10,500]",VARIABLE,7.5
+Jiffy Lube,jiffy-lube,"[15,500]",VARIABLE,10.5
+Southwest Airlines,southwest-airlines,[150],FIXED,8
+Southwest Airlines,southwest-airlines,[1000],FIXED,6
+Southwest Airlines,southwest-airlines,"[15,500]",VARIABLE,5
+One4all Ultimate - One4all,one4all-ultimate-one4all,"[25,500]",VARIABLE,4
+Dos Caminos,dos-caminos,"[25,500]",VARIABLE,10.5
+Total Wine & More,total-wine,"[25,500]",VARIABLE,6.5
+Craft F&B,craft-fb,"[25,500]",VARIABLE,10.5
+Famous Dave,famous-dave,"[25,250]",VARIABLE,6
+L.L. Bean,ll-bean,[50],FIXED,15
+L.L. Bean,ll-bean,"[10,500]",VARIABLE,11.5
+Kincaid's Fish Chop & Steakhouse,kincaids-fish-chop-steakhouse,"[25,500]",VARIABLE,10.5
+PacSun,pacsun,"[10,200]",VARIABLE,10.5
+Disney+,disney-plus,"[50,100]",FIXED,5
+Disney+,disney-plus,"[25,500]",VARIABLE,4
+Sur La Table,sur-la-table,"[15,500]",VARIABLE,10.5
+Netflix,netflix,"[25,50]",FIXED,4
+CVS B2B,cvs-b2b,"[10,500]",VARIABLE,5
+Baker's,bakers,"[10,500]",VARIABLE,2.75
+Microsoft Office 365 Personal 1 yr,microsoft-office-365-personal-1-yr,[99.99],FIXED,10
+Alo Moves,alo-moves,"[10.39,30.99,61.99,103.99]",FIXED,12.5
+Albertsons,albertsons,"[10,250]",VARIABLE,3
+Tommy John,Tommy-John,"[25,500]",VARIABLE,11
+Malooba,malooba,"[50,100]",FIXED,4
+JW Marriott,jw-marriott,"[100,250,350,500,850]",FIXED,9
+JW Marriott,jw-marriott,"[25,2000]",VARIABLE,4.5
+Mai Tai Bar,mai-tai-bar,"[25,500]",VARIABLE,10.5
+FanDuel Sports Network,fanduel-sports-network,"[25,250]",VARIABLE,9
+Landry's Seafood House,landrys-seafood-house,"[25,500]",VARIABLE,10.5
+HotelsGift,hotelsgift,"[50,2000]",VARIABLE,5.5
+Pay It Down Auto,pay-it-down-auto,"[20,1900]",VARIABLE,7
+Fanatics,fanatics,"[10,500]",VARIABLE,8.5
+Orient Express,orient-express,"[25,50,100]",FIXED,4.5
+Razer Gold,razer-gold,"[10,20,49.5,50,99.5,100,200,300,400,500]",FIXED,4.5
+Razer Gold,razer-gold,"[10,500]",VARIABLE,4
+Pizza Hut,pizza-hut,[10],FIXED,3
+National Park Foundation - Charity on Top,national-park-foundation,"[10,500]",VARIABLE,7.5
+Strip House,strip-house,"[25,500]",VARIABLE,10.5
+NFL Shop,nfl-shop,"[10,500]",VARIABLE,8.5
+St. Regis,st-regis,"[100,250,350,500,850]",FIXED,9
+St. Regis,st-regis,"[25,2000]",VARIABLE,4.5
+Neiman Marcus,neiman-marcus,"[250,499.99,500]",FIXED,4
+CB2,cb2,"[10,1000]",VARIABLE,6
+Shaw's,shaws,"[10,250]",VARIABLE,3
+GreenRow,greenrow,"[25,1000]",VARIABLE,5
+Courtyard,courtyard,"[100,250,350,500,850]",FIXED,9
+Courtyard,courtyard,"[25,2000]",VARIABLE,4.5
+Overstock,overstock,"[10,500]",VARIABLE,5
+SureStay Plus,surestay-plus,"[25,1000]",VARIABLE,7.5
+iFLY,ifly,"[25,500]",VARIABLE,7
+Home Sense,home-sense,"[10,500]",VARIABLE,5.5
+Happy Card/One4all Holiday - Happy Holidays Dining,happy-card-one4all-holiday-happy-holidays-dining,"[25,500]",VARIABLE,4
+Grubhub,grubhub,"[25,500]",VARIABLE,5
+Kirkland's,kirklands,"[25,500]",VARIABLE,10.5
+The Melting Pot,The-Melting-Pot,"[10,100]",VARIABLE,8.5
+W. W. Cousins,w-w-cousins,"[10,250]",VARIABLE,10.5
+Spa Week,spa-week,"[10,500]",VARIABLE,16.5
+Granite City Brewery,granite-city-brewery,"[20,250]",VARIABLE,8.5
+Airalo,airalo,"[10,20,50]",FIXED,6
+Black Angus Steakhouse,black-angus-steakhouse,"[15,200]",VARIABLE,10.5
+Zaxby's,zaxbys,"[10,250]",VARIABLE,10
+Aerie,aerie,"[25,50,105,250]",FIXED,11
+Aerie,aerie,"[15,200]",VARIABLE,7
+Aeropostale,aeropostale,"[25,50,100,250]",FIXED,15
+Aeropostale,aeropostale,[33.5],FIXED,11
+Aeropostale,aeropostale,"[10,500]",VARIABLE,9
+For the love of Dining,for-the-love-of-dining,"[20,1900]",VARIABLE,7
+Disney Hilton Head Island Resort,disney-hilton-head-island-resort,"[50,100]",FIXED,5
+Disney Hilton Head Island Resort,disney-hilton-head-island-resort,"[15,500]",VARIABLE,4
+Kigso Games,kigso-games,[15],FIXED,15
+Conoco,conoco,"[10,500]",VARIABLENOCENTS,1.5
+Dunkin',dunkin,"[10,100]",VARIABLE,3
+Made In Cookware,made-in-cookware,"[25,50,100,200]",FIXED,11
+Disney Store,disney-store,"[50,100]",FIXED,5
+Disney Store,disney-store,"[15,500]",VARIABLE,4
+EA Play,ea-play,"[15,25]",FIXED,10
+Dickey's Restaurant,dickeys-restaurant,"[10,500]",VARIABLE,11
+Blimpie,blimpie,"[10,250]",VARIABLE,10
+Home Chef,home-chef,"[10,500]",VARIABLE,10.5
+Old Navy,old-navy,"[50,100]",FIXED,15.5
+Old Navy,old-navy,"[10,500]",VARIABLE,7.5
+Fairmont Hotels & Resorts,fairmont-hotels-resorts,"[25,50,100]",FIXED,4.5
+Happy Card/One4all - Giving Good Hope,Happy-Card-One4all-Giving-Good-Hope,"[25,500]",VARIABLE,3.5
+Public Lands,public-lands,[100],FIXED,4
+Public Lands,public-lands,"[10,500]",VARIABLE,3
+White House Black Market,white-house-black-market,"[15,500]",VARIABLE,7.5
+TownePlace Suites,towneplace-suites,"[100,250,350,500,850]",FIXED,9
+TownePlace Suites,towneplace-suites,"[25,2000]",VARIABLE,4.5
+SureStay Studio,surestay-studio,"[25,1000]",VARIABLE,7.5
+Applebee's,applebees,"[50,100]",FIXED,10.5
+Applebee's,applebees,"[10,500]",VARIABLE,6.5
+Callaway,callaway,"[25,50,100,250]",FIXED,20
+Bob Evans Restaurants,bob-evans-restaurants,"[10,500]",VARIABLE,8.5
+Morrison's Restaurants,morrisons-restaurants,"[10,500]",VARIABLE,13.5
+Huntsman Cancer Foundation,huntsman-cancer-foundation,"[10,1000]",VARIABLE,4.5
+Bed Bath & Beyond,bed-bath-beyond,"[10,500]",VARIABLE,5
+IMVU,imvu,"[10,25]",FIXED,10
+Hot Topic,hot-topic,"[15,500]",VARIABLE,6.5
+Papa Murphy's,papa-murphys,"[10,250]",VARIABLE,4
+Houlihan's,houlihans,"[25,500]",VARIABLE,10.5
+Tory Burch,tory-burch,[50],FIXED,3
+Heroes Evolved,heroes-evolved,"[20,50,100]",FIXED,1
+LOFT,loft,"[10,500]",VARIABLE,6.5
+Nautica,nautica,"[10,500]",VARIABLE,9
+Victoria's Secret PINK,victorias-secret-pink,"[10,500]",VARIABLE,4.5
+BW Signature Collection,bw-signature-collection,"[25,1000]",VARIABLE,7.5
+EA Origin,ea-origin,[20],FIXED,10
+Meta Quest,meta-quest,"[25,100]",VARIABLE,4.5
+J. Christopher's,j-christophers,"[10,250]",VARIABLE,10.5
+Banana Republic,banana-republic,"[50,100]",FIXED,15.5
+Banana Republic,banana-republic,"[10,500]",VARIABLE,7.5
+Happy Card/One4all Favorites - Thank You Swap,happy-card-one4all-favorites-thank-you-swap,"[25,500]",VARIABLE,4
+Hooters,hooters,"[10,250]",VARIABLE,7.5
+Pinkberry,pinkberry,"[10,100]",VARIABLE,5
+Mark & Graham,mark-graham,"[25,1000]",VARIABLE,5
+Tribute Portfolio,tribute-portfolio,"[100,250,350,500,850]",FIXED,9
+Tribute Portfolio,tribute-portfolio,"[25,2000]",VARIABLE,4.5
+Lowe's,lowes,"[100,250]",FIXED,8.5
+Lowe's,lowes,[24],FIXED,6
+Lowe's,lowes,"[10,2000]",VARIABLE,5
+Rusty Pelican,rusty-pelican,"[25,500]",VARIABLE,10.5
+Puckett's Grocery,pucketts-grocery,"[10,250]",VARIABLE,10.5
+For the love of Shipping,for-the-love-of-shipping,"[20,1900]",VARIABLE,7
+Marcus Theater,marcus-theater,"[15,500]",VARIABLE,8.5
+Hopdoddy Burger Bar,Hopdoddy-Burger-Bar,"[25,50,100]",FIXED,5
+Blue Fin Seafood Sushi,blue-fin-seafood-sushi,"[25,500]",VARIABLE,10.5
+Aiden by Best Western,aiden-by-best-western,"[25,1000]",VARIABLE,7.5
+Tijuana Flats,tijuana-flats,"[10,100]",VARIABLE,6.5
+Giant Eagle,giant-eagle,"[10,500]",VARIABLE,2.5
+The Ritz-Carlton,the-ritzcarlton,"[100,250,350,500,850]",FIXED,9
+The Ritz-Carlton,the-ritzcarlton,"[25,2000]",VARIABLE,4.5
+Star Market,star-market,"[10,250]",VARIABLE,3
+Publix,publix,"[10,100]",FIXED,4
+Publix,publix,"[25,50]",FIXED,1.5
+Ruth's Chris,ruths-chris,"[25,500]",VARIABLE,6
+Main Event,main-event,"[20,500]",VARIABLE,12
+Red Lobster,red-lobster,"[10,250]",VARIABLE,6.5
+Harry & David,harry-david,"[15,500]",VARIABLE,10.5
+Acme Markets,acme,"[10,250]",VARIABLE,3
+The Luxury Collection,the-luxury-collection,"[100,250,350,500,850]",FIXED,9
+The Luxury Collection,the-luxury-collection,"[25,2000]",VARIABLE,4.5
+Cold Stone Creamery,cold-stone-creamery,"[10,25,50]",FIXED,11
+Cold Stone Creamery,cold-stone-creamery,"[10,200]",VARIABLE,10.5
+Trex Cafe,trex-cafe,"[25,500]",VARIABLE,10.5
+Famous Footwear Outlet,famous-footwear-outlet,[250],FIXED,10
+Famous Footwear Outlet,famous-footwear-outlet,"[10,250]",VARIABLE,7
+Bowlero,Bowlero,"[25,500]",VARIABLE,7
+Happy Card/One4all Giving Good - Wounded Warrior Project,happy-card-one4all-giving-good-wounded-warrior-project,"[25,500]",VARIABLE,4
+Deezer Premium,deezer-premium,"[10.99,32.97]",FIXED,8
+Chart House,chart-house,"[25,500]",VARIABLE,10.5
+Sephora,sephora,"[10,250]",VARIABLE,5
+The Coffee Bean & Tea Leaf,the-coffee-bean-tea-leaf,"[10,100]",VARIABLE,9.5
+Happy Card/One4all Giving Good - American Cancer Society,happy-card-one4all-giving-good-american-cancer-society,"[25,500]",VARIABLE,3.5
+ASOS,asos,"[15,500]",VARIABLE,6.5
+LongHorn Steakhouse,longhorn-steakhouse,"[10,250]",VARIABLE,6
+Andretti Indoor Karting & Games,andretti-indoor-karting-games,"[20,250]",VARIABLE,10.5
+Winn Dixie,winn-dixie,"[10,500]",VARIABLE,4
+Drybar,drybar,"[25,500]",VARIABLE,10.5
+Clean Water Fund - Charity on Top,clean-water-fund,"[10,500]",VARIABLE,7.5
+Global Hotel Card US,global-hotel-card-us,"[50,500]",VARIABLE,7.5
+InSTEDD,instedd,"[10,1000]",VARIABLE,4.5
+For the love of Groceries,for-the-love-of-groceries,"[20,1900]",VARIABLE,7
+Solo Stove,solo-stove,[370],FIXED,15
+Solo Stove,solo-stove,"[25,500]",VARIABLE,8.5
+RED,red,"[10,1000]",VARIABLE,4.5
+Kay Jewelers,Kay-Jewelers,"[25,500]",VARIABLE,10.5
+Bark Box,bark-box,[35],FIXED,5
+Target,target,"[15,400]",FIXED,4.5
+Target,target,"[10,500]",VARIABLE,4
+Jake's Famous Crawfish,jakes-famous-crawfish,"[25,500]",VARIABLE,10.5
+Dillons,dillons,"[10,500]",VARIABLE,2.75
+Kona Grill,kona-grill,"[20,250]",VARIABLE,9.5
+Bouchee Patisserie,bouchee-patisserie,"[25,500]",VARIABLE,10.5
+Xbox Live,xbox-llive,"[25,50,60]",FIXED,6
+Happy Card/One4all Favorites - Retail Therapy,happy-card-one4all-favorites-retail-therapy,[500],FIXED,5
+Happy Card/One4all Favorites - Retail Therapy,happy-card-one4all-favorites-retail-therapy,"[25,500]",VARIABLE,4
+Starbucks,starbucks,"[40,45,50,100]",FIXED,9
+Starbucks,starbucks,"[10,500]",VARIABLE,4
+Girls Who Code - Charity on Top,girls-who-code,"[10,500]",VARIABLE,7.5
+Lobster Gram,lobster-gram,"[25,50,100]",FIXED,10
+Mitchell's Steakhouse,mitchells-steakhouse,"[25,500]",VARIABLE,10.5
+The Vitamin Shoppe,the-vitamin-shoppe,"[10,23,25,50,74.5,82,106.5]",FIXED,10
+The Vitamin Shoppe,the-vitamin-shoppe,"[10,500]",VARIABLE,4.5
+BR Guest,br-guest,"[25,500]",VARIABLE,10.5
+Yalla Ludo Diamond,yalla-ludo-diamond,"[10,25,50,100,300,500]",FIXED,5.5
+League of Legends,league-of-legends,"[10,25,50,100]",FIXED,5
+Petco,petco,"[20,200]",VARIABLE,8.5
+Travelcard by Inspire,travelcard-by-inspire,"[10,3000]",VARIABLE,3
+Cinemark,cinemark,"[20,250]",VARIABLE,8.5
+Delta Hotels and Resorts,delta-hotels-and-resorts,"[100,250,350,500,850]",FIXED,9
+Delta Hotels and Resorts,delta-hotels-and-resorts,"[25,2000]",VARIABLE,4.5
+WorldHotels Crafted,worldhotels-crafted,"[25,1000]",VARIABLE,7.5
+The Picklr,the-pucklr,"[25,500]",VARIABLE,7
+Vuz,vuz,"[24,40,60]",FIXED,2
+IKEA,ikea,"[25,500]",VARIABLE,4
+MLB Shop,mlb-shop,"[10,500]",VARIABLE,8.5
+Rejuvenation,rejuvenation,"[25,1000]",VARIABLE,5
+For the love of Fuel,for-the-love-of-fuel,"[20,1900]",VARIABLE,7
+Pay It Down College,pay-it-down-college,"[20,1900]",VARIABLE,7
+Papa John's,papa-johns,"[10,500]",VARIABLE,6.5
+The San Luis Resort Spa And Conference Center,the-san-luis-resort-spa-and-conference-center,"[25,500]",VARIABLE,10.5
+Palisade,palisade,"[25,500]",VARIABLE,10.5
+Pilot Flying J,pilot-flying-j,"[10,500]",VARIABLE,5
+Microsoft 365 Business Standard,microsoft-365-business-standard,[149.99],FIXED,9.5
+Sportsman's Warehouse,sportsmans-warehouse,[25],FIXED,15
+Sportsman's Warehouse,sportsmans-warehouse,[500],FIXED,10
+Sportsman's Warehouse,sportsmans-warehouse,"[15,500]",VARIABLE,9.5
+Zappos,zappos,"[100,250]",FIXED,7
+Zappos,zappos,"[10,15,25,50]",FIXED,5
+Zappos,zappos,"[25,500]",VARIABLE,4
+EDITION,edition,"[100,250,350,500,850]",FIXED,9
+EDITION,edition,"[25,2000]",VARIABLE,4.5
+Harvey's Supermarkets,harveys-supermarkets,"[10,500]",VARIABLE,4
+The Children's Place,the-childrens-place,[15],FIXED,10
+The Children's Place,the-childrens-place,"[15,500]",VARIABLE,9.5
+eBay,ebay,"[25,500]",VARIABLE,3.5
+AnyCard Dine,anycard-dine,"[10,500]",VARIABLE,4.5
+Von Diamonds,von-diamonds,"[25,2000]",VARIABLE,9
+Etsy,etsy,"[15,500]",VARIABLE,4
+Restaurant.com,restaurant-com,"[10,25,50,100]",FIXED,35
+Jewel Osco,jewel-osco,"[10,250]",VARIABLE,3
+Carrabba's Italian Grill,carrabbas-italian-grill,"[10,500]",VARIABLE,9.5
+Crate & Barrel,crate-barrel,"[10,1000]",VARIABLE,6
+Adventures by Disney,adventures-by-disney,"[50,100]",FIXED,5
+Adventures by Disney,adventures-by-disney,"[15,500]",VARIABLE,4
+Happy Card/One4all Giving Good - Habitat for Humanity,happy-card-one4all-giving-good-habitat-for-humanity,"[25,500]",VARIABLE,3
+Hollister,hollister,[500],FIXED,9
+Hollister,hollister,"[25,500]",VARIABLE,5
+Landry's,landrys,"[25,500]",VARIABLE,10.5
+Climbing Sand Dune,climbing-sand-dune,"[21,40,90]",FIXED,3
+Maggie Bluffs,maggie-bluffs,"[25,500]",VARIABLE,10.5
+Royal Caribbean,royal-caribbean,[1125],FIXED,12
+Royal Caribbean,royal-caribbean,"[50,2000]",VARIABLENOCENTS,7
+The Boathouse Restaurant,the-boathouse-restaurant,"[25,500]",VARIABLE,10.5
+Delano,delano,"[25,50,100]",FIXED,4.5
+"JD Sports ",jd-sports,[100],FIXED,8.5
+"JD Sports ",jd-sports,"[10,250]",VARIABLE,6
+HelloFresh,hellofresh,[61],FIXED,6.5
+Ole & Steen,Ole-Steen,"[10,15,20,25,30,40,50,60,70,80,90,100]",FIXED,4
+The Hunting Inn,the-hunting-inn,"[25,500]",VARIABLE,10.5
+Unicef - Charity on Top,unicef,"[10,500]",VARIABLE,7.5
+Simply Chocolate,simply-chocolate,"[15,500]",VARIABLE,10.5
+EXAPUNKS,exapunks,[19.99],FIXED,20
+Shutterfly,shutterfly,"[15,100]",VARIABLE,9.5
+Raffles Hotels & Resorts,raffles-hotels-resorts,"[25,50,100]",FIXED,4.5
+Grotto Ristorante,grotto-ristorante,"[25,500]",VARIABLE,10.5
+The Oceanaire Seafood Room,the-oceanaire-seafood-room,"[25,500]",VARIABLE,10.5
+Subway,subway,"[10,250]",VARIABLE,5
+Aloft,aloft,"[100,250,350,500,850]",FIXED,9
+Aloft,aloft,"[25,2000]",VARIABLE,4.5
+Lululemon,lululemon,"[250,300]",FIXED,4.5
+Lululemon,lululemon,[500],FIXED,4
+City Market,city-market,"[10,500]",VARIABLE,2.75
+Brooklyn Pizza Company,brooklyn-pizza-company,"[10,250]",VARIABLE,12
+GoTo Foods,goto-foods,"[10,200]",VARIABLE,8.5
+Gambit,gambit,"[10,25,50,100]",FIXED,10
+Disney's Hollywood Studios,disney-hollywood-studio,"[50,100]",FIXED,5
+Disney's Hollywood Studios,disney-hollywood-studio,"[15,500]",VARIABLE,4
+Bloomingdale's,bloomingdales,"[10,250]",VARIABLE,6
+Viking Rise,viking-rise,[10],FIXED,3.5
+Joe's Crab Shack,joes-crab-shack,"[25,500]",VARIABLE,10.5
+Xbox Game Pass Ultimate,xbox-game-pass-ultimate,"[19.99,59.99]",FIXED,12
+AllModern,allmodern,[100],FIXED,8
+AllModern,allmodern,"[10,500]",VARIABLE,6
+Famous Footwear,famous-footwear,[250],FIXED,10
+Famous Footwear,famous-footwear,"[10,250]",VARIABLE,7
+Golden Nugget Hotel & Casino,golden-nugget-hotel-casino,"[25,500]",VARIABLE,10.5
+HomeGoods,homegoods,"[10,500]",VARIABLE,5.5
+KFC,KFC,"[10,100]",VARIABLE,4
+For the love of Travel,for-the-love-of-travel,"[20,1900]",VARIABLE,7
+Gerbes,gerbes,"[10,500]",VARIABLE,2.75
+Miguel's Restaurants,miguels-restaurants,"[15,250]",VARIABLE,10.5
+American Cancer Society - Charity on Top,american-cancer-society,"[10,500]",VARIABLE,7.5
+Rainforest Cafe,rainforest-cafe,"[25,500]",VARIABLE,10.5
+Happy Card/One4all Favorites - Happy B-Day Swap,happy-card-one4all-favorites-happy-bday-swap,"[25,500]",VARIABLE,4
+CDC Foundation - Charity on Top,cdc-foundation,"[10,500]",VARIABLE,7.5
+Quince,quince,"[25,50]",FIXED,10
+Sunglass Hut,sunglass-hut,"[10,200]",VARIABLE,9.5
+Aulani Disney Resort Spa,aulani-disney-resort-spa,"[50,100]",FIXED,5
+Aulani Disney Resort Spa,aulani-disney-resort-spa,"[15,500]",VARIABLE,4
+Free Fire,free-fire,"[10,20]",FIXED,3
+Paramount+,paramount,"[25,50,100]",FIXED,6.5
+Build-A-Bear Workshop,buildabear-workshop,[70],FIXED,15
+Build-A-Bear Workshop,buildabear-workshop,"[15,200]",VARIABLE,11
+Bath & Body Works,bath-body-works,"[50,100]",FIXED,7.5
+Bath & Body Works,bath-body-works,"[10,500]",VARIABLE,6
+Regal Premiere Ticket,Regal-Premiere-Ticket,[14],FIXED,15
+Goccl,goccl,"[100,1000]",VARIABLE,8.5
+Bonefish Grill,bonefish-grill,"[20,200]",VARIABLE,9.5
+Rec Room,rec-room,"[10,150]",VARIABLE,10.5
+NeighborShare,neighborshare,"[10,1000]",VARIABLE,4.5
+FLUZ,fluz,"[20,1900]",VARIABLE,7
+For the love of Limo Rides,for-the-love-of-limo-rides,"[20,1900]",VARIABLE,7
+OneStopPlus,onestopplus,"[20,250]",VARIABLE,10.5
+PlayStation Store,playstation-store,"[10,25,50,75,100,150,200,250]",FIXED,5
+Lyft,lyft,"[25,200]",VARIABLE,3.5
+Tower of the Americas,tower-of-the-americas,"[25,500]",VARIABLE,10.5
+H&M,hm,"[10,300]",VARIABLE,8.5
+Lulus,lulus,"[15,200]",VARIABLE,6.5
+Charity on Top,charity-on-top,"[10,500]",VARIABLE,7.5
+Michael's,michaels,"[10,500]",VARIABLE,9.5
+Westin,westin,"[100,250,350,500,850]",FIXED,9
+Westin,westin,"[25,2000]",VARIABLE,4.5
+Kroger,kroger,"[10,500]",VARIABLE,2.75
+BitJem,bitjem,"[5,2000]",VARIABLE,4
+Auntie Anne's,auntie-annes,"[10,200]",VARIABLE,8.5
+Pay It Down Credit Bill,pay-it-down-credit-bill,"[20,1900]",VARIABLE,7
+Galveston Holiday Inn,galveston-holiday-inn,"[25,500]",VARIABLE,10.5
+Happy Card/One4all Favorites - Happy Birthday,happy-card-one4all-favorites-happy-birthday,"[25,500]",VARIABLE,4
+Final Fantasy XIV - 60 Days,final-fantasy-xiv-60-days,[29.99],FIXED,8
+Global Experiences Card,global-experiences-card,"[25,500]",VARIABLE,7.5
+Yard House,yard-house,"[10,250]",VARIABLE,6
+Xbox,xbox,[100],FIXED,13
+Xbox,xbox,"[15,25,50]",FIXED,6.5
+FAENA,faena,"[25,50,100]",FIXED,4.5
+TopResume,topresume,"[10,1000]",VARIABLE,8
+Speedway,speedway,"[20,200]",VARIABLE,2.5
+Sam's Club,sams-club,"[10,500]",VARIABLE,2.5
+Copps,copps,"[10,500]",VARIABLE,2.75
+Kohl's,kohls,[50],FIXED,8
+Kohl's,kohls,"[10,500]",VARIABLE,5.5
+Mortal Kombat 11,mortal-kombat-11,[59.99],FIXED,17.5
+Foods Co.,foods-co,"[10,500]",VARIABLE,2.75
+Banya Tree,banya-tree,"[25,50,100]",FIXED,4.5
+AnyCard Thank You,anycard-thank-you,"[10,500]",VARIABLE,4.5
+Happy Card/One4all Favorites - Game & Grub,happy-card-one4all-favorites-game-grub,"[25,500]",VARIABLE,4.5
+SureStay Signature Collection,surestay-signature-collection,"[25,1000]",VARIABLE,7.5
+The Cheesecake Factory,the-cheesecake-factory,[60],FIXED,11.5
+The Cheesecake Factory,the-cheesecake-factory,"[10,200]",VARIABLE,5.5
+NASCAR,nascar,"[10,500]",VARIABLE,8.5
+Boohoo Man,boohoo-man,"[10,500]",VARIABLE,7.5
+Food 4 Less,food-4-less,"[10,500]",VARIABLE,2.75
+MOLEK-SYNTEZ,molek-syntez,[9.99],FIXED,17.5
+Grubhub+,grubhub-plus,[119.88],FIXED,3
+Columbia,columbia,"[10,250]",VARIABLE,9
+AnyCard Shop,anycard-shop,"[10,500]",VARIABLE,4.5
+Bubba Gump Shrimp Co,bubba-gump-shrimp-co,"[25,500]",VARIABLE,10.5
+Henry's Tavern,henrys-tavern,"[25,500]",VARIABLE,10.5
+AirlineGift,airlinegift,"[50,2000]",VARIABLE,5.5
+Jay C,jay-c,"[10,500]",VARIABLE,2.75
+True Classic,true-classic,"[25,500]",VARIABLE,9
+Scheels,scheels,"[10,25,50,100]",FIXED,3
+WetGo Car Wash,wetgo-car-wash,"[25,100]",VARIABLE,1.5
+Carnival Cruises,carnival-cruises,"[100,1000]",VARIABLE,8.5
+Willie G's Seafood,willie-gs-seafood,"[25,500]",VARIABLE,10.5
+Belk,belk,"[15,500]",VARIABLE,10
+Pay Less Supermarkets,pay-less-supermarkets,"[10,500]",VARIABLE,2.75
+76 Gas Station,76-Gas-Station,"[10,500]",VARIABLENOCENTS,1.5
+Baja Fresh,baja-fresh,"[10,200]",VARIABLE,10
+Simon & Seafort's Saloon & Grill,simon-seaforts-saloon-grill,"[25,500]",VARIABLE,10.5
+For the love of Hotels,for-the-love-of-hotels,"[20,1900]",VARIABLE,7
+Baby Depot at Burlington,baby-depot-at-burlington,"[10,250]",VARIABLE,5
+UNDAWN,undawn,"[20,30,45,100]",FIXED,3.5
+King Soopers,king-soopers,"[10,500]",VARIABLE,2.75
+Britbox,britbox,"[25,250]",VARIABLE,8.5
+Stitch Fix,stitch-fix,"[10,500]",VARIABLE,8.5
+TIDAL,tidal,[20],FIXED,4
+Mugsy Jeans,mugsy-jeans,"[50,500]",VARIABLE,14
+Old Chicago Pizza,old-chicago-pizza,"[10,500]",VARIABLE,10
+Pastini Pastaria,pastini-pastaria,"[10,250]",VARIABLE,10.5
+World Wildlife Fund,World-Wildlife-Fund,"[10,250]",VARIABLE,7
+Ace Hardware,ace-hardware,"[100,250]",FIXED,9
+Ace Hardware,ace-hardware,"[10,250]",VARIABLE,4
+Sadie Best Western,sadie-best-western,"[25,1000]",VARIABLE,7.5
+Burger King,burger-king,"[10,1000]",VARIABLE,9.5
+GCodes Global,gcodes-global,"[10,25,50]",FIXED,3.5
+Frickers,frickers,"[10,250]",VARIABLE,10.5
+Harris Teeter,Harris-Teeter,"[10,500]",VARIABLE,3
+Under Armour,under-armour,[19],FIXED,20
+Under Armour,under-armour,"[15,500]",VARIABLE,10
+Hello Alvin,hello-alvin,[100],FIXED,7
+Owen's,owens,"[10,500]",VARIABLE,2.75
+Swissôtel Hotels & Resorts,swissôtel-hotels-resorts,"[25,50,100]",FIXED,4.5
+Sheetz,sheetz,"[10,500]",VARIABLE,2
+Shoney's,shoneys,"[20,200]",VARIABLE,6.5
+IHOP,ihop,"[10,200]",VARIABLE,6.5
+Habitat For Humanity,habitat-for-humanity,"[10,1000]",VARIABLE,4.5
+Hard Rock Cafe,hard-rock-cafe,"[10,500]",VARIABLE,5
+Chewy,chewy,"[20,500]",VARIABLE,4
+Google Play Store,google play store,"[10,500]",VARIABLE,3
+Happy Card/One4all Holiday - Happy Holidays,happy-card-one4all-holiday-happy-holidays,"[25,500]",VARIABLE,3.5
+Summer Search,summer-search,"[10,1000]",VARIABLE,4.5
+Domino's,dominos,[25],FIXED,24.5
+Domino's,dominos,"[10,100]",VARIABLE,5.5
+Nintendo eShop,nintendo-eshop,"[10,20,35,50]",FIXED,10
+Fish tales,fish-tales,"[25,500]",VARIABLE,10.5
+QuickGifts Card Mall dibbs,quickgifts-card-mall-dibbs,"[10,500]",VARIABLE,4
+Smoothie King,smoothie-king,"[10,100]",VARIABLE,9.5
+Carrs,carrs,"[10,250]",VARIABLE,3
+Lands' End,lands-end,"[15,500]",VARIABLE,12
+Magazine Reward,magazine-reward,[10],FIXED,50
+River Crab Blue Water Inn,river-crab-blue-water-inn,"[25,500]",VARIABLE,10.5
+Microsoft Office 365 Family 1 yr,microsoft-office-365-family-1-yr,"[99.99,129.99]",FIXED,10
+Happy Card/One4all Favorites - On The Run,happy-card-one4all-favorites-on-the-run,"[25,500]",VARIABLE,4.5
+Trevi Italian Restaurant,trevi-italian-restaurant,"[25,500]",VARIABLE,10.5
+Yalla Ludo Gold,yalla-ludo-gold,"[10,25,50,100,300,500]",FIXED,5.5
+Fogo de Chao Brazilian Steakhouse,fogo-de-chao-brazilian-steakhouse,"[25,500]",VARIABLE,7.5
+McCormick & Schmick's Seafood & Steaks,mccormick-schmicks-seafood-steaks,"[25,500]",VARIABLE,10.5
+Cheryl's,cheryls,"[15,500]",VARIABLE,10.5
+Petsmart,petsmart,"[10,500]",VARIABLE,5
+99 Restaurant & Pubs,99-restaurant-pubs,"[10,500]",VARIABLE,9.5
+Best Western Premier,best-western-premier,"[25,1000]",VARIABLE,7.5
+BJ's Restaurants,bjs-restaurants,"[15,200]",VARIABLE,10
+Walgreens,walgreens,"[10,500]",VARIABLE,5
+Bakers Square,bakers-square,"[10,500]",VARIABLE,9.5
+Marshalls,marshalls,"[10,500]",VARIABLE,5.5
+Mandarin Oriental Hotel Group,mandarin-oriental-hotel-group,"[10,2000]",VARIABLE,4
+Merridee's Breadbasket,merridees-breadbasket,"[10,250]",VARIABLE,10.5
+Hardee's,hardees,"[10,250]",VARIABLE,5
+Marciano,marciano,"[15,500]",VARIABLE,9
+Clinkerdagger,clinkerdagger,"[25,500]",VARIABLE,10.5
+Yankee Candle,yankee-candle,"[10,250]",VARIABLE,7
+Stock Yards,stock-yards,"[15,500]",VARIABLE,10.5
+Shari's Berries,sharis-berries,"[15,500]",VARIABLE,10.5
+Magazine Gold,magazine-gold,"[10,15]",FIXED,20
+City Year,city-year,"[10,1000]",VARIABLE,4.5
+Barclay Jewelers,barclay-jewelers,"[10,500]",VARIABLE,2.75
+The Palm,the-palm,"[25,500]",VARIABLE,10.5
+CharityChoice,charitychoice,[5],FIXED,10
+CharityChoice,charitychoice,"[10,500]",VARIABLE,9.5
+Factor 75,factor-75,"[95,115,140,155]",FIXED,5
+Skip Hop,skip-hop,[238],FIXED,15
+Skip Hop,skip-hop,"[10,500]",VARIABLE,7.5
+Twitch,twitch,"[15,200]",VARIABLE,4.5
+Radiant Waxin,radiant-waxin,"[25,500]",VARIABLE,10.5
+Fry's Food and Drug Store,frys-food-and-drug,"[10,500]",VARIABLE,2.75
+Nationwidetickets,nationwidetickets,"[25,50,100,150]",FIXED,4
+Allbirds,allbirds,[20],FIXED,6.5
+Allbirds,allbirds,"[25,250]",VARIABLE,5.5
+Le Meridien,le-meridien,"[100,250,350,500,850]",FIXED,9
+Le Meridien,le-meridien,"[25,2000]",VARIABLE,4.5
+Kendra Scott,kendra-scott,"[10,500]",VARIABLE,6.5
+Randalls,randalls,"[10,250]",VARIABLE,3
+ToursGift,toursgift,"[50,2000]",VARIABLE,5.5
+Galveston Island Historic Pleasure Pier,galveston-island-historic-pleasure-pier,"[25,500]",VARIABLE,10.5
+Amazing Lash Studio,amazing-lash-studio,"[25,500]",VARIABLE,10.5
+The Grill,the-grill,"[10,250]",VARIABLE,10.5
+Lucky Brand,lucky-brand,"[25,500]",VARIABLE,8
+Turo,turo,"[15,500]",VARIABLE,5
+Ray-Ban,ray-ban,[220],FIXED,9
+Ray-Ban,ray-ban,"[25,500]",VARIABLE,7
+Fisherman's Wharf,fishermans-wharf,"[25,500]",VARIABLE,10.5
+Steak 'n Shake,steak-n-shake,"[10,500]",VARIABLE,12.5
+Cinnabon,cinnabon,"[10,200]",VARIABLE,8.5
+Gandy Dancer,gandy-dancer,"[25,500]",VARIABLE,10.5
+Amazon,amazon,"[25,50,100,250,499.99,500]",FIXED,3
+Amazon,amazon,[20],FIXED,2.5
+Amazon,amazon,"[10,2000]",VARIABLE,1.75
+On The Border Mexican Grill & Cantina,on-the-border-mexican-grill-cantina,"[10,100]",VARIABLE,7.5
+Saltgrass Steak House,saltgrass-steak-house,"[25,500]",VARIABLE,10.5
+Unleashed by Petco,unleashed-by-petco,"[10,200]",VARIABLE,8.5
+Claim Jumper,claim-jumper,"[25,500]",VARIABLE,10.5
+Code.Org,codeorg,"[10,1000]",VARIABLE,4.5
+Stanley & Seafort's,stanley-seaforts,"[25,500]",VARIABLE,10.5
+Devon Seafood Grill,devon-seafood-grill,"[25,500]",VARIABLE,10.5
+TGI Fridays,tgi-fridays,"[10,500]",VARIABLE,7.5
+Gatorade,gatorade,"[25,250]",VARIABLE,9
+Burlington,burlington,"[10,250]",VARIABLE,5
+Kroger Boost Membership,kroger-boost-membership,"[59,99]",FIXED,2.5
+Swarovski,swarovski,"[25,1000]",VARIABLE,14
+Uber,uber,[50],FIXED,8
+Uber,uber,"[15,150]",VARIABLE,3.5
+Morton's The Steakhouse,mortons-the-steakhouse,"[25,500]",VARIABLE,10.5
+AutoZone,autozone,"[10,500]",VARIABLE,5.5
+Moe's Southwest Grill,moes-southwest-grill,"[10,200]",VARIABLE,8.5
+RentacarGift,rentacargift,"[50,2000]",VARIABLE,5.5
+Deezer,deezer,"[18,36,72]",FIXED,6
+Odyssey,odyssey,"[25,50,100,250]",FIXED,20
+Skechers,skechers,"[15,500]",VARIABLE,6.5
+Marianos,marianos,"[10,500]",VARIABLE,2.75
+adidas,adidas,"[50,60,100,105]",FIXED,10.5
+adidas,adidas,"[10,500]",VARIABLENOCENTS,8
+Perigold,perigold,[100],FIXED,8
+Perigold,perigold,"[10,500]",VARIABLE,6
+Element,element,"[100,250,350,500,850]",FIXED,9
+Element,element,"[25,2000]",VARIABLE,4.5
+Taco Bell,taco-bell,"[10,500]",VARIABLE,4
+Uno Pizzeria & Grill,uno-pizzeria-grill,"[10,200]",VARIABLE,13
+Bravo Brio Restaurants,brio-bravo-restaurants,"[15,500]",VARIABLE,12.5
+Project Hero,project-hero,"[10,1000]",VARIABLE,4.5
+Disney's Typhoon Lagoon,disney-typhoon-lagoon,"[50,100]",FIXED,5
+Disney's Typhoon Lagoon,disney-typhoon-lagoon,"[15,500]",VARIABLE,4
+Fred Meyer Jewelers,fred-meyer-jewelers,"[10,500]",VARIABLE,2.75
+Disney's Blizzard Beach,disneys-blizzard-beach,"[50,100]",FIXED,5
+Disney's Blizzard Beach,disneys-blizzard-beach,"[15,500]",VARIABLE,4
+DoorDash,doordash,"[50,100,200]",FIXED,5
+DoorDash,doordash,"[15,500]",VARIABLE,4
+Overwatch 2,overwatch-2,"[19,50]",FIXED,1.5
+Happy Card/One4all Giving Good - Feeding American,happy-card-one4all-giving-good-feeding-american,"[25,500]",VARIABLE,4.5
+Tot Squad,tot-squad,"[50,500]",VARIABLE,5
+Pottery Barn,pottery-barn,"[25,1000]",VARIABLE,5
+Five Guys,five-guys,"[15,200]",VARIABLE,7.5
+P.F. Chang's,pf-changs,"[10,500]",VARIABLE,4.5
+Walt Disney World Resort,walt-disney-world-resort,"[50,100]",FIXED,5
+Walt Disney World Resort,walt-disney-world-resort,"[15,500]",VARIABLE,4
+Amtrak,amtrak,"[25,500]",VARIABLE,4
+Outback Steakhouse,outback-steakhouse,"[20,200]",VARIABLE,9.5
+Texaco,texaco,[15],FIXED,5
+Texaco,texaco,"[10,500]",VARIABLE,2.5
+Piccadilly,piccadilly,"[10,500]",VARIABLE,13.5
+Joss & Main,joss-main,[100],FIXED,8
+Joss & Main,joss-main,"[10,500]",VARIABLE,6
+Johns Hopkins Bloomberg School Of Public Health,johns-hopkins-bloomberg-school-of-public-health,"[10,1000]",VARIABLE,4.5
+Best Western,best-western,"[25,1000]",VARIABLE,7.5
+Riot Games,riot-games,"[15,80]",FIXED,5
+Benihana,benihana,"[25,500]",VARIABLE,6.5
+Apple,apple,"[10,15,50,100]",FIXED,4
+Apple,apple,"[30,500]",VARIABLE,3
+Walmart,walmart,"[10,500]",VARIABLE,2.5
+REI,rei,"[105,252.5,300,960,1000]",FIXED,13
+REI,rei,"[25,1000]",VARIABLE,10
+Mastro's,mastros,"[25,500]",VARIABLE,10.5
+American Eagle Outfitters,american-eagle-outfitters,"[25,50,105,250]",FIXED,11
+American Eagle Outfitters,american-eagle-outfitters,"[15,200]",VARIABLE,7
+Kemah Boardwalk Inn,kemah-boardwalk-inn,"[25,500]",VARIABLE,10.5
+AMC Theatres,amc-theatres,[50],FIXED,11
+AMC Theatres,amc-theatres,"[10,100]",VARIABLE,6.5
+Urban Air Adventure Park,urban-air-adventure-park,"[25,500]",VARIABLE,10
+Carter's,carters,[238],FIXED,15
+Carter's,carters,"[10,500]",VARIABLE,7.5
+Maurices,maurices,"[10,500]",VARIABLE,7
+Barnes & Noble,barnes-noble,"[50,125]",FIXED,11
+Barnes & Noble,barnes-noble,"[10,500]",VARIABLE,5.5
+Finish Line,finish-line,[100],FIXED,8.5
+Finish Line,finish-line,"[10,250]",VARIABLE,6
+Foot Locker,foot-locker,"[10,250]",VARIABLE,5.5
+Holland America Line,holland-america-line,"[50,500]",VARIABLE,5.5
+Sanctifly,sanctifly,"[48,82,110]",FIXED,15
+Staples,staples,[50],FIXED,7
+Staples,staples,"[10,500]",VARIABLENOCENTS,6
+Showcase Cinemas,showcase-cinemas,"[10,200]",VARIABLENOCENTS,8
+Cutters Crabhouse,cutters-crabhouse,"[25,500]",VARIABLE,10.5
+Bahama Breeze,bahama-breeze,"[10,250]",VARIABLE,6
+DICK'S Sporting Goods,dicks-sporting-goods,[100],FIXED,4
+DICK'S Sporting Goods,dicks-sporting-goods,"[10,500]",VARIABLE,3
+Airbnb,airbnb,"[50,150]",FIXED,6
+Airbnb,airbnb,"[25,500]",VARIABLE,4
+Red Robin,red-robin,"[10,250]",VARIABLE,10
+Phantom Gourmet,phantom-gourmet,"[10,500]",VARIABLE,6
+Dutch Bros Coffee,dutch-bros-coffee,[10],FIXED,10
+Dutch Bros Coffee,dutch-bros-coffee,"[10,500]",VARIABLE,3.5
+Roblox,roblox,"[10,500]",VARIABLE,7
+Xbox Starfield,xbox-starfield,"[69.99,99.99]",FIXED,6.5
+Sorel,sorel,"[10,250]",VARIABLE,9
+Vons,vons,"[10,250]",VARIABLE,3
+Candy Crush,candy-crush,"[15,250]",VARIABLE,5.5
+OwnersBox,ownersbox,"[50,100,500]",FIXED,13
+OwnersBox,ownersbox,"[10,500]",VARIABLE,10.5
+Chuck E. Cheese's,chuck-e-cheeses,[25],FIXED,27
+Chuck E. Cheese's,chuck-e-cheeses,"[25,250]",VARIABLE,7
+Virgin Experience,virgin-experience,"[10,500]",VARIABLE,12.5
+Crumbl Cookies,crumbl-cookies,"[10,500]",VARIABLE,8.5
+Ann Taylor,ann-taylor,"[10,500]",VARIABLE,6.5
+Grown Brilliance,grown-brilliance,"[25,2000]",VARIABLE,9
+Designer Shoe Warehouse,designer-shoe-warehouse,"[10,100]",VARIABLE,7.5
+Groupon,groupon,"[10,200]",VARIABLE,6
+Simms Steakhouse,simms-steakhouse,"[25,500]",VARIABLE,10.5
+CanvasPop,canvaspop,[50],FIXED,15
+Olive Garden,olive-garden,"[10,250]",VARIABLE,6
+J Gilberts,j-gilberts,"[25,500]",VARIABLE,10.5
+Levy Restaurants,Levy-Restaurants,"[25,250]",VARIABLE,4
+Pavilions,pavilions,"[10,250]",VARIABLE,3
+JCPenney,jcpenney,[50],FIXED,11
+JCPenney,jcpenney,"[10,25,100]",FIXED,9.5
+JCPenney,jcpenney,"[10,500]",VARIABLE,7
+Lazy Dog Restaurant,lazy-dog-restaurant,"[15,200]",VARIABLE,10
+Jagex RuneScape,jagex-runescape,"[10,25]",FIXED,10
+Happy Card/One4all - Giving Good Gratitude,Happy-Card-One4all-Giving-Good-Gratitude,"[25,500]",VARIABLE,4
+Oura Ring,oura-ring,"[25,1000]",VARIABLE,8.5
+Grameen Foundation,grameen-foundation,"[10,1000]",VARIABLE,4.5
+VUDU,vudu,"[25,100]",VARIABLE,5.5
+Carvel,carvel,"[10,200]",VARIABLE,8.5
+Happy Card/One4all - Weekend Vibes,Happy-Card-One4all-Weekend-Vibes,"[25,500]",VARIABLE,3.5
+McAlister's Deli,mcalisters-deli,"[10,200]",VARIABLE,8.5
+Duck Donuts,duck-donuts,"[25,500]",VARIABLE,9
+HopCat,hopcat,"[10,100]",VARIABLE,10.5
+Seasons 52,seasons-52,"[10,250]",VARIABLE,6
+Perfect World Entertainment,perfect-world-entertainment,[20],FIXED,6.5
+SpringHill Suites,springhill-suites,"[100,250,350,500,850]",FIXED,9
+SpringHill Suites,springhill-suites,"[25,2000]",VARIABLE,4.5
+Omaha Steaks,omaha-steaks,"[15,200]",VARIABLE,10.5
+MLB.TV,mlbtv,[29.99],FIXED,6.5
+Guitar Center,guitar-center,"[15,500]",VARIABLE,5
+QFC,qfc,"[10,500]",VARIABLE,2.75
+Moxy Hotels,moxy-hotels,"[100,250,350,500,850]",FIXED,9
+Moxy Hotels,moxy-hotels,"[25,2000]",VARIABLE,4.5
+America SCORES,america-scores,"[10,1000]",VARIABLE,4.5
+Panda Express,panda-express,"[10,500]",VARIABLE,9
+Brenner's Steakhouse,brenners-steakhouse,"[25,500]",VARIABLE,10.5
+Spafinder,spafinder,"[10,500]",VARIABLE,12.5
+Xbox Madden NFL 24,xbox-madden-nfl-24,"[49.99,99.99]",FIXED,5
+For the love of Variety,for-the-love-of-variety,"[20,1900]",VARIABLE,7
+Hulu,hulu,"[25,50,100]",FIXED,8
+Hulu,hulu,"[25,200]",VARIABLE,6.5
+Sheraton,sheraton,"[100,250,350,500,850]",FIXED,9
+Sheraton,sheraton,"[25,2000]",VARIABLE,4.5
+Littman Jewelers,littman-jewelers,"[10,500]",VARIABLE,2.75
+Go RIO San Antonio River Cruises,go-rio-san-antonio-river-cruises,"[25,500]",VARIABLE,10.5
+Protea Hotels by Marriott,protea-hotels-by-marriott,"[100,250,350,500,850]",FIXED,9
+Protea Hotels by Marriott,protea-hotels-by-marriott,"[25,2000]",VARIABLE,4.5
+GetGo,getgo,"[25,100]",VARIABLE,1.5
+Mere Bulles,mere-bulles,"[10,250]",VARIABLE,10.5
+Personalization Mall,personalization-mall,"[10,100]",VARIABLE,8
+Disney Cruise Line,disney-cruise-line,"[50,100]",FIXED,5
+Disney Cruise Line,disney-cruise-line,"[15,500]",VARIABLE,4
+Embers Restaurant,embers-restaurant,"[10,250]",VARIABLE,6.5
+Snapchat+,snapchat-plus,[29.99],FIXED,7
+Happy Card/One4all Giving Good - Make-A-Wish,happy-card-one4all-giving-good-makeawish,"[25,500]",VARIABLE,4
+Grimaldi's Pizzeria,grimaldis-pizzeria,"[25,250]",VARIABLE,6.5
+Gap Options,gap-options,"[50,100]",FIXED,15.5
+Gap Options,gap-options,"[10,500]",VARIABLE,7.5
+Vib,vib,"[25,1000]",VARIABLE,7.5
+Nordstrom Rack,nordstrom-rack,[413],FIXED,10
+Nordstrom Rack,nordstrom-rack,"[50,100,150,200,500]",FIXED,5
+Nordstrom Rack,nordstrom-rack,"[25,500]",VARIABLE,4
+JTV,jtv,"[15,500]",VARIABLE,10.5
+SiriusXM,siriusxm,"[15,200]",VARIABLE,5.5
+Del Frisco's Grille,del-friscos-grille,"[25,500]",VARIABLE,10.5
+Glo,glo,"[25,1000]",VARIABLE,7.5
+Verizon,verizon,"[10,150]",VARIABLE,7.5
+Special Olympics - Charity on Top,special-olympics,"[10,500]",VARIABLE,7.5
+1-800-Flowers,1-800-flowers,"[15,500]",VARIABLE,10.5
+Yak & Yeti Restaurant,yak-yeti-restaurant,"[25,500]",VARIABLE,10.5
+Lettuce Entertain You Restaurants,lettuce-entertain-you-restaurants,"[10,500]",VARIABLE,10.5
+Long Live The Kings,long-live-the-kings,"[10,1000]",VARIABLE,4.5
+1-800-PetSupplies,1800-pet-supplies,"[25,50]",FIXED,10
+Camping World,camping-world,"[10,500]",VARIABLE,5
+Fruit Bouquets,fruit-bouquets,"[15,500]",VARIABLE,10.5
+Xbox Game Pass,xbox-game-pass,[29.99],FIXED,6
+Ralphs,ralphs,"[10,500]",VARIABLE,2.75
+Hibbett Sports,hibbett-sports,"[25,250]",VARIABLE,6
+Safeway,safeway,"[10,250]",VARIABLE,3
+Shipt Membership,shipt-membership,"[49,99]",FIXED,5
+Best Western Plus,best-western-plus,"[25,1000]",VARIABLE,7.5
+Crutchfield,crutchfield,"[25,250]",VARIABLE,10.5
+P.C. Richard & Son,pc-richard-son,"[25,500]",VARIABLE,3.5
+Executive Residency by Best Western,executive-residency-by-best-western,"[25,1000]",VARIABLE,7.5
+NBA Store,nba-store,"[10,500]",VARIABLE,8.5
+TJ Maxx,tj-maxx,"[10,500]",VARIABLE,5.5
+Instacart,instacart,"[25,250]",VARIABLE,4
+Soma,soma,"[15,500]",VARIABLE,7.5
+Wine.com,wine-com,[25],FIXED,3.5
+Minecraft Minecoin,minecraft-minecoin,[26.95],FIXED,10
+Minecraft Minecoin,minecraft-minecoin,[9.99],FIXED,7
+Minecraft Minecoin,minecraft-minecoin,[19],FIXED,3.5
+Disney World Magic Kingdom,magic-kingdom,"[50,100]",FIXED,5
+Disney World Magic Kingdom,magic-kingdom,"[15,500]",VARIABLE,4
+Xbox Madden NFL 24: Standard Edition,xbox-madden-nfl-24-standard-edition,[69.99],FIXED,5
+California Pizza Kitchen,california-pizza-kitchen,"[10,500]",VARIABLE,9
+Victoria's Secret,victorias-secret,"[10,500]",VARIABLE,4.5
+Birch Lane,birch-lane,[100],FIXED,8
+Birch Lane,birch-lane,"[10,500]",VARIABLE,6
+Wolferman's,wolfermans,"[15,500]",VARIABLE,10.5
+Carquest,carquest,"[47.5,92]",FIXED,15
+Carquest,carquest,"[10,500]",VARIABLE,10.5
+Celebrity Cruises,celebrity-cruises,"[50,500]",FIXED,15
+Celebrity Cruises,celebrity-cruises,"[100,250]",FIXED,10.5
+Academy Sports + Outdoors,academy-sports-outdoor,[50],FIXED,12
+Academy Sports + Outdoors,academy-sports-outdoor,"[10,1500]",VARIABLE,3
+Disney,disney,"[50,100]",FIXED,5
+Disney,disney,"[15,500]",VARIABLE,4
+Village Inn,village-inn,"[10,500]",VARIABLE,9.5
+Blue Dolphin,Blue-Dolphin,"[10,25]",FIXED,30
+Mitchell's Fish Market,mitchells-fish-market,"[25,500]",VARIABLE,10.5
+The Container Store,the-container-store,"[10,500]",VARIABLE,8.5
+Caviar,caviar,"[50,100,200]",FIXED,5
+Peet's Coffee,peets-coffee,[20],FIXED,20
+Peet's Coffee,peets-coffee,"[10,200]",VARIABLE,9
+Happy Card/One4all Favorites - Treat Yourself,happy-card-one4all-favorites-treat-yourself,"[25,500]",VARIABLE,4
+eLearnGift,elearngift,"[50,2000]",VARIABLE,5.5
+The Nature Conservancy - Charity on Top,the-nature-conservancy,"[10,500]",VARIABLE,7.5
+Fandango,fandango,"[25,100]",VARIABLE,5.5
+Rubio's Coastal Grill,rubios-coastal-grill,"[10,100]",VARIABLE,9.5
+Modern Market Eatery,modern-market-eatery,[50],FIXED,5
+Mountain Hardwear,mountain-hardwear,"[10,250]",VARIABLE,9
+Beau Jo's Colorado Style Pizza,beau-jos-colorado-style-pizza,"[10,250]",VARIABLE,9.5
+Happy Card/One4all Favorites - Fun & Fabulous,happy-card-one4all-favorites-fun-fabulous,"[25,500]",VARIABLE,4
+Darden Restaurants,darden-restaurants,"[10,250]",VARIABLE,6
+Dave & Buster's,dave-busters,"[10,500]",VARIABLE,8.5
+Pick'n Save,pickn-save,"[10,500]",VARIABLE,2.75
+Tinder,tinder,[39.99],FIXED,10
+Torrid,torrid,[17],FIXED,15
+Torrid,torrid,[35],FIXED,7
+Torrid,torrid,"[15,500]",VARIABLE,6.5
+Sling TV,sling-tv,"[25,100]",VARIABLE,5.5
+Macy's,macys,[500],FIXED,9
+Macy's,macys,"[25,500]",VARIABLE,7
+Advance Auto Parts,advance-auto-parts,"[47.5,92]",FIXED,15
+Advance Auto Parts,advance-auto-parts,"[10,500]",VARIABLE,10.5
+Live Event,live-event,"[25,50]",FIXED,40
+Baskin-Robbins,baskin-robbins,"[10,100]",VARIABLE,5.5
+Abercrombie Kids,abercrombie-kids,"[25,500]",VARIABLE,6.5
+Tommy Bahama,tommy-bahama,"[15,500]",VARIABLE,9.5
+Fold,fold,"[25,500]",VARIABLE,3.1
+GameStop,gamestop,"[10,500]",VARIABLE,5
+Cost Plus World Market,cost-plus-world-market,"[10,500]",VARIABLE,4.5
+Sierra Trading Post,sierra-trading-post,"[10,500]",VARIABLE,5.5
+Pottery Barn Kids,pottery-barn-kids,"[25,1000]",VARIABLE,5
+El Pollo Loco,el-pollo-loco,"[15,200]",VARIABLE,7
+Skates on the Bay,skates-on-the-bay,"[25,500]",VARIABLE,10.5
+west elm,west-elm,"[25,1000]",VARIABLE,5
+UNTUCKit,untuckit,"[25,500]",VARIABLE,8.5
+CVS,cvs,"[10,15,20,25,30,35,40,45,50,60,70,80,90,100]",FIXED,6
+Foundation for Angelman Syndrome Therapeutics,foundation-for-angelman-syndrome-therapeutics,"[10,1000]",VARIABLE,4.5
+For the love of Calling,for-the-love-of-calling,"[20,1900]",VARIABLE,7
+FlystayGift,flystaygift,"[50,2000]",VARIABLE,5.5
+Paul Martin's American Grill,paul-martins-american-grill,"[25,250]",VARIABLE,10.5
+TacoTime,tacotime,"[10,100]",VARIABLE,10
+J.Crew,j-crew,[324],FIXED,15
+J.Crew,j-crew,"[20,500]",VARIABLE,6.5
+EA Apex,ea-apex,[20],FIXED,10
+Vic & Anthony's Steakhouse,vic-anthonys-steakhouse,"[25,500]",VARIABLE,10.5
+Gap,gap,"[50,100]",FIXED,15.5
+Gap,gap,"[10,500]",VARIABLE,7.5
+Pottery Barn Teen,pottery-barn-teen,"[25,1000]",VARIABLE,5
+Saks Fifth Avenue,saks-fifth-avenue,"[10,500]",VARIABLE,7
+Autograph Collection Hotels,autograph-collection-hotels,"[100,250,350,500,850]",FIXED,9
+Autograph Collection Hotels,autograph-collection-hotels,"[25,2000]",VARIABLE,4.5
+Pickleball Central,pickleball-central,"[25,500]",VARIABLE,11
+Best Buy,best-buy,"[10,500]",VARIABLE,3
+Miller's Ale House,millers-ale-house,"[10,500]",VARIABLE,7.5
+Peohe's,peohes,"[25,500]",VARIABLE,10.5
+Aquarium,aquarium,"[25,500]",VARIABLE,10.5
+Castle Clash,castle-clash,"[10,20,50,100]",FIXED,3.5
+Buffalo Wild Wings,buffalo-wild-wings,"[100,105]",FIXED,15
+Buffalo Wild Wings,buffalo-wild-wings,"[10,200]",VARIABLE,6
+The Post Oak Hotel at Uptown Houston,the-post-oak-hotel-at-uptown-houston,"[25,500]",VARIABLE,10.5
+GNC,gnc,"[10,500]",VARIABLE,6
+Nasty Gal,nasty-gal,"[10,500]",VARIABLE,4.5
+Arby's,Arbys,"[10,150]",VARIABLE,5
+Bertucci's,bertuccis,"[25,500]",VARIABLE,12.5
+Pappas Restaurants,pappas-restaurants,"[20,250]",VARIABLE,9.5
+Williams Sonoma,williams-sonoma,"[25,1000]",VARIABLE,5
+Wayfair,wayfair,[100],FIXED,8
+Wayfair,wayfair,"[25,500]",VARIABLE,6
+Legal Sea Foods,legal-sea-foods,"[10,500]",VARIABLE,10.5
+Quiznos,quiznos,"[10,500]",VARIABLE,8.5
+Sonic Drive-In,sonic,"[10,100]",VARIABLE,5.5
+NetDragon Universal,netdragon-universal,"[10,25]",FIXED,6
+Hanna Andersson,hanna-andersson,"[25,500]",VARIABLE,8
+Guess,guess,"[15,500]",VARIABLE,9
+Xbox EA Sports FC 24 -5900 FC Points,xbox-ea-sports-fc-24-5900-fc-points,[49.99],FIXED,5
+Qdoba Mexican Eats,Qdoba,"[25,250]",VARIABLE,8.5
+For the love of Entertainment,for-the-love-of-entertainment,"[20,1900]",VARIABLE,7
+Cole Haan,Cole-Haan,[130],FIXED,10
+Brinker Restaurants,brinker-restaurants,"[10,100]",VARIABLE,7.5
+Poshmark,poshmark,"[25,500]",VARIABLE,7
+STK Steakhouse,stk-steakhouse,"[20,250]",VARIABLE,9.5
+Field & Stream,field-stream,[100],FIXED,4
+Field & Stream,field-stream,"[10,500]",VARIABLE,3
+Boscov's,boscovs,"[15,250]",VARIABLE,7
+Topgolf,topgolf,"[20,250]",VARIABLE,7.5
+Crate&Kids,cratekids,"[10,1000]",VARIABLE,6
+Chubbies,chubbies,"[25,500]",VARIABLE,8
+Cracker Barrel,cracker-barrel,"[10,300]",VARIABLE,8.5
+Delta Air Lines,delta-air-lines,"[50,100]",FIXED,7
+Delta Air Lines,delta-air-lines,"[50,1000]",VARIABLE,5
+Cadillac Bar,cadillac-bar,"[25,500]",VARIABLE,10.5
+Golf Galaxy,golf-galaxy,[100],FIXED,4
+Golf Galaxy,golf-galaxy,"[10,500]",VARIABLE,3
+ZWILLING,zwilling,"[25,500]",VARIABLE,9.5
+Firebirds Wood Fired Grill,Firebirds-Wood-Fired-Grill,"[25,500]",VARIABLE,14
+Alamo Drafthouse Cinema,alamo-drafthouse,"[25,50]",FIXED,10.5
+Alamo Drafthouse Cinema,alamo-drafthouse,"[25,500]",VARIABLE,9.5
+Jersey Mike's,jersey-mikes-subs,"[20,200]",VARIABLE,8.5
+For the love of Office,for-the-love-of-office,"[20,1900]",VARIABLE,7
+PGA TOUR Superstore,PGA-TOUR-Superstore,"[25,500]",VARIABLE,10.5
+Pay It Down Utilities,pay-it-down-utilities,"[20,1900]",VARIABLE,7
+La Griglia,la-griglia,"[25,500]",VARIABLE,10.5
+Phillips 66,phillips-66,"[10,500]",VARIABLENOCENTS,1.5
+Adventure & Touring by Inspire,adventure-touring-by-inspire,"[10,1000]",VARIABLE,4
+Tire Discounters,tire-discounters,"[20,500]",VARIABLE,9.5
+Princess Cruises,princess-cruises,"[25,2000]",VARIABLE,6
+Catherines,catherines,"[20,250]",VARIABLE,10.5
+Wondery,wondery,"[34.99,44.99]",FIXED,10
+Sofitel Hotels & Resort,sofitel-hotels-resort,"[25,50,100]",FIXED,4.5
+Disney on Broadway,disney-on-broadway,"[50,100]",FIXED,5
+Disney on Broadway,disney-on-broadway,"[15,500]",VARIABLE,4
+GoodCards,goodcards,"[5,2000]",VARIABLE,3.1
+Eddie Bauer,eddie-bauer,"[15,500]",VARIABLE,7.5
+BW Premier Collection,bw-premier-collection,"[25,1000]",VARIABLE,7.5
+OshKosh B'gosh,oshkosh-bgosh,[238],FIXED,15
+OshKosh B'gosh,oshkosh-bgosh,"[10,500]",VARIABLE,7.5
+The Capital Grille,the-capital-grille,"[10,250]",VARIABLE,6
+Pandora Music,pandora,"[10,200]",VARIABLE,5.5
+Champs Sports,champs-sports,"[10,250]",VARIABLE,5.5
+Chevron,chevron,[15],FIXED,5
+Chevron,chevron,"[10,500]",VARIABLE,2.5
+Blaze Pizza,blaze-pizza,"[10,100]",VARIABLE,9.5
+PubG Mobile,pubg-mobile,[99.99],FIXED,15
+PubG Mobile,pubg-mobile,"[25,50,100,200,300,400,500]",FIXED,9
+Nordstrom,nordstrom,[413],FIXED,10
+Nordstrom,nordstrom,"[50,100,150,200,500]",FIXED,5
+Nordstrom,nordstrom,"[10,2000]",VARIABLE,4
+Babin's Seafood House,babins-seafood-house,"[25,500]",VARIABLE,10.5
+Woman Within,woman-within,"[20,250]",VARIABLE,10.5
+Disney Vero Beach Resort,disney-vero-beach-resort,"[50,100]",FIXED,5
+Disney Vero Beach Resort,disney-vero-beach-resort,"[15,500]",VARIABLE,4
+Jamba Juice,jamba-juice,"[10,50]",VARIABLE,8.5
+DashPass by DoorDash,dashpass-by-doorDash,"[29.97,59.94,96]",FIXED,4.5
+NHL Shop,nhl-shop,"[10,500]",VARIABLE,8.5
+Residence Inn,residence-inn,"[100,250,350,500,850]",FIXED,9
+Residence Inn,residence-inn,"[25,2000]",VARIABLE,4.5
+babyGap,babygap,"[50,100]",FIXED,15.5
+babyGap,babygap,"[10,500]",VARIABLE,7.5
+AnyCard Ultimate,anycard-ultimate,"[10,500]",VARIABLE,4.5
+Disney's Animal Kingdom Theme Park,disneys-animal-kingdom-theme-park,"[50,100]",FIXED,5
+Disney's Animal Kingdom Theme Park,disneys-animal-kingdom-theme-park,"[15,500]",VARIABLE,4
+Bass Pro Shops,bass-pro-shops,"[10,500]",VARIABLE,7.5
+Happy Card/One4all - Giving Good Joy,Happy-Card-One4all-Giving-Good-Joy,"[25,500]",VARIABLE,4
+TripGift,tripgift,"[50,2500]",VARIABLE,5.5
+Home Depot,home-depot,"[499.99,500]",FIXED,5
+Home Depot,home-depot,"[15,500]",VARIABLE,4.5
+KingsIsle Wizard101,kingsisle-wizard101,[20],FIXED,8
+Wawa,Wawa,"[10,250]",VARIABLE,2.5
+American Red Cross - Charity on Top,american-red-cross,"[10,500]",VARIABLE,7.5
+Marriott International,marriott,"[100,250,350,500,850]",FIXED,9
+Marriott International,marriott,"[25,2000]",VARIABLE,4.5
+Personalization Universe,personalization-universe,"[15,500]",VARIABLE,10.5
+Bloomin' Brands,bloomin-brands,"[20,200]",VARIABLE,9.5
+King Ranch Texas Kitchen,king-ranch-texas-kitchen,"[25,500]",VARIABLE,10.5

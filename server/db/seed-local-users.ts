@@ -17,20 +17,24 @@ const BCRYPT_ROUNDS = 10;
 
 const LOCAL_USERS = [
   {
-    email: 'test@cardxc.local',
-    password: 'Password1!',
+    email: process.env.SEED_USER_EMAIL || 'test@cardxc.local',
+    password: process.env.SEED_USER_PASSWORD || 'Password1!',
     full_name: 'Test User',
     role: 'USER' as const,
   },
   {
-    email: 'admin@cardxc.local',
-    password: 'Admin1!',
+    email: process.env.SEED_ADMIN_EMAIL || 'admin@cardxc.local',
+    password: process.env.SEED_ADMIN_PASSWORD || 'Admin1!',
     full_name: 'Local Admin',
     role: 'SUPER_ADMIN' as const,
   },
 ];
 
 async function seed() {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('Seed script must not run in production. Set NODE_ENV=development.');
+    process.exit(1);
+  }
   const client = await pool.connect();
   try {
     for (const u of LOCAL_USERS) {
@@ -66,7 +70,7 @@ async function seed() {
     console.log('Local user DB seed done.');
   } finally {
     client.release();
-    await pool.end();
+    await pool.end?.();
   }
 }
 

@@ -133,19 +133,19 @@ export default function AddressBook({ isModal = false, onClose, onSelectAddress,
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1 relative">
-          <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+          <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500"></i>
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by label or address..."
-            className="w-full pl-10 pr-4 py-3 border-2 border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
+            className="input-dark w-full pl-10 pr-4 py-3 rounded-xl"
           />
         </div>
         <select
           value={selectedNetwork}
           onChange={(e) => setSelectedNetwork(e.target.value)}
-          className="px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors bg-white"
+          className="input-dark px-4 py-3 rounded-xl"
         >
           <option value="all">All Networks</option>
           {NETWORKS.map(network => (
@@ -154,7 +154,7 @@ export default function AddressBook({ isModal = false, onClose, onSelectAddress,
         </select>
         <button
           onClick={() => setShowAddForm(true)}
-          className="flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-semibold rounded-xl transition-all cursor-pointer shadow-lg shadow-emerald-500/30"
+          className="flex items-center justify-center space-x-2 px-4 py-3 bg-lime-500 hover:bg-lime-600 text-white font-semibold rounded-xl transition-all cursor-pointer"
         >
           <i className="ri-add-line"></i>
           <span>Add New</span>
@@ -162,36 +162,36 @@ export default function AddressBook({ isModal = false, onClose, onSelectAddress,
       </div>
 
       {showAddForm && (
-        <div className="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-6 space-y-4">
+        <div className="bg-dark-elevated border border-dark-border rounded-xl p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-slate-900">Add New Address</h3>
+            <h3 className="text-lg font-bold text-white">Add New Address</h3>
             <button
               onClick={() => {
                 setShowAddForm(false);
                 setNewAddress({ label: '', address: '', network: 'eth-erc20' });
               }}
-              className="w-8 h-8 rounded-full hover:bg-emerald-100 flex items-center justify-center transition-colors cursor-pointer"
+              className="w-8 h-8 rounded-full hover:bg-dark-bg flex items-center justify-center transition-colors cursor-pointer"
             >
-              <i className="ri-close-line text-xl text-slate-600"></i>
+              <i className="ri-close-line text-xl text-neutral-400"></i>
             </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Label/Nickname</label>
+              <label className="block text-sm font-semibold text-neutral-400 mb-2">Label/Nickname</label>
               <input
                 type="text"
                 value={newAddress.label}
                 onChange={(e) => setNewAddress(prev => ({ ...prev, label: e.target.value }))}
                 placeholder="e.g., My Binance Wallet"
-                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
+                className="input-dark w-full px-4 py-3 rounded-xl"
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Network</label>
+              <label className="block text-sm font-semibold text-neutral-400 mb-2">Network</label>
               <select
                 value={newAddress.network}
                 onChange={(e) => setNewAddress(prev => ({ ...prev, network: e.target.value }))}
-                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors bg-white"
+                className="input-dark w-full px-4 py-3 rounded-xl"
               >
                 {NETWORKS.map(network => (
                   <option key={network.id} value={network.id}>{network.name}</option>
@@ -200,7 +200,7 @@ export default function AddressBook({ isModal = false, onClose, onSelectAddress,
             </div>
           </div>
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">Wallet Address</label>
+            <label className="block text-sm font-semibold text-neutral-400 mb-2">Wallet Address</label>
             <input
               type="text"
               value={newAddress.address}
@@ -209,20 +209,20 @@ export default function AddressBook({ isModal = false, onClose, onSelectAddress,
                 newAddress.network === 'btc-native' ? 'bc1q... or 1... or 3...' :
                 newAddress.network.includes('trc20') ? 'T...' : '0x...'
               }
-              className={`w-full px-4 py-3 font-mono text-sm border-2 rounded-xl focus:outline-none transition-colors ${
+              className={`input-dark w-full px-4 py-3 font-mono text-sm rounded-xl ${
                 newAddress.address && !validateAddress(newAddress.address, newAddress.network)
-                  ? 'border-red-300 focus:border-red-500'
-                  : 'border-slate-200 focus:border-emerald-500'
+                  ? 'border-red-500/50'
+                  : ''
               }`}
             />
             {newAddress.address && !validateAddress(newAddress.address, newAddress.network) && (
-              <p className="text-sm text-red-500 mt-1">Invalid address format for selected network</p>
+              <p className="text-sm text-red-400 mt-1">Invalid address format for selected network</p>
             )}
           </div>
           <button
             onClick={handleSaveAddress}
             disabled={!newAddress.label || !newAddress.address || !validateAddress(newAddress.address, newAddress.network)}
-            className="w-full py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 disabled:from-slate-300 disabled:to-slate-400 text-white font-semibold rounded-xl transition-all cursor-pointer shadow-lg shadow-emerald-500/30"
+            className="w-full py-3 bg-lime-500 hover:bg-lime-600 disabled:bg-neutral-600 disabled:opacity-60 text-white font-semibold rounded-xl transition-all cursor-pointer"
           >
             Save Address
           </button>
@@ -230,12 +230,12 @@ export default function AddressBook({ isModal = false, onClose, onSelectAddress,
       )}
 
       <div>
-        <h3 className="text-lg font-bold text-slate-900 mb-4">Saved Addresses</h3>
+        <h3 className="text-lg font-bold text-white mb-4">Saved Addresses</h3>
         {filteredAddresses.length === 0 ? (
-          <div className="text-center py-12 bg-slate-50 rounded-xl border border-slate-200">
-            <i className="ri-bookmark-line text-4xl text-slate-400 mb-3"></i>
-            <p className="text-slate-600 font-medium">No saved addresses found</p>
-            <p className="text-sm text-slate-500 mt-1">Add a new address to get started</p>
+          <div className="text-center py-12 bg-dark-elevated rounded-xl border border-dark-border">
+            <i className="ri-bookmark-line text-4xl text-neutral-500 mb-3"></i>
+            <p className="text-neutral-400 font-medium">No saved addresses found</p>
+            <p className="text-sm text-neutral-500 mt-1">Add a new address to get started</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -244,8 +244,8 @@ export default function AddressBook({ isModal = false, onClose, onSelectAddress,
               return (
                 <div
                   key={address.id}
-                  className={`p-4 bg-white rounded-xl border-2 transition-all ${
-                    onSelectAddress ? 'border-slate-200 hover:border-emerald-500 cursor-pointer' : 'border-slate-200'
+                  className={`p-4 bg-dark-elevated rounded-xl border transition-all ${
+                    onSelectAddress ? 'border-dark-border hover:border-lime-500/50 cursor-pointer' : 'border-dark-border'
                   }`}
                   onClick={() => onSelectAddress?.(address)}
                 >
@@ -255,19 +255,19 @@ export default function AddressBook({ isModal = false, onClose, onSelectAddress,
                         type="text"
                         value={editingAddress.label}
                         onChange={(e) => setEditingAddress(prev => prev ? { ...prev, label: e.target.value } : null)}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:border-emerald-500 focus:outline-none"
+                        className="input-dark w-full px-3 py-2 rounded-lg"
                         onClick={(e) => e.stopPropagation()}
                       />
                       <div className="flex space-x-2">
                         <button
                           onClick={(e) => { e.stopPropagation(); handleUpdateAddress(); }}
-                          className="px-3 py-1 bg-emerald-500 text-white text-sm rounded-lg hover:bg-emerald-600 cursor-pointer"
+                          className="px-3 py-1 bg-lime-500 text-white text-sm rounded-lg hover:bg-lime-600 cursor-pointer"
                         >
                           Save
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); setEditingAddress(null); }}
-                          className="px-3 py-1 bg-slate-200 text-slate-700 text-sm rounded-lg hover:bg-slate-300 cursor-pointer"
+                          className="px-3 py-1 bg-dark-bg text-neutral-300 text-sm rounded-lg hover:bg-dark-border cursor-pointer"
                         >
                           Cancel
                         </button>
@@ -280,21 +280,21 @@ export default function AddressBook({ isModal = false, onClose, onSelectAddress,
                           <i className={`${networkInfo.icon} text-white text-lg`}></i>
                         </div>
                         <div>
-                          <p className="font-bold text-slate-900">{address.label}</p>
+                          <p className="font-bold text-white">{address.label}</p>
                           <div className="flex items-center space-x-2">
-                            <p className="text-sm font-mono text-slate-500">{truncateAddress(address.address)}</p>
+                            <p className="text-sm font-mono text-neutral-400">{truncateAddress(address.address)}</p>
                             <button
                               onClick={(e) => { e.stopPropagation(); copyToClipboard(address.address, address.id); }}
-                              className="text-slate-400 hover:text-emerald-500 transition-colors cursor-pointer"
+                              className="text-neutral-500 hover:text-lime-400 transition-colors cursor-pointer"
                             >
-                              <i className={copiedId === address.id ? 'ri-check-line text-emerald-500' : 'ri-file-copy-line'}></i>
+                              <i className={copiedId === address.id ? 'ri-check-line text-lime-400' : 'ri-file-copy-line'}></i>
                             </button>
                           </div>
                           <div className="flex items-center space-x-2 mt-1">
-                            <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full">{address.coin}</span>
-                            <span className="text-xs text-slate-400">{networkInfo.name}</span>
+                            <span className="text-xs px-2 py-0.5 bg-dark-bg text-neutral-400 rounded-full">{address.coin}</span>
+                            <span className="text-xs text-neutral-500">{networkInfo.name}</span>
                             {address.lastUsed && (
-                              <span className="text-xs text-slate-400">• Last used: {address.lastUsed}</span>
+                              <span className="text-xs text-neutral-500">• Last used: {address.lastUsed}</span>
                             )}
                           </div>
                         </div>
@@ -303,15 +303,15 @@ export default function AddressBook({ isModal = false, onClose, onSelectAddress,
                         <div className="flex space-x-1">
                           <button
                             onClick={(e) => { e.stopPropagation(); setEditingAddress(address); }}
-                            className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
+                            className="w-8 h-8 rounded-lg hover:bg-dark-bg flex items-center justify-center transition-colors cursor-pointer"
                           >
-                            <i className="ri-edit-line text-slate-500"></i>
+                            <i className="ri-edit-line text-neutral-400"></i>
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDeleteAddress(address.id); }}
-                            className="w-8 h-8 rounded-lg hover:bg-red-50 flex items-center justify-center transition-colors cursor-pointer"
+                            className="w-8 h-8 rounded-lg hover:bg-red-500/20 flex items-center justify-center transition-colors cursor-pointer"
                           >
-                            <i className="ri-delete-bin-line text-red-500"></i>
+                            <i className="ri-delete-bin-line text-red-400"></i>
                           </button>
                         </div>
                       )}
@@ -325,11 +325,11 @@ export default function AddressBook({ isModal = false, onClose, onSelectAddress,
       </div>
 
       <div>
-        <h3 className="text-lg font-bold text-slate-900 mb-4">Recently Sent To</h3>
+        <h3 className="text-lg font-bold text-white mb-4">Recently Sent To</h3>
         {recentAddresses.length === 0 ? (
-          <div className="text-center py-8 bg-slate-50 rounded-xl border border-slate-200">
-            <i className="ri-history-line text-3xl text-slate-400 mb-2"></i>
-            <p className="text-sm text-slate-500">No recent transactions</p>
+          <div className="text-center py-8 bg-dark-elevated rounded-xl border border-dark-border">
+            <i className="ri-history-line text-3xl text-neutral-500 mb-2"></i>
+            <p className="text-sm text-neutral-500">No recent transactions</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -339,8 +339,8 @@ export default function AddressBook({ isModal = false, onClose, onSelectAddress,
               return (
                 <div
                   key={address.id}
-                  className={`p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between ${
-                    onSelectAddress ? 'hover:border-emerald-500 cursor-pointer' : ''
+                  className={`p-3 bg-dark-elevated rounded-xl border border-dark-border flex items-center justify-between ${
+                    onSelectAddress ? 'hover:border-lime-500/50 cursor-pointer' : ''
                   }`}
                   onClick={() => onSelectAddress?.(address)}
                 >
@@ -349,11 +349,11 @@ export default function AddressBook({ isModal = false, onClose, onSelectAddress,
                       <i className={`${networkInfo.icon} text-white text-sm`}></i>
                     </div>
                     <div>
-                      <p className="text-sm font-mono text-slate-700">{truncateAddress(address.address)}</p>
+                      <p className="text-sm font-mono text-neutral-300">{truncateAddress(address.address)}</p>
                       <div className="flex items-center space-x-2">
-                        <span className="text-xs text-slate-500">{networkInfo.name}</span>
+                        <span className="text-xs text-neutral-500">{networkInfo.name}</span>
                         {address.lastUsed && (
-                          <span className="text-xs text-slate-400">• {address.lastUsed}</span>
+                          <span className="text-xs text-neutral-500">• {address.lastUsed}</span>
                         )}
                       </div>
                     </div>
@@ -361,17 +361,17 @@ export default function AddressBook({ isModal = false, onClose, onSelectAddress,
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={(e) => { e.stopPropagation(); copyToClipboard(address.address, address.id); }}
-                      className="w-8 h-8 rounded-lg hover:bg-slate-200 flex items-center justify-center transition-colors cursor-pointer"
+                      className="w-8 h-8 rounded-lg hover:bg-dark-bg flex items-center justify-center transition-colors cursor-pointer"
                     >
-                      <i className={copiedId === address.id ? 'ri-check-line text-emerald-500' : 'ri-file-copy-line text-slate-500'}></i>
+                      <i className={copiedId === address.id ? 'ri-check-line text-lime-400' : 'ri-file-copy-line text-neutral-400'}></i>
                     </button>
                     {!isSaved && (
                       <button
                         onClick={(e) => { e.stopPropagation(); handleAddToSaved(address); }}
-                        className="w-8 h-8 rounded-lg hover:bg-emerald-100 flex items-center justify-center transition-colors cursor-pointer"
+                        className="w-8 h-8 rounded-lg hover:bg-lime-500/20 flex items-center justify-center transition-colors cursor-pointer"
                         title="Save to address book"
                       >
-                        <i className="ri-bookmark-line text-emerald-500"></i>
+                        <i className="ri-bookmark-line text-lime-400"></i>
                       </button>
                     )}
                   </div>
@@ -387,17 +387,17 @@ export default function AddressBook({ isModal = false, onClose, onSelectAddress,
   if (isModal) {
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-          <div className="p-6 border-b border-slate-200 flex items-center justify-between">
+        <div className="bg-dark-card border border-dark-border rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="p-6 border-b border-dark-border flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Address Book</h2>
-              <p className="text-sm text-slate-600 mt-1">Select an address or add a new one</p>
+              <h2 className="text-2xl font-bold text-white">Address Book</h2>
+              <p className="text-sm text-neutral-400 mt-1">Select an address or add a new one</p>
             </div>
             <button
               onClick={onClose}
-              className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
+              className="w-10 h-10 rounded-full hover:bg-dark-elevated flex items-center justify-center transition-colors cursor-pointer"
             >
-              <i className="ri-close-line text-2xl text-slate-600"></i>
+              <i className="ri-close-line text-2xl text-neutral-400"></i>
             </button>
           </div>
           <div className="flex-1 overflow-y-auto p-6">

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
 import { authApi } from '../lib/api';
 import { clearSessionCache } from '../lib/api';
@@ -112,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const authCheckCompleted = useRef(false);
+  const signingIn = useRef(false);
   
   useEffect(() => {
     let isMounted = true;
@@ -150,6 +152,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [checkAuth]);
 
   const signIn = useCallback(async (email: string, password: string, twoFactorToken?: string) => {
+    if (signingIn.current) {
+      return { success: false, error: 'Sign in already in progress' };
+    }
+    
+    signingIn.current = true;
     try {
       console.log('[Auth] Signing in');
       
@@ -197,6 +204,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('[Auth] Sign in error:', err);
       return { success: false, error: err instanceof Error ? err.message : 'Login failed' };
+    } finally {
+      signingIn.current = false;
     }
   }, []);
 

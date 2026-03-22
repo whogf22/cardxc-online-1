@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../../contexts/AuthContext';
+import { getCartoonAvatarUrl } from '../../utils/avatar';
 
 interface ProfileData {
   id: string;
@@ -12,6 +13,7 @@ interface ProfileData {
   kyc_status: string;
   account_status: string;
   two_factor_enabled: boolean;
+  profile_picture?: string;
 }
 
 interface MenuItem {
@@ -43,6 +45,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     loadProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadProfile = async () => {
@@ -75,87 +78,111 @@ export default function ProfilePage() {
     }
   };
 
-  const getInitials = (name: string) => {
-    if (!name) return 'U';
-    const parts = name.split(' ');
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
-    return name.substring(0, 2).toUpperCase();
-  };
-
   const isPro = profile?.kyc_status === 'approved';
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <i className="ri-loader-4-line animate-spin text-4xl text-blue-500"></i>
+      <div className="min-h-screen bg-dark-bg flex items-center justify-center">
+        <div className="w-14 h-14 border-4 border-lime-500/30 border-t-lime-500 rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-dark-bg pb-24">
       {/* Header */}
-      <div className="bg-white px-4 pt-12 pb-4">
+      <div className="bg-dark-card border-b border-dark-border px-4 pt-12 pb-4">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/dashboard')}
-            className="w-10 h-10 flex items-center justify-center"
+            className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-dark-elevated transition-colors"
           >
-            <i className="ri-arrow-left-s-line text-2xl text-gray-800"></i>
+            <i className="ri-arrow-left-s-line text-2xl text-neutral-300"></i>
           </button>
-          <h1 className="text-xl font-semibold text-gray-900">Profile</h1>
+          <h1 className="text-xl font-semibold text-white">Profile</h1>
         </div>
       </div>
 
-      {/* Profile Card */}
+      {/* Profile Card - Unique design */}
       <div className="px-4 mt-2">
-        <div className="bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600 rounded-2xl p-5 relative overflow-hidden">
-          {/* Decorative circles */}
-          <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full"></div>
-          <div className="absolute -right-4 top-16 w-20 h-20 bg-white/5 rounded-full"></div>
+        <div className="relative rounded-2xl overflow-hidden group">
+          {/* Base: dark gradient with mesh feel */}
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950" />
+          {/* Accent stripe - card-inspired */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-lime-400 to-transparent opacity-80" />
+          {/* Geometric accents */}
+          <div className="absolute -right-12 -top-12 w-36 h-36 rounded-full bg-lime-500/10 blur-2xl" />
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 w-24 h-24 rounded-full border border-white/5" />
+          <div className="absolute bottom-2 left-2 w-16 h-16 rounded-lg border border-white/5 rotate-12" />
           
-          <div className="flex items-center gap-4 relative z-10">
-            {/* Avatar */}
-            <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-white/30">
-              <span className="text-white text-xl font-bold">
-                {getInitials(profile?.full_name || 'User')}
-              </span>
+          <div className="relative z-10 p-5 flex items-center gap-4">
+            {/* Avatar with glow ring */}
+            <div className="relative flex-shrink-0">
+              <div className="absolute -inset-1 rounded-full bg-lime-400/30 blur-md animate-pulse" />
+              <div className="relative w-16 h-16 rounded-full ring-2 ring-white/20 ring-offset-2 ring-offset-slate-900 overflow-hidden bg-slate-700">
+                {profile?.profile_picture ? (
+                  <img src={profile.profile_picture} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <img src={getCartoonAvatarUrl((profile?.id || profile?.email || 'default').toString(), 128)} alt="" className="w-full h-full object-cover" />
+                )}
+              </div>
             </div>
             
             {/* User Info */}
-            <div className="flex-1">
-              <h2 className="text-white text-lg font-semibold">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-white text-lg font-semibold truncate">
                 {profile?.full_name || 'User'}
               </h2>
-              {isPro && (
-                <span className="inline-block mt-1 px-3 py-0.5 bg-blue-700/50 backdrop-blur-sm text-white text-xs font-medium rounded-full border border-white/20">
-                  PRO MEMBER
-                </span>
+              {profile?.email && (
+                <p className="text-neutral-400 text-xs mt-0.5 truncate">{profile.email}</p>
               )}
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                {isPro ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500/20 to-amber-600/20 border border-amber-400/30 text-amber-300 text-[10px] font-semibold tracking-wide">
+                    <i className="ri-vip-crown-line text-xs" />
+                    PRO
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-neutral-400 text-[10px] font-medium">
+                    Free
+                  </span>
+                )}
+                {profile?.created_at && (
+                  <span className="text-neutral-500 text-[10px]">
+                    Since {new Date(profile.created_at).getFullYear()}
+                  </span>
+                )}
+              </div>
             </div>
+            
+            {/* Chevron */}
+            <button
+              onClick={() => navigate('/profile/personal')}
+              className="flex-shrink-0 w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
+            >
+              <i className="ri-arrow-right-s-line text-neutral-400 text-lg" />
+            </button>
           </div>
         </div>
       </div>
 
       {/* Settings Section */}
       <div className="px-4 mt-6">
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">Settings</h3>
-        <div className="bg-white rounded-2xl overflow-hidden border border-gray-100">
+        <h3 className="text-sm font-semibold text-neutral-400 mb-3 uppercase tracking-wider">Settings</h3>
+        <div className="bg-dark-card rounded-2xl overflow-hidden border border-dark-border">
           {settingsMenuItems.map((item, index) => (
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className={`w-full flex items-center justify-between px-4 py-4 hover:bg-gray-50 transition-colors ${
-                index !== settingsMenuItems.length - 1 ? 'border-b border-gray-100' : ''
+              className={`w-full flex items-center justify-between px-4 py-4 hover:bg-dark-elevated transition-colors ${
+                index !== settingsMenuItems.length - 1 ? 'border-b border-dark-border' : ''
               }`}
             >
               <div className="flex items-center gap-3">
-                <i className={`${item.icon} text-lg text-gray-600`}></i>
-                <span className="text-sm text-gray-800">{item.label}</span>
+                <i className={`${item.icon} text-lg text-lime-400`}></i>
+                <span className="text-sm text-white">{item.label}</span>
               </div>
-              <i className="ri-arrow-right-s-line text-lg text-gray-400"></i>
+              <i className="ri-arrow-right-s-line text-lg text-neutral-500"></i>
             </button>
           ))}
         </div>
@@ -163,21 +190,21 @@ export default function ProfilePage() {
 
       {/* Support Section */}
       <div className="px-4 mt-6">
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">Support</h3>
-        <div className="bg-white rounded-2xl overflow-hidden border border-gray-100">
+        <h3 className="text-sm font-semibold text-neutral-400 mb-3 uppercase tracking-wider">Support</h3>
+        <div className="bg-dark-card rounded-2xl overflow-hidden border border-dark-border">
           {supportMenuItems.map((item, index) => (
             <button
               key={`${item.path}-${index}`}
               onClick={() => navigate(item.path)}
-              className={`w-full flex items-center justify-between px-4 py-4 hover:bg-gray-50 transition-colors ${
-                index !== supportMenuItems.length - 1 ? 'border-b border-gray-100' : ''
+              className={`w-full flex items-center justify-between px-4 py-4 hover:bg-dark-elevated transition-colors ${
+                index !== supportMenuItems.length - 1 ? 'border-b border-dark-border' : ''
               }`}
             >
               <div className="flex items-center gap-3">
-                <i className={`${item.icon} text-lg text-gray-600`}></i>
-                <span className="text-sm text-gray-800">{item.label}</span>
+                <i className={`${item.icon} text-lg text-lime-400`}></i>
+                <span className="text-sm text-white">{item.label}</span>
               </div>
-              <i className="ri-arrow-right-s-line text-lg text-gray-400"></i>
+              <i className="ri-arrow-right-s-line text-lg text-neutral-500"></i>
             </button>
           ))}
         </div>
@@ -187,7 +214,7 @@ export default function ProfilePage() {
       <div className="px-4 mt-8">
         <button
           onClick={handleLogout}
-          className="w-full py-4 bg-red-50 text-red-500 font-semibold rounded-xl hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
+          className="w-full py-4 bg-red-500/10 text-red-400 font-semibold rounded-xl hover:bg-red-500/20 border border-red-500/30 transition-colors flex items-center justify-center gap-2"
         >
           <i className="ri-logout-box-line"></i>
           Logout

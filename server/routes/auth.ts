@@ -31,10 +31,13 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 function getJwtSecret(): string {
   const secret = process.env.SESSION_SECRET;
-  if (!secret && isProduction) {
-    throw new Error('FATAL: SESSION_SECRET environment variable is required in production');
+  if (!secret) {
+    if (isProduction) {
+      throw new Error('FATAL: SESSION_SECRET environment variable is required in production');
+    }
+    return 'dev-only-secret-' + (process.env.REPL_ID || 'local');
   }
-  return secret || 'dev-only-secret-do-not-use-in-production';
+  return secret;
 }
 
 const JWT_SECRET = getJwtSecret();
@@ -118,7 +121,7 @@ router.post('/signup',
 
       try {
         await sendWelcomeEmail(result.email, result.full_name || 'User');
-        logger.info('Welcome email sent', { email: result.email });
+        logger.info('Welcome email sent', { email: result.email.substring(0, 3) + '***@***' });
       } catch (err) {
         logger.error('Failed to send welcome email', { error: err });
       }
@@ -458,6 +461,35 @@ router.post('/2fa/disable', authenticate,
   })
 );
 
+router.post('/change-password', authenticate,
+  body('currentPassword').notEmpty().withMessage('Current password is required'),
+  body('newPassword').isLength({ min: 8 }).withMessage('New password must be at least 8 characters'),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(errors.array()[0].msg, 400, 'VALIDATION_ERROR');
+    }
+    const { currentPassword, newPassword } = req.body;
+
+    const user = await queryOne<any>('SELECT password_hash FROM users WHERE id = $1', [req.user!.id]);
+    const valid = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!valid) {
+      throw new AppError('Current password is incorrect', 401, 'INVALID_PASSWORD');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await query(`UPDATE users SET password_hash = $1, failed_login_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = $2`, [passwordHash, req.user!.id]);
+
+    await createAuditLog({
+      userId: req.user!.id,
+      action: 'PASSWORD_CHANGED',
+      ...getClientInfo(req),
+    });
+
+    res.json({ success: true, message: 'Password changed successfully' });
+  })
+);
+
 router.post('/password-reset/request',
   passwordResetLimiter,
   body('email').isEmail().normalizeEmail(),
@@ -485,7 +517,7 @@ router.post('/password-reset/request',
 
       try {
         await sendPasswordResetEmail(user.email, user.full_name || 'User', resetToken);
-        logger.info('Password reset email sent', { email: user.email });
+        logger.info('Password reset email sent', { email: user.email.substring(0, 3) + '***@***' });
       } catch (err) {
         logger.error('Failed to send password reset email', { error: err });
       }
@@ -552,7 +584,7 @@ router.post('/password-reset/confirm',
       ...getClientInfo(req),
     });
 
-    logger.info('Password reset completed', { email: resetToken.email });
+    logger.info('Password reset completed', { email: resetToken.email.substring(0, 3) + '***@***' });
 
     res.json({ success: true, message: 'Password has been reset successfully. Please sign in with your new password.' });
   })

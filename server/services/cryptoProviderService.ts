@@ -1,12 +1,14 @@
 /**
  * Crypto Provider Service
  * Integrates with crypto payment providers to send actual USDT to user wallets
+ * TronGrid API: https://api.trongrid.io for USDT TRC20
  */
 
 import { logger } from '../middleware/logger';
+import { query } from '../db/pool';
 
 // Supported crypto providers
-export type CryptoProvider = 'binance_pay' | 'coinbase_commerce' | 'circle' | 'manual';
+export type CryptoProvider = 'binance_pay' | 'coinbase_commerce' | 'circle' | 'trongrid' | 'manual';
 
 // Crypto network types
 export type CryptoNetwork = 'TRC20' | 'ERC20' | 'BEP20' | 'POLYGON';
@@ -34,6 +36,10 @@ const BINANCE_API_KEY = process.env.BINANCE_API_KEY;
 const BINANCE_SECRET_KEY = process.env.BINANCE_SECRET_KEY;
 const COINBASE_API_KEY = process.env.COINBASE_COMMERCE_API_KEY;
 const CIRCLE_API_KEY = process.env.CIRCLE_API_KEY;
+const TRONGRID_API_KEY = process.env.TRONGRID_API_KEY;
+const TRON_HOT_WALLET_PRIVATE_KEY = process.env.TRON_HOT_WALLET_PRIVATE_KEY;
+const TRONGRID_BASE = 'https://api.trongrid.io';
+const USDT_TRC20_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
 
 // Minimum USDT amount for crypto payout (to avoid high fees on small amounts)
 const MIN_CRYPTO_PAYOUT_AMOUNT = 10; // $10 USDT
@@ -79,6 +85,12 @@ export async function sendCryptoToWallet(request: CryptoPayoutRequest): Promise<
 
             case 'circle':
                 return await sendViaCircle(request);
+
+            case 'trongrid':
+                if (request.network === 'TRC20') {
+                    return await sendViaTronGrid(request);
+                }
+                return await createManualPayoutRequest(request);
 
             case 'manual':
             default:
@@ -151,13 +163,83 @@ async function sendViaCircle(request: CryptoPayoutRequest): Promise<CryptoPayout
 }
 
 /**
+ * TronGrid - Send USDT TRC20 via TronGrid API
+ * Requires: TRON_HOT_WALLET_PRIVATE_KEY, optional TRONGRID_API_KEY for higher rate limits
+ */
+async function sendViaTronGrid(request: CryptoPayoutRequest): Promise<CryptoPayoutResponse> {
+    if (request.network !== 'TRC20') {
+        return {
+            success: false,
+            status: 'failed',
+            error: 'TronGrid only supports TRC20. Use manual for other networks.'
+        };
+    }
+    if (!TRON_HOT_WALLET_PRIVATE_KEY) {
+        logger.warn('TronGrid: TRON_HOT_WALLET_PRIVATE_KEY not set, falling back to manual');
+        return await createManualPayoutRequest(request);
+    }
+
+    try {
+        const { TronWeb } = await import('tronweb' as any);
+        const tronWeb = new TronWeb({
+            fullHost: TRONGRID_BASE,
+            headers: TRONGRID_API_KEY ? { 'TRON-PRO-API-KEY': TRONGRID_API_KEY } : {}
+        });
+        tronWeb.setPrivateKey(TRON_HOT_WALLET_PRIVATE_KEY);
+
+        const amountSun = Math.floor(request.amount * 1e6);
+        const contract = await tronWeb.contract().at(USDT_TRC20_CONTRACT);
+        const tx = await contract.transfer(request.walletAddress, amountSun).send();
+
+        if (tx && ((tx as any).transaction?.txID || (tx as any).txid || typeof tx === 'string')) {
+            const txHash = typeof tx === 'string' ? tx : ((tx as any).transaction?.txID || (tx as any).txid);
+            logger.info('TronGrid USDT TRC20 sent', {
+                txHash,
+                amount: request.amount,
+                to: request.walletAddress.substring(0, 10) + '...'
+            });
+
+            try {
+                await query(
+                    `INSERT INTO crypto_transactions (
+                        user_id, type, status, amount, currency, network, tx_hash,
+                        from_address, to_address, confirmations, required_confirmations, withdrawal_request_id
+                    ) VALUES ($1, 'withdrawal', 'completed', $2, 'USDT', 'TRC20', $3, $4, $5, 20, 20, $6)`,
+                    [request.userId, request.amount, txHash,
+                     process.env.USDT_TRC20_DEPOSIT_ADDRESS || process.env.TRON_HOT_WALLET_ADDRESS || '',
+                     request.walletAddress, request.transactionId || null]
+                );
+            } catch (dbErr: any) {
+                logger.error('Failed to record crypto tx in DB', { error: dbErr.message });
+            }
+
+            return {
+                success: true,
+                payoutId: txHash,
+                txHash,
+                status: 'completed',
+                estimatedCompletionTime: '1-2 minutes'
+            };
+        }
+        throw new Error('No transaction ID returned');
+    } catch (error: any) {
+        logger.error('TronGrid payout failed', { error: error.message, amount: request.amount });
+        return {
+            success: false,
+            status: 'failed',
+            error: error.message || 'TronGrid transfer failed'
+        };
+    }
+}
+
+/**
  * Manual payout - Creates request for admin to process manually
  */
 async function createManualPayoutRequest(request: CryptoPayoutRequest): Promise<CryptoPayoutResponse> {
     logger.info('Manual crypto payout request created', {
         userId: request.userId,
         amount: request.amount,
-        address: request.walletAddress,
+        address: request.walletAddress.substring(0, 6) + '...' + request.walletAddress.substring(request.walletAddress.length - 4),
         network: request.network
     });
 
@@ -220,6 +302,8 @@ export function isCryptoProviderConfigured(): boolean {
             return !!COINBASE_API_KEY;
         case 'circle':
             return !!CIRCLE_API_KEY;
+        case 'trongrid':
+            return !!TRON_HOT_WALLET_PRIVATE_KEY;
         case 'manual':
             return true; // Manual always available
         default:
@@ -231,11 +315,39 @@ export function isCryptoProviderConfigured(): boolean {
  * Get current provider name
  */
 export function getCryptoProviderName(): string {
-    const names = {
+    const names: Record<string, string> = {
         binance_pay: 'Binance Pay',
         coinbase_commerce: 'Coinbase Commerce',
         circle: 'Circle',
+        trongrid: 'TronGrid (USDT TRC20)',
         manual: 'Manual Processing'
     };
     return names[CRYPTO_PROVIDER] || 'Unknown';
+}
+
+/**
+ * Public crypto deposit addresses (non-secret) exposed to authenticated users.
+ * Prefer dedicated deposit addresses; Tron hot wallet address can be used as fallback for TRC20.
+ */
+export function getCryptoDepositAddresses() {
+    const tronAddress = process.env.USDT_TRC20_DEPOSIT_ADDRESS || process.env.TRON_HOT_WALLET_ADDRESS || '';
+    return {
+        BTC: {
+            'btc-native': process.env.BTC_DEPOSIT_ADDRESS || ''
+        },
+        ETH: {
+            'eth-erc20': process.env.ETH_DEPOSIT_ADDRESS || ''
+        },
+        USDT: {
+            'usdt-erc20': process.env.USDT_ERC20_DEPOSIT_ADDRESS || '',
+            'usdt-trc20': tronAddress,
+            'usdt-bep20': process.env.USDT_BEP20_DEPOSIT_ADDRESS || ''
+        },
+        BNB: {
+            'bnb-bep20': process.env.BNB_DEPOSIT_ADDRESS || ''
+        },
+        TRX: {
+            'trx-trc20': process.env.TRX_DEPOSIT_ADDRESS || tronAddress
+        }
+    };
 }

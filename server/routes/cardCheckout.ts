@@ -16,6 +16,13 @@ import {
 } from '../services/fluzClient';
 import { getCardProducts, getProviderProductId, validateCardAmount, calculateCardCheckoutCost } from '../services/cardProductService';
 import { sendCryptoToWallet, isCryptoProviderConfigured } from '../services/cryptoProviderService';
+import {
+  createCheckoutSession,
+  getCheckoutSession,
+  constructWebhookEvent,
+  getStripePublishableKey,
+  isStripeConfigured,
+} from '../services/stripeService';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../middleware/logger';
 import crypto from 'crypto';
@@ -730,6 +737,280 @@ adminRouter.get('/provider-live-ping',
         error: { code: 'PROVIDER_AUTH_FAILED', message: 'Payment service unavailable.' },
       });
     }
+  })
+);
+
+// --- Stripe Checkout Routes ---
+
+checkoutRouter.get('/stripe-config', asyncHandler(async (_req: Request, res: Response) => {
+  const publishableKey = getStripePublishableKey();
+  res.json({ success: true, data: { publishableKey: publishableKey || null } });
+}));
+
+checkoutRouter.post('/stripe-session',
+  authenticate,
+  sensitiveOpLimiter,
+  body('amount').isFloat({ min: 100, max: 2500 }).withMessage('Amount must be between 100 and 2500'),
+  body('currency').isIn(['USD', 'EUR', 'GBP']).withMessage('Currency must be USD, EUR, or GBP'),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      const firstError = errors.array()[0];
+      throw new AppError(firstError.msg || 'Validation failed', 400, 'VALIDATION_ERROR');
+    }
+
+    if (!isStripeConfigured()) {
+      throw new AppError('Stripe is not configured', 503, 'STRIPE_NOT_CONFIGURED');
+    }
+
+    const { amount, currency } = req.body;
+    const userId = req.user!.id;
+
+    const depositor = await queryOne<{ email_verified: boolean; kyc_status: string; email: string }>(`
+      SELECT email_verified, kyc_status, email FROM users WHERE id = $1
+    `, [userId]);
+    if (!depositor) {
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    }
+    if (REQUIRE_EMAIL_VERIFIED_FOR_CARD_CHECKOUT && !depositor.email_verified) {
+      throw new AppError('Please verify your email before adding funds with a card.', 403, 'EMAIL_VERIFICATION_REQUIRED');
+    }
+    if (REQUIRE_KYC_FOR_CARD_CHECKOUT && (depositor.kyc_status || '').toLowerCase() !== 'approved') {
+      throw new AppError('Identity verification (KYC) is required before adding funds with a card.', 403, 'KYC_REQUIRED');
+    }
+
+    const roundedAmount = Math.round(Number(amount) * 100) / 100;
+    if (isNaN(roundedAmount) || roundedAmount < 100 || roundedAmount > 2500) {
+      throw new AppError('Amount must be between 100 and 2500', 400, 'VALIDATION_ERROR');
+    }
+
+    const amountCents = Math.round(roundedAmount * 100);
+
+    const orderResult = await queryOne<{ id: string }>(`
+      INSERT INTO card_orders (user_id, created_by_user_id, target_user_id, amount_cents, currency, merchant_name, status)
+      VALUES ($1, $1, $1, $2, $3, 'Stripe Checkout', 'PENDING')
+      RETURNING id
+    `, [userId, amountCents, currency]);
+
+    if (!orderResult) {
+      throw new AppError('Failed to create order', 500, 'ORDER_CREATE_FAILED');
+    }
+
+    const orderId = orderResult.id;
+    const appUrl = process.env.APP_URL || '';
+    const returnUrl = appUrl ? `${appUrl.replace(/\/$/, '')}/wallet` : '/wallet';
+
+    try {
+      const { clientSecret, sessionId } = await createCheckoutSession(
+        amountCents,
+        currency,
+        orderId,
+        depositor.email,
+        returnUrl
+      );
+
+      await query(`
+        UPDATE card_orders SET provider_payment_id = $1, updated_at = NOW() WHERE id = $2
+      `, [sessionId, orderId]);
+
+      await createAuditLog({
+        userId,
+        action: 'STRIPE_CHECKOUT_CREATED',
+        entityType: 'card_order',
+        entityId: orderId,
+        newValues: { amount: amountCents, currency, sessionId },
+      });
+
+      logger.info('stripe_checkout_session_created', { orderId, sessionId, amountCents, currency });
+
+      res.status(201).json({
+        success: true,
+        data: { clientSecret, sessionId },
+      });
+    } catch (error: any) {
+      await query('UPDATE card_orders SET status = $1, updated_at = NOW() WHERE id = $2', ['FAILED', orderId]);
+      logger.error('stripe_checkout_session_failed', { orderId, error: error.message });
+      throw new AppError('Failed to create Stripe checkout session. Please try again later.', 503, 'STRIPE_SESSION_FAILED');
+    }
+  })
+);
+
+checkoutRouter.get('/stripe-session/:sessionId/status',
+  authenticate,
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const sessionId = req.params.sessionId as string;
+
+    if (!isStripeConfigured()) {
+      throw new AppError('Stripe is not configured', 503, 'STRIPE_NOT_CONFIGURED');
+    }
+
+    try {
+      const session = await getCheckoutSession(sessionId);
+      res.json({
+        success: true,
+        data: {
+          status: session.status,
+          paymentStatus: session.payment_status,
+        },
+      });
+    } catch (error: any) {
+      logger.error('stripe_session_status_failed', { sessionId, error: error.message });
+      throw new AppError('Failed to retrieve checkout session status', 500, 'STRIPE_STATUS_FAILED');
+    }
+  })
+);
+
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+
+webhookRouter.post('/stripe',
+  asyncHandler(async (req: Request, res: Response) => {
+    const signature = req.headers['stripe-signature'] as string;
+    const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
+
+    let event: any;
+
+    if (STRIPE_WEBHOOK_SECRET) {
+      if (!signature) {
+        logger.warn('stripe_webhook_missing_signature');
+        return res.status(401).json({ error: 'Missing stripe-signature header' });
+      }
+      if (!rawBody) {
+        logger.warn('stripe_webhook_missing_raw_body');
+        return res.status(400).json({ error: 'Missing raw body for signature verification' });
+      }
+      try {
+        event = constructWebhookEvent(rawBody, signature, STRIPE_WEBHOOK_SECRET);
+      } catch (err: any) {
+        logger.error('stripe_webhook_signature_verification_failed', { error: err.message });
+        return res.status(400).json({ error: 'Webhook signature verification failed' });
+      }
+    } else {
+      logger.warn('stripe_webhook_no_secret_configured', { message: 'STRIPE_WEBHOOK_SECRET not set, skipping signature verification' });
+      const body = rawBody ? JSON.parse(rawBody.toString('utf8')) : req.body;
+      event = body;
+    }
+
+    const eventType = event.type;
+    logger.info('stripe_webhook_received', { eventType, eventId: event.id });
+
+    if (eventType === 'checkout.session.completed') {
+      const session = event.data.object;
+      const orderId = session.metadata?.orderId;
+
+      if (!orderId) {
+        logger.warn('stripe_webhook_missing_order_id', { sessionId: session.id });
+        return res.json({ received: true });
+      }
+
+      const order = await queryOne<any>(`SELECT * FROM card_orders WHERE id = $1`, [orderId]);
+
+      if (!order) {
+        logger.warn('stripe_webhook_order_not_found', { orderId, sessionId: session.id });
+        return res.json({ received: true });
+      }
+
+      if (order.status === 'COMPLETED') {
+        logger.info('stripe_webhook_order_already_completed', { orderId });
+        return res.json({ received: true });
+      }
+
+      const creditUserId = order.target_user_id || order.user_id;
+
+      try {
+        await transaction(async (client) => {
+          const txResult = await client.query(`
+            INSERT INTO transactions (
+              user_id, idempotency_key, type, status, amount_cents, currency,
+              description, merchant_name, merchant_display_name, metadata
+            )
+            VALUES ($1, $2, 'deposit', 'SUCCESS', $3, $4, $5, $6, $7, $8)
+            RETURNING id
+          `, [
+            creditUserId,
+            `stripe_${session.id}`,
+            order.amount_cents,
+            order.currency,
+            `Card Deposit - Stripe Checkout`,
+            'Stripe Checkout',
+            null,
+            JSON.stringify({ stripeSessionId: session.id, orderId: order.id, createdBy: order.created_by_user_id }),
+          ]);
+
+          const transactionId = txResult.rows[0].id;
+
+          const generateUniqueShopName = () => {
+            const prefixes = ['Urban', 'Nova', 'Green', 'Blue', 'Star', 'Swift', 'Prime', 'Elite', 'Global', 'Tech', 'Alpha', 'Zenith', 'Rapid', 'Bright', 'Metro'];
+            const industries = ['Retail', 'Tech', 'Studio', 'Systems', 'Solutions', 'Mart', 'Boutique', 'Logistics', 'Enterprises', 'Group', 'Hub', 'Labs', 'Digital', 'Concepts', 'Ventures'];
+            const random = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
+            const uniqueId = Math.floor(100 + Math.random() * 900);
+            return `${random(prefixes)} ${random(industries)} ${uniqueId}`;
+          };
+
+          let displayMerchant = generateUniqueShopName();
+          let displayDescription = 'Merchant Payment - #' + transactionId.substring(0, 8).toUpperCase();
+
+          await client.query(`
+            UPDATE transactions
+            SET merchant_display_name = $1, merchant_name = $2, description = $3
+            WHERE id = $4
+          `, [displayMerchant, displayMerchant, displayDescription, transactionId]);
+
+          await client.query(`
+            INSERT INTO wallets (user_id, currency, balance_cents)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (user_id, currency)
+            DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
+          `, [creditUserId, order.currency, order.amount_cents]);
+
+          const usdtAmountCents = Math.round(order.amount_cents / USDT_RATE);
+
+          await client.query(`
+            INSERT INTO wallets (user_id, currency, balance_cents, usdt_balance_cents)
+            VALUES ($1, 'USD', 0, $2)
+            ON CONFLICT (user_id, currency)
+            DO UPDATE SET usdt_balance_cents = COALESCE(wallets.usdt_balance_cents, 0) + $2, updated_at = NOW()
+          `, [creditUserId, usdtAmountCents]);
+
+          await client.query(`
+            INSERT INTO crypto_ledger_entries (user_id, source_order_id, source_transaction_id, crypto_type, amount_cents, exchange_rate, usd_equivalent_cents, description)
+            VALUES ($1, $2, $3, 'USDT', $4, $5, $6, $7)
+            ON CONFLICT (source_order_id, user_id) DO NOTHING
+          `, [creditUserId, order.id, transactionId, usdtAmountCents, USDT_RATE, order.amount_cents, 'Auto USDT credit from card deposit']);
+
+          await client.query(`
+            UPDATE card_orders SET status = 'COMPLETED', transaction_id = $1, updated_at = NOW() WHERE id = $2
+          `, [transactionId, order.id]);
+        });
+
+        await createAuditLog({
+          userId: creditUserId,
+          action: 'CARD_PAYMENT_COMPLETED',
+          entityType: 'card_order',
+          entityId: order.id,
+          newValues: { amount: order.amount_cents, currency: order.currency, source: 'stripe' },
+        });
+
+        logger.info('stripe_webhook_order_completed', { orderId, sessionId: session.id, amountCents: order.amount_cents, currency: order.currency });
+      } catch (error: any) {
+        logger.error('stripe_webhook_processing_error', { orderId, error: error.message });
+        if (error.message?.includes('duplicate key')) {
+          return res.json({ received: true });
+        }
+        throw error;
+      }
+    } else if (eventType === 'checkout.session.expired') {
+      const session = event.data.object;
+      const orderId = session.metadata?.orderId;
+
+      if (orderId) {
+        await query(`UPDATE card_orders SET status = 'EXPIRED', updated_at = NOW() WHERE id = $1 AND status = 'PENDING'`, [orderId]);
+        logger.info('stripe_webhook_order_expired', { orderId, sessionId: session.id });
+      }
+    } else {
+      logger.info('stripe_webhook_unhandled_event', { eventType });
+    }
+
+    res.json({ received: true });
   })
 );
 

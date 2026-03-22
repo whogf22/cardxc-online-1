@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { pool, query, queryOne } from '../db/pool';
 import { logger } from '../middleware/logger';
+import { checkForNewDeposits } from './tronDepositMonitor';
 
 export function initBackgroundJobs() {
   logger.info('Initializing background jobs');
@@ -23,6 +24,15 @@ export function initBackgroundJobs() {
   // Reset monthly budgets - 1st of each month
   cron.schedule('0 0 1 * *', async () => {
     await resetMonthlyBudgets();
+  });
+
+  // Crypto deposit monitoring - every 2 minutes
+  cron.schedule('*/2 * * * *', async () => {
+    try {
+      await checkForNewDeposits();
+    } catch (err) {
+      logger.error('[BackgroundJobs] Deposit monitor error:', err);
+    }
   });
 
   // Database cleanup - every hour

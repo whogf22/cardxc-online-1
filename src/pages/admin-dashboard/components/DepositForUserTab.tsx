@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiClient } from '../../../lib/apiClient';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { useAuthContext } from '../../../contexts/AuthContext';
@@ -45,6 +45,9 @@ export default function DepositForUserTab() {
   
   const [adjustments, setAdjustments] = useState<RecentAdjustment[]>([]);
   const [showUserSearch, setShowUserSearch] = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
+  const [checkoutAmount, setCheckoutAmount] = useState<number>(0);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const isSuperAdmin = currentAdmin?.role === 'SUPER_ADMIN';
 
@@ -137,8 +140,9 @@ export default function DepositForUserTab() {
       });
 
       if (response.success && response.data?.checkoutUrl) {
-        toast.success(`Redirecting to payment page for ${selectedUser.email}...`);
-        window.location.href = response.data.checkoutUrl;
+        toast.success(`Opening payment page for ${selectedUser.email}`);
+        setCheckoutAmount(amountValue);
+        setCheckoutUrl(response.data.checkoutUrl);
       } else {
         throw new Error(response.error?.message || 'Failed to create checkout session');
       }
@@ -222,7 +226,8 @@ export default function DepositForUserTab() {
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString('en-US', {
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? '—' : d.toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -510,6 +515,60 @@ export default function DepositForUserTab() {
           </div>
         </div>
       </div>
+
+      {checkoutUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-emerald-500/20 rounded-full flex items-center justify-center">
+                  <i className="ri-bank-card-line text-emerald-400 text-xl"></i>
+                </div>
+                <div>
+                  <h3 className="font-bold text-white">Card Deposit - {selectedUser?.email}</h3>
+                  <p className="text-sm text-slate-400">${checkoutAmount.toFixed(2)} • Complete payment below</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setCheckoutUrl(null);
+                  if (selectedUser) loadUserBalance(selectedUser.id);
+                  loadAdjustments();
+                }}
+                className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+              >
+                <i className="ri-close-line text-2xl"></i>
+              </button>
+            </div>
+            <div className="flex-1 min-h-[400px] bg-slate-900">
+              <iframe
+                ref={iframeRef}
+                src={checkoutUrl}
+                className="w-full h-full min-h-[400px] border-0"
+                title="Secure Checkout"
+                allow="payment"
+                sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-top-navigation"
+              />
+            </div>
+            <div className="p-3 border-t border-slate-700 flex items-center justify-between">
+              <p className="text-xs text-slate-500 flex items-center gap-2">
+                <i className="ri-lock-line text-emerald-500"></i>
+                Payment processed securely. Stay on this page to complete.
+              </p>
+              <button
+                onClick={() => {
+                  setCheckoutUrl(null);
+                  if (selectedUser) loadUserBalance(selectedUser.id);
+                  loadAdjustments();
+                }}
+                className="text-sm text-slate-400 hover:text-white underline cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

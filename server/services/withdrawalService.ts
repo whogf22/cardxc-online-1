@@ -176,7 +176,7 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
         throw new AppError('Minimum crypto withdrawal is 10 USDT', 400);
     }
 
-    let withdrawalId: number;
+    let withdrawalId: string = '';
 
     // Step 1: Deduct balance and create withdrawal request in a transaction
     await transaction(async (client) => {
@@ -232,9 +232,9 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
             await transaction(async (client) => {
                 await client.query(`
           UPDATE withdrawal_requests 
-          SET status = 'processing', admin_notes = $1, updated_at = NOW()
-          WHERE id = $2
-        `, [`Payout ID: ${payoutResult.payoutId}`, withdrawalId]);
+          SET status = 'processing', admin_notes = $1, tx_hash = $2, updated_at = NOW()
+          WHERE id = $3
+        `, [`Payout ID: ${payoutResult.payoutId}`, payoutResult.txHash || null, withdrawalId]);
 
                 // Record crypto ledger entry
                 await client.query(`
@@ -272,6 +272,7 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
                 success: true,
                 withdrawalId,
                 payoutId: payoutResult.payoutId,
+                txHash: payoutResult.txHash || null,
                 message: 'USDT transfer initiated',
                 estimatedTime: payoutResult.estimatedCompletionTime || '1-10 minutes',
                 status: payoutResult.status

@@ -1,0 +1,9 @@
+node_modules/
+dist/
+build/
+.git/
+coverage/
+attached_assets/
+*.log
+*.map
+package-lock.json

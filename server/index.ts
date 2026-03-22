@@ -36,6 +36,7 @@ import { legalRouter } from './routes/legal';
 import { supportRouter } from './routes/support';
 import { giftCardsRouter } from './routes/giftCards';
 import { withdrawalRouter } from './routes/withdrawal';
+import { cryptoRouter } from './routes/crypto';
 import { swapRouter } from './routes/swap';
 import { fluzRouter } from './routes/fluz';
 import { initializeDatabase } from './db/init';
@@ -101,12 +102,12 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.googleapis.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.googleapis.com", "https://js.stripe.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
       fontSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.gstatic.com", "https://cdn.fontshare.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "https://api.exchangerate-api.com"],
-      frameSrc: ["'none'"],
+      connectSrc: ["'self'", "https://api.exchangerate-api.com", "https://api.stripe.com", "https://hooks.stripe.com"],
+      frameSrc: ["https://js.stripe.com", "https://hooks.stripe.com"],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: isProduction ? [] : null,
     },
@@ -139,8 +140,10 @@ app.use(cors({
 
 // Body parsing: raw for payment webhook (signature verification), JSON for all other requests
 app.use((req, res, next) => {
-  const isPaymentWebhook = req.method === 'POST' && req.originalUrl?.split('?')[0] === '/api/webhooks/payment';
-  if (isPaymentWebhook) {
+  const webhookPath = req.method === 'POST' ? req.originalUrl?.split('?')[0] : '';
+  const isPaymentWebhook = webhookPath === '/api/webhooks/payment';
+  const isStripeWebhook = webhookPath === '/api/webhooks/stripe';
+  if (isPaymentWebhook || isStripeWebhook) {
     return express.raw({ type: 'application/json', limit: '100kb' })(req, res, (err: Error) => {
       if (err) return next(err);
       const raw = req.body as Buffer;
@@ -247,7 +250,8 @@ app.use('/api/savings', savingsRouter);
 app.use('/api/rewards', rewardsRouter);
 app.use('/api/checkout', cardCheckoutRouter);
 app.use((req, res, next) => {
-  if (req.method === 'POST' && req.originalUrl?.split('?')[0] === '/api/webhooks/payment') {
+  const path = req.method === 'POST' ? req.originalUrl?.split('?')[0] : '';
+  if (path === '/api/webhooks/payment' || path === '/api/webhooks/stripe') {
     return webhookLimiter(req, res, next);
   }
   next();
@@ -258,6 +262,7 @@ app.use('/api/legal', legalRouter);
 app.use('/api/support', supportRouter);
 app.use('/api/gift-cards', giftCardsRouter);
 app.use('/api/withdraw', withdrawalRouter);
+app.use('/api/crypto', cryptoRouter);
 app.use('/api/swap', swapRouter);
 app.use('/api/provider', fluzRouter);
 

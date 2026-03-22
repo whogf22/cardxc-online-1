@@ -5,6 +5,7 @@
 
 import { AppError } from '../middleware/errorHandler';
 import { logger } from '../middleware/logger';
+import { sanitizeApiError } from '../lib/sanitizeLog';
 
 const FLUZ_BASE_URL = process.env.FLUZ_BASE_URL || 'https://api-adapter.fluzapp.com/runa';
 const FLUZ_AUTH_BASIC = process.env.FLUZ_AUTH_BASIC || process.env.FLUZ_API_KEY;
@@ -96,7 +97,7 @@ async function request<T = any>(
       endpoint,
       method,
       status: response.status,
-      errorPreview: errorText.substring(0, 500),
+      errorPreview: sanitizeApiError(errorText, 80),
     });
     throw new AppError('Payment processing failed', response.status, 'PROVIDER_API_ERROR');
   }
@@ -157,6 +158,11 @@ export interface FluzProduct {
   face_values?: number[];
   min_value?: number;
   max_value?: number;
+  /** Native logo from Fluz (preferred over Clearbit/favicon) */
+  logoUrl?: string;
+  logo_url?: string;
+  image_url?: string;
+  faceplateUrl?: string;
   [key: string]: unknown;
 }
 

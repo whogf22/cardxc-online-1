@@ -1,0 +1,53 @@
+title = "CardXC Gitleaks Configuration"
+
+[allowlist]
+  description = "Global allowlist"
+  paths = [
+    '''node_modules''',
+    '''\.git''',
+    '''dist''',
+    '''package-lock\.json''',
+    '''attached_assets''',
+  ]
+
+[[rules]]
+  id = "private-key"
+  description = "Private Key detected"
+  regex = '''-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----'''
+  tags = ["key", "private"]
+
+[[rules]]
+  id = "stripe-secret"
+  description = "Stripe Secret Key"
+  regex = '''(?i)(sk_live|rk_live|sk_test)_[0-9a-zA-Z]{10,}'''
+  tags = ["stripe", "secret"]
+
+[[rules]]
+  id = "generic-api-key"
+  description = "Generic API Key assignment"
+  regex = '''(?i)(api[_-]?key|apikey|secret[_-]?key)\s*[:=]\s*['"][0-9a-zA-Z_\-]{16,}['"]'''
+  tags = ["api", "key"]
+
+[[rules]]
+  id = "password-in-url"
+  description = "Password in connection string"
+  regex = '''(?i)(postgres|mysql|mongodb|redis)://[^:]+:[^@]{3,}@'''
+  tags = ["password", "connection"]
+
+[[rules]]
+  id = "google-api-key"
+  description = "Google API Key"
+  regex = '''AIza[0-9A-Za-z_\-]{35}'''
+  tags = ["google", "api"]
+
+[[rules]]
+  id = "jwt-token"
+  description = "JWT Token"
+  regex = '''eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'''
+  tags = ["jwt", "token"]
+
+[[rules]]
+  id = "tron-private-key"
+  description = "TRON/Ethereum Private Key (hex)"
+  regex = '''(?i)(private[_-]?key|priv[_-]?key)\s*[:=]\s*['"]?[0-9a-fA-F]{64}['"]?'''
+  tags = ["crypto", "private-key"]

@@ -4,15 +4,15 @@ interface StatusBadgeProps {
 }
 
 const statusColors: Record<string, { bg: string; text: string; border: string }> = {
-  success: { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200' },
-  completed: { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200' },
-  active: { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200' },
-  pending: { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200' },
-  processing: { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200' },
-  failed: { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-200' },
-  cancelled: { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' },
-  paused: { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' },
-  frozen: { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200' },
+  success: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/30' },
+  completed: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/30' },
+  active: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/30' },
+  pending: { bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/30' },
+  processing: { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30' },
+  failed: { bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30' },
+  cancelled: { bg: 'bg-neutral-500/20', text: 'text-neutral-400', border: 'border-neutral-500/30' },
+  paused: { bg: 'bg-neutral-500/20', text: 'text-neutral-400', border: 'border-neutral-500/30' },
+  frozen: { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30' },
 };
 
 export function StatusBadge({ status, variant = 'default' }: StatusBadgeProps) {
@@ -21,7 +21,7 @@ export function StatusBadge({ status, variant = 'default' }: StatusBadgeProps) {
 
   if (variant === 'outline') {
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${colors.border} ${colors.text} bg-white`}>
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${colors.border} ${colors.text} bg-dark-card`}>
         {status}
       </span>
     );

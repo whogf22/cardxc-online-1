@@ -56,9 +56,9 @@ export default function CalculatorSection() {
   return (
     <section
       id="calculator"
-      className={`py-16 sm:py-20 lg:py-28 bg-dark-elevated scroll-mt-24 transition-all duration-500 ${highlighted ? 'ring-4 ring-lime-400/40 ring-offset-4 ring-offset-dark-bg rounded-2xl' : ''}`}
+      className={`py-16 sm:py-20 lg:py-28 bg-dark-elevated scroll-mt-24 transition-all duration-500 w-full overflow-x-hidden ${highlighted ? 'ring-4 ring-lime-400/40 ring-offset-4 ring-offset-dark-bg rounded-2xl' : ''}`}
     >
-      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 w-full">
         <div className="text-center mb-12 sm:mb-16 lg:mb-20 space-y-4 sm:space-y-6">
           <div className="inline-flex items-center gap-2 bg-lime-400/10 text-lime-400 px-5 py-2.5 rounded-full text-sm sm:text-base font-semibold touch-target border border-lime-400/20">
             <i className="ri-calculator-line text-lg"></i>
@@ -151,7 +151,7 @@ export default function CalculatorSection() {
                     <div className="pt-4 border-t border-dark-border flex items-center justify-between">
                       <span className="text-neutral-300 font-semibold">They Receive</span>
                       <span className="text-2xl sm:text-3xl font-bold text-lime-400">
-                        {toCurrency === 'NGN' ? '₦' : '$'}{received.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {rateLoading ? '...' : `${toCurrency === 'NGN' ? '₦' : '$'}${received.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                       </span>
                     </div>
                   </div>
@@ -174,7 +174,7 @@ export default function CalculatorSection() {
                     <div className="pt-4 border-t border-dark-border flex items-center justify-between">
                       <span className="text-neutral-300 font-semibold">They Receive</span>
                       <span className="text-2xl sm:text-3xl font-bold text-neutral-400">
-                        {toCurrency === 'NGN' ? '₦' : '$'}{(convertedAmount * 0.91).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {rateLoading ? '...' : `${toCurrency === 'NGN' ? '₦' : '$'}${(convertedAmount * 0.91).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                       </span>
                     </div>
                   </div>

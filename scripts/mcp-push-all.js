@@ -29,11 +29,17 @@ try {
 const REPLIT_MCP_URL = process.env.REPLIT_MCP_URL || "";
 const REPLIT_MCP_AUTH = process.env.REPLIT_MCP_AUTH || "";
 const MCP_API_KEY = process.env.MCP_API_KEY || "cardxc-mcp-key";
-const MCP_USERNAME = process.env.MCP_SYNC_USERNAME || "mcp-sync-agent";
+const MCP_SYNC_USERNAME = process.env.MCP_SYNC_USERNAME || "mcp-sync-agent";
 
 const BLOCKED = [".env", "secrets", "credentials", "node_modules", ".git", "tmp", "build", "dist"];
+const DELAY_MS = 150; // Delay between requests to avoid rate limits
+const RATE_LIMIT_RETRY_DELAY_MS = 8000; // Wait before retry on rate limit
 
 let cachedToken = null;
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 async function getAuthHeader() {
   if (REPLIT_MCP_AUTH?.trim()) {
@@ -45,7 +51,7 @@ async function getAuthHeader() {
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ apiKey: MCP_API_KEY, username: MCP_USERNAME }),
+    body: JSON.stringify({ apiKey: MCP_API_KEY, username: MCP_SYNC_USERNAME }),
   });
   if (!res.ok) throw new Error(`Auth failed: ${res.status}`);
   const data = await res.json();
@@ -108,17 +114,31 @@ async function main() {
   }
   const unique = [...new Map(all.map((f) => [f.relative, f])).values()];
 
-  console.log(`Pushing ${unique.length} files to Replit...`);
+  console.log(`Pushing ${unique.length} files to Replit (${DELAY_MS}ms delay between requests)...`);
   let ok = 0;
   for (const { absolute, relative } of unique) {
     try {
       const content = await fs.readFile(absolute, "utf-8");
-      await callReplitTool("write_file", { path: relative, content });
-      ok++;
-      console.log("  ✓", relative);
+      let done = false;
+      for (let attempt = 1; attempt <= 2 && !done; attempt++) {
+        try {
+          await callReplitTool("write_file", { path: relative, content });
+          ok++;
+          console.log("  ✓", relative);
+          done = true;
+        } catch (e) {
+          if (e.message?.includes("Rate limit") && attempt === 1) {
+            process.stderr.write(`  [rate limit, waiting ${RATE_LIMIT_RETRY_DELAY_MS / 1000}s...] `);
+            await sleep(RATE_LIMIT_RETRY_DELAY_MS);
+          } else {
+            throw e;
+          }
+        }
+      }
     } catch (e) {
       console.error("  ✗", relative, e.message);
     }
+    await sleep(DELAY_MS);
   }
 
   console.log(`\nPushed ${ok}/${unique.length} files.`);

@@ -1,40 +1,48 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import GiftCardGrid from './GiftCardGrid';
 import PurchaseModal from './PurchaseModal';
 import type { GiftCardBrand } from './GiftCardItem';
 import { giftCardApi } from '../../../lib/api';
+import { useToastContext } from '../../../contexts/ToastContext';
+import { formatDate } from '../../../lib/localeUtils';
 
 export default function BuyTab() {
+  const toast = useToastContext();
   const [activeSection, setActiveSection] = useState<'all' | 'top' | 'high-rate' | 'history'>('all');
   const [selectedCard, setSelectedCard] = useState<GiftCardBrand | null>(null);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [products, setProducts] = useState<GiftCardBrand[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [history, setHistory] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const loadData = useCallback(async () => {
+    try {
+      const [prodResult, historyResult] = await Promise.all([
+        giftCardApi.getProducts(),
+        giftCardApi.getRequests()
+      ]);
+
+      if (prodResult.success && prodResult.data) {
+        setProducts(prodResult.data.items);
+      } else if (!prodResult.success) {
+        toast.error((prodResult as any).error?.message || 'Could not load gift cards. Please try again.');
+      }
+
+      if (historyResult.success && historyResult.data) {
+        setHistory(historyResult.data.requests);
+      }
+    } catch (error: any) {
+      console.error('Failed to load gift card data:', error);
+      toast.error(error?.message || 'Could not load gift cards. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [prodResult, historyResult] = await Promise.all([
-          giftCardApi.getProducts(),
-          giftCardApi.getRequests()
-        ]);
-
-        if (prodResult.success && prodResult.data) {
-          setProducts(prodResult.data.items);
-        }
-
-        if (historyResult.success && historyResult.data) {
-          setHistory(historyResult.data.requests);
-        }
-      } catch (error) {
-        console.error('Failed to load gift card data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     loadData();
-  }, []);
+  }, [loadData]);
 
   const subSections = [
     { id: 'all' as const, label: 'All Cards', icon: 'ri-apps-line' },
@@ -44,14 +52,22 @@ export default function BuyTab() {
   ];
 
   const getFilteredCards = () => {
+    let filtered = products;
     switch (activeSection) {
       case 'top':
-        return products.filter(card => card.category === 'top');
+        filtered = products.filter(card => card.category === 'top');
+        break;
       case 'high-rate':
-        return products.filter(card => card.category === 'high-rate');
+        filtered = products.filter(card => card.category === 'high-rate');
+        break;
       default:
-        return products;
+        break;
     }
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      filtered = filtered.filter(card => card.name.toLowerCase().includes(q));
+    }
+    return filtered;
   };
 
   const handleSelectCard = (card: GiftCardBrand) => {
@@ -70,6 +86,27 @@ export default function BuyTab() {
 
   return (
     <div className="space-y-4">
+      <div className="relative">
+        <i className="ri-search-line absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 text-lg"></i>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search gift cards by name..."
+          className="w-full pl-11 pr-4 py-3 bg-dark-elevated border border-dark-border rounded-xl text-white placeholder:text-neutral-500 focus:border-lime-400/50 focus:ring-2 focus:ring-lime-400/20 transition-all"
+        />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={() => setSearchQuery('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-neutral-500 hover:text-white hover:bg-dark-hover transition-colors"
+            aria-label="Clear search"
+          >
+            <i className="ri-close-line text-lg"></i>
+          </button>
+        )}
+      </div>
+
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
         {subSections.map((section) => (
           <button
@@ -107,7 +144,7 @@ export default function BuyTab() {
                   </div>
                   <div>
                     <p className="font-medium text-white">{purchase.brand}</p>
-                    <p className="text-xs text-neutral-400">{new Date(purchase.created_at).toLocaleDateString()}</p>
+                    <p className="text-xs text-neutral-400">{formatDate(purchase.created_at)}</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -123,7 +160,11 @@ export default function BuyTab() {
           )}
         </div>
       ) : (
-        <GiftCardGrid cards={getFilteredCards()} onSelectCard={handleSelectCard} />
+        <GiftCardGrid
+          cards={getFilteredCards()}
+          onSelectCard={handleSelectCard}
+          emptyMessage={searchQuery ? `No gift cards match "${searchQuery}"` : undefined}
+        />
       )}
 
       <PurchaseModal

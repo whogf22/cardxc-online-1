@@ -29,12 +29,13 @@ export const cardService = {
           created_at: card.created_at,
           updated_at: card.updated_at || card.created_at,
           is_frozen: card.frozen || card.status === 'frozen',
+          hasProviderCard: card.hasProviderCard ?? !!card.fluz_card_id,
         }));
       }
       return [];
-    } catch (error) {
+    } catch (error: any) {
       console.error('[CardService] Failed to get cards:', error);
-      return [];
+      throw new Error(error?.message || 'Could not load cards. Please try again.');
     }
   },
 
@@ -43,16 +44,33 @@ export const cardService = {
     return cards.find(c => c.id === cardId) || null;
   },
 
+  async revealCard(cardId: string): Promise<{
+    cardNumber: string;
+    expiryMMYY: string;
+    cvv: string;
+    cardHolderName: string;
+    billingAddress?: Record<string, string>;
+  }> {
+    const response = await apiClient.get(`/cards/${cardId}/reveal`);
+    if (!response.success || !response.data) {
+      throw new Error((response as any).error?.message || 'Failed to reveal card');
+    }
+    return response.data as any;
+  },
+
   async createCard(request: CreateCardRequest = {}): Promise<VirtualCard> {
-    // Switched from /user/cards to /cards
+    const spendLimit = request.spending_limit ?? request.daily_limit ?? 100;
     const response = await apiClient.post('/cards', {
       cardName: request.card_name || 'My Card',
       cardType: request.card_brand || 'VISA',
-      spendingLimit: request.daily_limit || 5000,
+      spendingLimit: spendLimit,
+      spendLimitDuration: request.spend_limit_duration || (request.is_single_use ? 'LIFETIME' : 'MONTHLY'),
+      isSingleUse: request.is_single_use ?? false,
+      offerId: request.offer_id || undefined,
     });
 
     if (!response.success || !response.data?.card) {
-      throw new Error('Failed to create card');
+      throw new Error((response as any).error?.message || 'Failed to create card');
     }
 
     const card = response.data.card;

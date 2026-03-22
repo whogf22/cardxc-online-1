@@ -145,7 +145,7 @@ router.post('/conversations/:id/messages',
 
       const client = getOpenAI();
       if (!client) {
-        res.write(`data: ${JSON.stringify({ error: 'AI not configured. Set AI_INTEGRATIONS_OPENAI_API_KEY.' })}\n\n`);
+        res.write(`data: ${JSON.stringify({ error: 'AI not configured. Add AI_INTEGRATIONS_OPENAI_API_KEY in Replit Secrets (Tools → Secrets).' })}\n\n`);
         res.end();
         return;
       }

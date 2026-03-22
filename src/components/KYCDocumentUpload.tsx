@@ -133,7 +133,7 @@ export function KYCDocumentUpload({ onComplete, onClose }: KYCDocumentUploadProp
     if (!user?.id) return;
 
     const pendingUploads = Object.entries(documents).filter(
-      ([_, doc]) => doc.file && doc.status !== 'uploaded'
+      ([, doc]) => doc.file && doc.status !== 'uploaded'
     );
 
     setIsSubmitting(true);
@@ -144,7 +144,7 @@ export function KYCDocumentUpload({ onComplete, onClose }: KYCDocumentUploadProp
       }
 
       const uploadedDocs = Object.entries(documents)
-        .filter(([_, doc]) => doc.status === 'uploaded' || doc.file)
+        .filter(([, doc]) => doc.status === 'uploaded' || doc.file)
         .reduce((acc, [type, doc]) => ({
           ...acc,
           [type]: doc.uploadedUrl || 'uploaded',
@@ -180,8 +180,6 @@ export function KYCDocumentUpload({ onComplete, onClose }: KYCDocumentUploadProp
   const allDocsReady = Object.values(documents).every(
     doc => doc.file && (doc.status === 'idle' || doc.status === 'uploaded')
   );
-
-  const anyUploaded = Object.values(documents).some(doc => doc.status === 'uploaded');
 
   if (submitStatus === 'success') {
     return (

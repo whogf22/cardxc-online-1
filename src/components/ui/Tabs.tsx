@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 interface Tab {
   id: string;
   label: string;
@@ -17,7 +15,7 @@ interface TabsProps {
 export function Tabs({ tabs, activeTab, onChange, variant = 'pills' }: TabsProps) {
   if (variant === 'underline') {
     return (
-      <div className="border-b border-slate-200">
+      <div className="border-b border-dark-border">
         <div className="flex gap-6 overflow-x-auto">
           {tabs.map((tab) => (
             <button
@@ -25,14 +23,14 @@ export function Tabs({ tabs, activeTab, onChange, variant = 'pills' }: TabsProps
               onClick={() => onChange(tab.id)}
               className={`flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === tab.id
-                  ? 'border-sky-500 text-sky-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
+                  ? 'border-lime-500 text-lime-400'
+                  : 'border-transparent text-neutral-500 hover:text-neutral-300'
               }`}
             >
               {tab.icon && <i className={`${tab.icon} text-lg`}></i>}
               {tab.label}
               {tab.badge !== undefined && tab.badge > 0 && (
-                <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-sky-100 text-sky-700 rounded-full">
+                <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-lime-500/20 text-lime-400 rounded-full">
                   {tab.badge}
                 </span>
               )}
@@ -44,15 +42,15 @@ export function Tabs({ tabs, activeTab, onChange, variant = 'pills' }: TabsProps
   }
 
   return (
-    <div className="flex gap-2 p-1 bg-slate-100 rounded-xl overflow-x-auto">
+    <div className="flex gap-2 p-1 bg-dark-elevated rounded-xl overflow-x-auto">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onChange(tab.id)}
           className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap ${
             activeTab === tab.id
-              ? 'bg-white text-slate-900 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-dark-card border border-dark-border text-white shadow-sm'
+              : 'text-neutral-400 hover:text-white'
           }`}
         >
           {tab.icon && <i className={`${tab.icon} text-lg`}></i>}
@@ -60,8 +58,8 @@ export function Tabs({ tabs, activeTab, onChange, variant = 'pills' }: TabsProps
           {tab.badge !== undefined && tab.badge > 0 && (
             <span className={`ml-1 px-2 py-0.5 text-xs font-semibold rounded-full ${
               activeTab === tab.id
-                ? 'bg-sky-100 text-sky-700'
-                : 'bg-slate-200 text-slate-600'
+                ? 'bg-lime-500/20 text-lime-400'
+                : 'bg-dark-card text-neutral-500'
             }`}>
               {tab.badge}
             </span>

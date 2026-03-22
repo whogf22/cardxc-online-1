@@ -16,10 +16,10 @@ export function getMainDomainUrl(path: string = ''): string {
   return path;
 }
 
-export function redirectToAdminDomain(path: string = ''): void {
+export function redirectToAdminDomain(_path: string = ''): void {
   // No-op to prevent redirects
 }
 
-export function redirectToMainDomain(path: string = ''): void {
+export function redirectToMainDomain(_path: string = ''): void {
   // No-op to prevent redirects
 }

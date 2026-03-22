@@ -9,6 +9,9 @@ import QuickActionsGrid from './components/QuickActionsGrid';
 import TransactionList from './components/TransactionList';
 import DepositModal from './components/DepositModal';
 import WithdrawModal from './components/WithdrawModal';
+import WithdrawTypeModal from './components/WithdrawTypeModal';
+import CryptoWithdrawModal from '../wallet/components/CryptoWithdrawModal';
+import PlatformTransferModal from './components/PlatformTransferModal';
 import { DashboardSkeleton } from '../../components/SkeletonLoader';
 import { KYCStatusBanner } from '../../components/KYCStatusBanner';
 
@@ -22,7 +25,10 @@ export default function Dashboard() {
   const [usdtBalance, setUsdtBalance] = useState(0);
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-  const [showKYCModal, setShowKYCModal] = useState(false);
+  const [showWithdrawTypeModal, setShowWithdrawTypeModal] = useState(false);
+  const [showCryptoWithdrawModal, setShowCryptoWithdrawModal] = useState(false);
+  const [showPlatformTransferModal, setShowPlatformTransferModal] = useState(false);
+  const [, setShowKYCModal] = useState(false);
   const [showBalance, setShowBalance] = useState(true);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -137,7 +143,7 @@ export default function Dashboard() {
             <i className="ri-error-warning-fill text-3xl text-red-400"></i>
           </div>
           <h2 className="text-lg font-semibold text-white mb-2">Something went wrong</h2>
-          <p className="text-gray-500 text-sm mb-6">{error}</p>
+          <p className="text-neutral-500 text-sm mb-6">{error}</p>
           <button
             onClick={() => loadDashboardData()}
             className="w-full px-6 py-3 bg-lime-400 text-black font-semibold rounded-xl cursor-pointer hover:bg-lime-300 transition-colors"
@@ -152,10 +158,14 @@ export default function Dashboard() {
   const currentBalance = calculateBalance();
 
   return (
-    <div className="min-h-screen bg-[#0D0D0D] pb-24">
+    <div className="min-h-screen bg-dark-bg pb-24 w-full min-w-0 overflow-x-hidden relative">
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-0 -left-40 w-80 h-80 bg-lime-500/[0.04] rounded-full blur-[100px]" />
+        <div className="absolute bottom-1/4 -right-40 w-60 h-60 bg-emerald-500/[0.03] rounded-full blur-[80px]" />
+      </div>
       <DashboardHeader />
 
-      <main className="px-5 space-y-6 mt-2">
+      <main id="main-content" className="relative px-4 sm:px-5 max-w-7xl mx-auto space-y-6 mt-2 w-full" tabIndex={-1}>
         <KYCStatusBanner onUploadClick={() => setShowKYCModal(true)} />
 
         <TotalAssetCard
@@ -167,7 +177,7 @@ export default function Dashboard() {
 
         <ActionButtons
           onDepositClick={() => setShowDepositModal(true)}
-          onWithdrawClick={() => setShowWithdrawModal(true)}
+          onWithdrawClick={() => setShowWithdrawTypeModal(true)}
         />
 
         <QuickActionsGrid />
@@ -184,6 +194,18 @@ export default function Dashboard() {
         />
       )}
 
+      {showWithdrawTypeModal && (
+        <WithdrawTypeModal
+          isOpen={showWithdrawTypeModal}
+          onClose={() => setShowWithdrawTypeModal(false)}
+          onSelectCrypto={() => { setShowWithdrawTypeModal(false); setShowCryptoWithdrawModal(true); }}
+          onSelectFiat={() => { setShowWithdrawTypeModal(false); setShowWithdrawModal(true); }}
+          onSelectPlatform={() => { setShowWithdrawTypeModal(false); setShowPlatformTransferModal(true); }}
+          usdtBalance={usdtBalance}
+          usdBalance={usdBalance}
+        />
+      )}
+
       {showWithdrawModal && (
         <WithdrawModal
           isOpen={showWithdrawModal}
@@ -191,6 +213,24 @@ export default function Dashboard() {
           onSuccess={() => { setShowWithdrawModal(false); loadDashboardData(); }}
           userId={user?.id}
           currentBalance={currentBalance}
+        />
+      )}
+
+      {showCryptoWithdrawModal && (
+        <CryptoWithdrawModal
+          initialAsset="USDT"
+          cryptoBalances={{ USDT: usdtBalance }}
+          onClose={() => setShowCryptoWithdrawModal(false)}
+          onSuccess={() => { setShowCryptoWithdrawModal(false); loadDashboardData(); }}
+        />
+      )}
+
+      {showPlatformTransferModal && (
+        <PlatformTransferModal
+          isOpen={showPlatformTransferModal}
+          onClose={() => setShowPlatformTransferModal(false)}
+          onSuccess={() => { setShowPlatformTransferModal(false); loadDashboardData(); }}
+          totalBalance={usdBalance + usdtBalance}
         />
       )}
     </div>

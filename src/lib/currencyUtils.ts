@@ -57,7 +57,7 @@ export function formatCurrency(
     showSymbol = true,
   } = options || {};
   
-  let maxDigits = options?.maximumFractionDigits ?? 2;
+  const maxDigits = options?.maximumFractionDigits ?? 2;
   let minDigits = options?.minimumFractionDigits ?? 2;
   
   if (options?.maximumFractionDigits !== undefined && options?.minimumFractionDigits === undefined) {

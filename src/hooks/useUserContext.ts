@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuthContext } from '../contexts/AuthContext';
 import type { UserContext } from '../types/userContext';
 
@@ -46,7 +46,7 @@ export function useUserContext() {
     await refreshAuth();
   }, [refreshAuth]);
 
-  const hasFeature = useCallback((featureName: string): boolean => {
+  const hasFeature = useCallback((_featureName: string): boolean => {
     if (!context) return false;
     if (context.account_status !== 'active') return false;
     if (context.kyc_status !== 'approved') return false;
