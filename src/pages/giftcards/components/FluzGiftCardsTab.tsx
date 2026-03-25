@@ -1,5 +1,5 @@
 /**
- * My Fluz Gift Cards - purchased via Fluz API
+ * My Fluz Gift Cards - purchased API
  * Ref: https://docs.fluz.app/docs/overview
  */
 import { useState, useEffect, useCallback } from 'react';
@@ -126,7 +126,7 @@ export default function FluzGiftCardsTab() {
       </div>
 
       <p className="text-sm text-neutral-400 mb-4">
-        {filteredCards.length} of {giftCards.length} gift card{giftCards.length !== 1 ? 's' : ''} purchased via Fluz
+        {filteredCards.length} of {giftCards.length} gift card{giftCards.length !== 1 ? 's' : ''} purchased
       </p>
       <div className="grid gap-4">
         {filteredCards.length === 0 ? (

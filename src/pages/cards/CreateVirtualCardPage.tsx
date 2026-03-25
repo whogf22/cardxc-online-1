@@ -94,7 +94,7 @@ export default function CreateVirtualCardPage() {
             </button>
             <div>
               <h1 className="text-xl font-black tracking-tight text-white uppercase">Create Virtual Card</h1>
-              <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-[0.2em]">Issue a new virtual card via Fluz</p>
+              <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-[0.2em]">Issue a new virtual card</p>
             </div>
           </div>
         </div>

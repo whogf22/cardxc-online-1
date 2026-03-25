@@ -43,6 +43,7 @@ import { initializeDatabase } from './db/init';
 import { pool } from './db/pool';
 import { swaggerSpec } from './config/swagger';
 import { initBackgroundJobs } from './services/backgroundJobs';
+import { initSocketIO } from './services/socketService';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -106,7 +107,8 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
       fontSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.gstatic.com", "https://cdn.fontshare.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "https://api.exchangerate-api.com", "https://api.stripe.com", "https://hooks.stripe.com"],
+      connectSrc: ["'self'", "https://api.exchangerate-api.com", "https://api.stripe.com", "https://hooks.stripe.com", "wss://cardxc.online", "wss://www.cardxc.online", "ws://localhost:5000", "ws://localhost:5173"],
+      workerSrc: ["'self'", "blob:"],
       frameSrc: ["https://js.stripe.com", "https://hooks.stripe.com"],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: isProduction ? [] : null,
@@ -306,7 +308,7 @@ if (staticPathExists) {
 
 app.use(errorHandler);
 
-let server: ReturnType<express.Express['listen']> | null = null;
+let server: http.Server | null = null;
 
 async function startServer() {
   try {
@@ -320,9 +322,14 @@ async function startServer() {
     initBackgroundJobs();
     logger.info('Background jobs initialized');
 
-    server = app.listen(PORT, '0.0.0.0', () => {
+    // Create HTTP server and attach Socket.IO for real-time features
+    const httpServer = http.createServer(app);
+    initSocketIO(httpServer);
+
+    server = httpServer.listen(PORT, '0.0.0.0', () => {
       logger.info(`Server running on port ${PORT}`);
       logger.info(`API documentation available at /api-docs`);
+      logger.info(`Socket.IO real-time server active`);
     });
 
     server.on('error', (err) => {

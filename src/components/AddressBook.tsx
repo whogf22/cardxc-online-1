@@ -182,7 +182,7 @@ export default function AddressBook({ isModal = false, onClose, onSelectAddress,
                 type="text"
                 value={newAddress.label}
                 onChange={(e) => setNewAddress(prev => ({ ...prev, label: e.target.value }))}
-                placeholder="e.g., My Binance Wallet"
+                placeholder="e.g., My Crypto Wallet"
                 className="input-dark w-full px-4 py-3 rounded-xl"
               />
             </div>

@@ -86,7 +86,7 @@ export default function FluzTransactionsPage() {
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">Transaction History</h1>
-          <p className="text-neutral-400">Complete transaction history from Fluz</p>
+          <p className="text-neutral-400">Complete transaction history</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
