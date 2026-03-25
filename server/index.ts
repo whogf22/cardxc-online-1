@@ -268,6 +268,7 @@ app.use('/api/withdraw', withdrawalRouter);
 app.use('/api/crypto', cryptoRouter);
 app.use('/api/swap', swapRouter);
 app.use('/api/provider', fluzRouter);
+app.use('/api/fluz', fluzRouter); // alias for frontend compatibility
 app.use('/api/deposit-otp', depositOtpRouter);
 
 app.use((req, res, next) => {

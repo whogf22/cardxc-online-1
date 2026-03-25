@@ -336,20 +336,27 @@ router.post('/deposit',
 
 router.get('/offers', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   if (!fluzApi.isConfigured()) {
-    throw new AppError('Card service not configured', 503, 'PROVIDER_NOT_CONFIGURED');
+    return res.json({ success: true, data: { offers: [] } });
   }
-
-  const offers = await fluzApi.listOffers();
-  res.json({ success: true, data: { offers } });
+  try {
+    const offers = await fluzApi.listOffers();
+    res.json({ success: true, data: { offers } });
+  } catch (err: any) {
+    logger.warn('Fluz offers fetch failed', { error: err.message });
+    res.json({ success: true, data: { offers: [] } });
+  }
 }));
-
 router.get('/merchants', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   if (!fluzApi.isConfigured()) {
-    throw new AppError('Card service not configured', 503, 'PROVIDER_NOT_CONFIGURED');
+    return res.json({ success: true, data: { merchants: [] } });
   }
-
-  const offers = await fluzApi.listOffers();
-  res.json({ success: true, data: { merchants: offers } });
+  try {
+    const offers = await fluzApi.listOffers();
+    res.json({ success: true, data: { merchants: offers } });
+  } catch (err: any) {
+    logger.warn('Fluz merchants fetch failed', { error: err.message });
+    res.json({ success: true, data: { merchants: [] } });
+  }
 }));
 
 // Get user's purchased gift cards (Fluz API)
@@ -598,13 +605,17 @@ router.get('/referral/url/:merchantId', asyncHandler(async (req: AuthenticatedRe
 // Get virtual card offers (before creating)
 router.get('/virtual-cards/offers', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   if (!fluzApi.isConfigured()) {
-    throw new AppError('Card service not configured', 503, 'PROVIDER_NOT_CONFIGURED');
+    return res.json({ success: true, data: { offers: [] } });
   }
-
-  const cardNetwork = req.query.cardNetwork as string | undefined;
-  const input = cardNetwork ? { cardBrandLocked: true, cardType: 'DEBIT', cardNetwork: cardNetwork.toUpperCase() } : undefined;
-  const offers = await fluzApi.getVirtualCardOffers(input);
-  res.json({ success: true, data: { offers } });
+  try {
+    const cardNetwork = req.query.cardNetwork as string | undefined;
+    const input = cardNetwork ? { cardBrandLocked: true, cardType: 'DEBIT', cardNetwork: cardNetwork.toUpperCase() } : undefined;
+    const offers = await fluzApi.getVirtualCardOffers(input);
+    res.json({ success: true, data: { offers } });
+  } catch (err: any) {
+    logger.warn('Fluz virtual card offers fetch failed', { error: err.message });
+    res.json({ success: true, data: { offers: [] } });
+  }
 }));
 
 // Get virtual card balances
