@@ -43,7 +43,7 @@ export default function PrivacyPage() {
               Introduction
             </h2>
             <p className="leading-relaxed mb-4">
-              Welcome to CardXC. CardXC, a digital wallet and payments platform operated by GameNova Vault LLC (“we”, “us”, or “our”), operates the CardXC platform, including the CardXC website and applications (the “Services”). This Privacy Notice explains how we collect, use, disclose, and safeguard your information when you use our virtual payment card and digital payment services.
+              Welcome to CardXC. CardXC, a digital wallet and payments platform operated by CARDXC LLC (“we”, “us”, or “our”), operates the CardXC platform, including the CardXC website and applications (the “Services”). This Privacy Notice explains how we collect, use, disclose, and safeguard your information when you use our virtual payment card and digital payment services.
             </p>
             <p className="leading-relaxed text-neutral-400 text-sm">
               Please read this Privacy Notice carefully. If you do not agree with its terms, please do not access or use our Services.

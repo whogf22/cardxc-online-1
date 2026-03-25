@@ -39,6 +39,7 @@ import { withdrawalRouter } from './routes/withdrawal';
 import { cryptoRouter } from './routes/crypto';
 import { swapRouter } from './routes/swap';
 import { fluzRouter } from './routes/fluz';
+import { depositOtpRouter } from './routes/depositOtp';
 import { initializeDatabase } from './db/init';
 import { pool } from './db/pool';
 import { swaggerSpec } from './config/swagger';
@@ -267,6 +268,7 @@ app.use('/api/withdraw', withdrawalRouter);
 app.use('/api/crypto', cryptoRouter);
 app.use('/api/swap', swapRouter);
 app.use('/api/provider', fluzRouter);
+app.use('/api/deposit-otp', depositOtpRouter);
 
 app.use((req, res, next) => {
   if (req.path.startsWith('/api/')) {

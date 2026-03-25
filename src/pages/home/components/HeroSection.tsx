@@ -46,7 +46,7 @@ export default function HeroSection() {
                 <span className="bg-gradient-to-r from-lime-400 via-lime-300 to-emerald-400 bg-clip-text text-transparent">Worldwide.</span>
               </h1>
               <p className="text-base sm:text-lg text-neutral-400 max-w-md mx-auto leading-relaxed">
-                Send money globally, buy gift cards from 700+ brands, and manage it all in one place. Fast, secure, and built for you.
+                Send money globally, buy gift cards from top brands, and manage it all in one place. Fast, secure, and built for you.
               </p>
             </div>
 

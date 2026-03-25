@@ -16,10 +16,10 @@ const LEGAL_LINKS = [
 ] as const;
 
 const SOCIAL_LINKS = [
-  { name: 'twitter', url: 'https://twitter.com' },
+  { name: 'twitter', url: 'https://x.com/cardxc' },
   { name: 'facebook', url: 'https://www.facebook.com/share/16o9sy49rA/' },
-  { name: 'linkedin', url: 'https://linkedin.com' },
-  { name: 'instagram', url: 'https://instagram.com' },
+  { name: 'linkedin', url: 'https://linkedin.com/company/cardxc' },
+  { name: 'instagram', url: 'https://instagram.com/cardxc' },
 ] as const;
 
 interface FooterProps {
@@ -153,7 +153,7 @@ export default function Footer({ onOpenContact }: FooterProps) {
                 &copy; {new Date().getFullYear()} CardXC. All rights reserved.
               </p>
               <p className="text-xs text-neutral-600 mt-1">
-                CardXC is a digital wallet and payments platform operated by GameNova Vault LLC.
+                CardXC is a digital wallet and payments platform operated by CARDXC LLC.
               </p>
             </div>
             <div className="flex items-center gap-5">

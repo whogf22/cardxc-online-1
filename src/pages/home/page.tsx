@@ -149,7 +149,7 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_50%_100%,rgba(132,204,22,0.04),transparent)] pointer-events-none" />
           <div className="max-w-6xl mx-auto px-4 sm:px-6 text-center relative">
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-3">Ready to get started?</h2>
-            <p className="text-neutral-400 mb-8 max-w-lg mx-auto">Join thousands who trust CardXC for global payments and gift cards. No hidden fees.</p>
+            <p className="text-neutral-400 mb-8 max-w-lg mx-auto">Join CardXC for global payments and gift cards. Fast, secure, and no hidden fees.</p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
               <button
                 onClick={() => navigate('/signup')}

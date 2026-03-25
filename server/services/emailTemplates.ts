@@ -37,7 +37,7 @@ function baseTemplate(content: string, title: string): string {
     </div>
     <div class="footer">
       <p>© ${new Date().getFullYear()} ${COMPANY_NAME}. All rights reserved.</p>
-      <p style="font-size:11px;color:#888;margin-top:4px;">CardXC is a digital wallet and payments platform operated by GameNova Vault LLC.</p>
+      <p style="font-size:11px;color:#888;margin-top:4px;">CardXC is a digital wallet and payments platform operated by CARDXC LLC.</p>
       <p>Questions? Contact us at ${SUPPORT_EMAIL}</p>
     </div>
   </div>
@@ -188,4 +188,56 @@ export function referralBonusTemplate(name: string, bonusAmount: number, referre
     </div>
   `;
   return { subject: `You earned $${bonusAmount.toFixed(2)} referral bonus! 🎁`, html: baseTemplate(content, 'Referral Bonus') };
+}
+
+// ============================================================
+// DEPOSIT OTP TEMPLATE
+// ============================================================
+export function depositOtpTemplate(name: string, otpCode: string, amount: number, currency: string): { subject: string; html: string } {
+  const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : currency;
+  const content = `
+    <h2>🔐 Deposit Verification Code</h2>
+    <p>Hi ${name},</p>
+    <p>You requested to deposit <strong>${symbol}${amount.toFixed(2)} ${currency}</strong> to your CardXC wallet.</p>
+    <p>Please enter the verification code below to confirm your deposit:</p>
+    <p style="text-align: center; font-size: 42px; font-weight: bold; letter-spacing: 10px; color: ${BRAND_COLOR}; background: #f0f0ff; padding: 20px; border-radius: 8px; margin: 20px 0;">${otpCode}</p>
+    <p style="text-align: center; font-size: 13px; color: #666;">⏱️ This code expires in <strong>10 minutes</strong>.</p>
+    <div class="alert success" style="margin: 16px 0;">
+      <strong>💳 Deposit Amount:</strong> ${symbol}${amount.toFixed(2)} ${currency}
+    </div>
+    <div class="alert">
+      ⚠️ <strong>Security Notice:</strong> Never share this code with anyone. CardXC staff will never ask for your OTP code. If you did not initiate this deposit, please contact support immediately at ${SUPPORT_EMAIL}.
+    </div>
+  `;
+  return {
+    subject: `CardXC Deposit OTP: ${otpCode}`,
+    html: baseTemplate(content, 'Deposit Verification - CardXC'),
+  };
+}
+
+// ============================================================
+// DEPOSIT SUCCESS TEMPLATE
+// ============================================================
+export function depositSuccessTemplate(name: string, amount: number, currency: string, newBalance: number): { subject: string; html: string } {
+  const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : currency;
+  const content = `
+    <h2>✅ Deposit Successful!</h2>
+    <p>Hi ${name},</p>
+    <p>Your deposit has been <strong>successfully processed</strong> and added to your CardXC wallet.</p>
+    <div class="alert success">
+      <p style="margin: 0;"><strong>Amount Deposited:</strong> <span class="amount" style="font-size: 24px;">${symbol}${amount.toFixed(2)} ${currency}</span></p>
+    </div>
+    <p style="text-align: center; margin: 16px 0;">
+      <span style="color: #666; font-size: 14px;">New Wallet Balance</span><br>
+      <span class="amount">${symbol}${newBalance.toFixed(2)} ${currency}</span>
+    </p>
+    <div style="text-align: center;">
+      <a href="${APP_URL}/wallet" class="btn">View Wallet</a>
+    </div>
+    <p style="font-size: 12px; color: #666;">Transaction processed securely via CardXC.</p>
+  `;
+  return {
+    subject: `Deposit of ${symbol}${amount.toFixed(2)} ${currency} confirmed`,
+    html: baseTemplate(content, 'Deposit Successful - CardXC'),
+  };
 }

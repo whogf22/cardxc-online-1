@@ -40,7 +40,7 @@ export default function RefundPolicyPage() {
               1. Overview
             </h2>
             <p className="leading-relaxed">
-              CardXC, a digital wallet and payments platform operated by GameNova Vault LLC, is committed to providing fair and transparent refund and dispute resolution processes. This policy outlines how we handle refund requests, chargebacks, and disputes related to transactions made with your CardXC virtual payment cards. We work diligently to resolve all issues promptly and fairly.
+              CardXC, a digital wallet and payments platform operated by CARDXC LLC, is committed to providing fair and transparent refund and dispute resolution processes. This policy outlines how we handle refund requests, chargebacks, and disputes related to transactions made with your CardXC virtual payment cards. We work diligently to resolve all issues promptly and fairly.
             </p>
           </section>
 

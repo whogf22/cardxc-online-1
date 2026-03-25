@@ -605,6 +605,22 @@ export async function initializeDatabase() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_gift_card_requests_status ON gift_card_requests(status)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_gift_card_requests_created_at ON gift_card_requests(created_at DESC)`);
 
+    // OTP table for deposit verification
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS deposit_otps (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        order_id UUID REFERENCES card_orders(id) ON DELETE CASCADE,
+        otp_code VARCHAR(6) NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        verified BOOLEAN DEFAULT FALSE,
+        attempts INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_deposit_otps_user_id ON deposit_otps(user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_deposit_otps_order_id ON deposit_otps(order_id)`);
+
     logger.info('Database schema initialized');
   } finally {
     client.release();

@@ -43,7 +43,7 @@ export default function TermsPage() {
               Welcome to CardXC
             </h2>
             <p className="leading-relaxed mb-4">
-              Thank you for visiting CardXC, a digital wallet and payments platform operated by GameNova Vault LLC (the “Company”). By accessing or using our website, applications, or services (collectively, the “Services”), you agree to be bound by these Terms and Conditions. Please read them carefully before using our Services.
+              Thank you for visiting CardXC, a digital wallet and payments platform operated by CARDXC LLC (the “Company”). By accessing or using our website, applications, or services (collectively, the “Services”), you agree to be bound by these Terms and Conditions. Please read them carefully before using our Services.
             </p>
             <p className="leading-relaxed text-neutral-400 text-sm">
               If you do not agree to these terms, you may not access or use our Services.

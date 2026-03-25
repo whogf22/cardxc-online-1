@@ -400,6 +400,18 @@ const emailTemplates = {
     `,
     text: `Hi ${name}, suspicious activity detected on your CardXC account: ${activity}. ${details}. If this wasn't you, secure your account immediately at ${APP_BASE_URL}/profile/security`,
   }),
+
+  depositOtp: (name: string, otpCode: string, amount: number, currency: string) => ({
+    subject: `CardXC Deposit OTP: ${otpCode}`,
+    html: `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Deposit OTP</title><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f4f4f5;margin:0;padding:20px}.container{max-width:600px;margin:0 auto;background:white;border-radius:12px;padding:32px;box-shadow:0 2px 8px rgba(0,0,0,.08)}.otp{font-size:42px;font-weight:800;letter-spacing:10px;color:#22c55e;background:#f0fff4;padding:20px;border-radius:8px;text-align:center;margin:20px 0}.alert{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:16px 0}.success{background:#f0fdf4;border-color:#bbf7d0}.brand{font-size:24px;font-weight:700;color:#22c55e;text-align:center;margin-bottom:24px}</style></head><body><div class="container"><div class="brand">CardXC</div><h2>&#128274; Deposit Verification Code</h2><p>Hi ${name},</p><p>Your deposit of <strong>${currency} ${amount.toFixed(2)}</strong> requires verification.</p><p>Enter this code to confirm your deposit:</p><div class="otp">${otpCode}</div><p style="text-align:center;color:#666;font-size:13px">&#9200; Expires in <strong>10 minutes</strong></p><div class="alert success"><strong>Deposit Amount:</strong> ${currency} ${amount.toFixed(2)}</div><div class="alert">&#9888; Never share this code. CardXC staff will never ask for your OTP.</div><p style="font-size:12px;color:#666">If you did not initiate this deposit, contact ${SUPPORT_EMAIL} immediately.</p></div></body></html>`,
+    text: `Hi ${name}, your CardXC deposit OTP is: ${otpCode}. Amount: ${currency} ${amount.toFixed(2)}. Expires in 10 minutes. Never share this code.`,
+  }),
+
+  depositSuccess: (name: string, amount: number, currency: string, newBalance: number) => ({
+    subject: `Deposit of ${currency} ${amount.toFixed(2)} confirmed`,
+    html: `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Deposit Success</title><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f4f4f5;margin:0;padding:20px}.container{max-width:600px;margin:0 auto;background:white;border-radius:12px;padding:32px;box-shadow:0 2px 8px rgba(0,0,0,.08)}.amount{font-size:36px;font-weight:800;color:#22c55e}.success{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:16px 0;text-align:center}.btn{display:inline-block;background:#22c55e;color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0}.brand{font-size:24px;font-weight:700;color:#22c55e;text-align:center;margin-bottom:24px}</style></head><body><div class="container"><div class="brand">CardXC</div><h2>&#9989; Deposit Successful!</h2><p>Hi ${name},</p><div class="success"><p style="margin:0;color:#166534">Amount Deposited</p><div class="amount">${currency} ${amount.toFixed(2)}</div></div><p style="text-align:center">New Balance: <strong>${currency} ${newBalance.toFixed(2)}</strong></p><div style="text-align:center"><a href="${APP_BASE_URL}/wallet" class="btn">View Wallet</a></div><p style="font-size:12px;color:#666">Transaction processed securely via CardXC.</p></div></body></html>`,
+    text: `Hi ${name}, your deposit of ${currency} ${amount.toFixed(2)} was successful. New balance: ${currency} ${newBalance.toFixed(2)}.`,
+  }),
 };
 
 export async function sendEmail(to: string, template: keyof typeof emailTemplates, ...args: any[]): Promise<boolean> {
@@ -541,4 +553,12 @@ export async function sendSuspiciousActivityAlert(email: string, name: string, a
 
 export async function sendEmailVerification(email: string, name: string, verificationToken: string): Promise<boolean> {
   return sendEmail(email, 'emailVerification', name, verificationToken);
+}
+
+export async function sendDepositOtpEmail(email: string, name: string, otpCode: string, amount: number, currency: string): Promise<boolean> {
+  return sendEmail(email, 'depositOtp', name, otpCode, amount, currency);
+}
+
+export async function sendDepositSuccessEmail(email: string, name: string, amount: number, currency: string, newBalance: number): Promise<boolean> {
+  return sendEmail(email, 'depositSuccess', name, amount, currency, newBalance);
 }

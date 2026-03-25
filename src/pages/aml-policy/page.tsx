@@ -40,7 +40,7 @@ export default function AMLPolicyPage() {
               <div>
                 <h3 className="font-semibold text-primary-400 mb-1">Our Commitment to Compliance</h3>
                 <p className="text-sm text-neutral-300">
-                  CardXC, a digital wallet and payments platform operated by GameNova Vault LLC, is committed to maintaining the highest standards of anti-money laundering (AML) and counter-terrorism financing (CTF) compliance. We work closely with regulatory bodies and financial partners to ensure our platform is not used for illicit activities.
+                  CardXC, a digital wallet and payments platform operated by CARDXC LLC, is committed to maintaining the highest standards of anti-money laundering (AML) and counter-terrorism financing (CTF) compliance. We work closely with regulatory bodies and financial partners to ensure our platform is not used for illicit activities.
                 </p>
               </div>
             </div>

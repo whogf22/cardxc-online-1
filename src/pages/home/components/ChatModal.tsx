@@ -50,7 +50,7 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
       const reply: Message = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        text: "Thanks for your message! A support agent will get back to you shortly. For urgent issues, you can also email us at contact@cardxc.online or call +880 1334-964045.",
+        text: "Thanks for your message! A support agent will get back to you shortly. For urgent issues, you can also email us at support@cardxc.online or call +1 (516) 666-6333.",
         time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, reply]);
