@@ -1,63 +1,27 @@
-import { useEffect, useRef, useState } from 'react';
-
-function AnimatedCounter({ target, suffix = '', prefix = '' }: { target: number; suffix?: string; prefix?: string }) {
-  const [count, setCount] = useState(0);
-  const ref = useRef<HTMLDivElement>(null);
-  const hasAnimated = useRef(false);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !hasAnimated.current) {
-          hasAnimated.current = true;
-          const duration = 2000;
-          const startTime = performance.now();
-          const animate = (currentTime: number) => {
-            const elapsed = currentTime - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            const eased = 1 - Math.pow(1 - progress, 3);
-            setCount(Math.floor(eased * target));
-            if (progress < 1) requestAnimationFrame(animate);
-          };
-          requestAnimationFrame(animate);
-        }
-      },
-      { threshold: 0.5 }
-    );
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [target]);
-
-  return (
-    <div ref={ref} className="text-3xl sm:text-4xl md:text-5xl font-bold" style={{ color: '#FFD700', fontFamily: "'Space Grotesk', sans-serif" }}>
-      {prefix}{count.toLocaleString()}{suffix}
-    </div>
-  );
-}
+import { AnimateOnScroll } from '../../../components/AnimateOnScroll';
 
 export default function StatsSection() {
   const stats = [
-    { target: 500000, suffix: '+', label: 'Cards Sent' },
-    { target: 12, prefix: '$', suffix: 'M+', label: 'in Gifts Delivered' },
-    { target: 98, suffix: '.9%', label: 'Customer Satisfaction' },
+    { value: '100%', label: 'Secure', icon: 'ri-shield-check-fill' },
+    { value: '24/7', label: 'Support', icon: 'ri-customer-service-fill' },
+    { value: '0%', label: 'Hidden Fees', icon: 'ri-money-dollar-circle-fill' },
+    { value: 'Instant', label: 'Transfers', icon: 'ri-flashlight-fill' }
   ];
 
   return (
-    <section className="relative py-6 overflow-hidden" style={{ background: '#0A0A0F' }}>
-      <div
-        className="relative rounded-2xl mx-4 sm:mx-6 lg:mx-auto max-w-7xl py-8 sm:py-10 px-6"
-        style={{
-          background: 'rgba(255,255,255,0.02)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255,255,255,0.06)',
-        }}
-      >
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-4 text-center">
-          {stats.map((stat, i) => (
-            <div key={i} className="space-y-2">
-              <AnimatedCounter target={stat.target} suffix={stat.suffix} prefix={stat.prefix || ''} />
-              <div className="text-sm text-neutral-400 uppercase tracking-wider">{stat.label}</div>
+    <section className="py-14 sm:py-20 bg-[#030303] border-y border-white/[0.04] w-full overflow-x-hidden">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 w-full">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 md:gap-10">
+          {stats.map((stat, index) => (
+            <AnimateOnScroll key={index} delay={index * 80}>
+            <div className="text-center group">
+              <div className="w-14 h-14 mx-auto mb-5 bg-lime-500/[0.08] rounded-2xl flex items-center justify-center border border-lime-500/10 group-hover:border-lime-500/20 group-hover:bg-lime-500/[0.12] group-hover:scale-110 transition-all duration-300">
+                <i className={`${stat.icon} text-2xl text-lime-400`}></i>
+              </div>
+              <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-1">{stat.value}</div>
+              <div className="text-xs text-neutral-500 uppercase tracking-wider">{stat.label}</div>
             </div>
+            </AnimateOnScroll>
           ))}
         </div>
       </div>
