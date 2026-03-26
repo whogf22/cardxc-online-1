@@ -40,6 +40,12 @@ import { cryptoRouter } from './routes/crypto';
 import { swapRouter } from './routes/swap';
 import { fluzRouter } from './routes/fluz';
 import { depositOtpRouter } from './routes/depositOtp';
+import { insightsRouter } from './routes/insights';
+import { referralsRouter } from './routes/referrals';
+import { notificationsRouter } from './routes/notifications';
+import { preferencesRouter } from './routes/preferences';
+import { adminAnalyticsRouter } from './routes/adminAnalytics';
+import { adminSecurityRouter } from './routes/adminSecurity';
 import { initializeDatabase } from './db/init';
 import { pool } from './db/pool';
 import { swaggerSpec } from './config/swagger';
@@ -270,6 +276,12 @@ app.use('/api/swap', swapRouter);
 app.use('/api/provider', fluzRouter);
 app.use('/api/fluz', fluzRouter); // alias for frontend compatibility
 app.use('/api/deposit-otp', depositOtpRouter);
+app.use('/api/insights', insightsRouter);
+app.use('/api/referrals', referralsRouter);
+app.use('/api/notifications', notificationsRouter);
+app.use('/api/preferences', preferencesRouter);
+app.use('/api/admin/analytics', adminAnalyticsRouter);
+app.use('/api/admin/security', adminSecurityRouter);
 
 app.use((req, res, next) => {
   if (req.path.startsWith('/api/')) {

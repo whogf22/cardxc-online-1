@@ -1,37 +1,69 @@
 # CardXC - Modern Fintech Platform
 
-CardXC is a secure, scalable, and feature-rich fintech application designed for modern banking operations. Built with React, Node.js, and PostgreSQL, it offers a complete suite of financial tools including virtual cards, P2P transfers, savings goals, and advanced fraud detection.
+CardXC is a secure, scalable fintech application for digital payments, virtual cards, gift cards, and wallet management. Built with React, Node.js, and PostgreSQL.
 
-## 🚀 Key Features
+## Key Features
 
-* **Virtual Cards**: Instant issuance, freeze/unfreeze, and spending limits.
-* **Transactions**: Real-time peer-to-peer transfers and payment processing.
-* **Security**: Bank-grade security with 2FA, IP blocking, and fraud detection.
-* **Analytics**: Admin dashboard for monitoring system health and transaction flows.
-* **AI Integration**: Smart insights and financial advice powered by AI.
+- **Multi-Currency Wallet**: USD, EUR, GBP, NGN, BDT support with real-time balance tracking
+- **Virtual Cards**: Instant issuance via Stripe Issuing, freeze/unfreeze, spending limits
+- **Gift Cards**: Buy and sell gift cards with integrated marketplace
+- **Deposits**: Stripe Checkout with OTP email verification for security
+- **Transactions**: P2P transfers, payment links, QR payments
+- **Crypto**: Deposit and withdrawal support
+- **Savings**: Vaults, budgets, and round-up savings
+- **Rewards**: Cashback, referral bonuses, subscription detection
+- **Security**: 2FA, fraud detection, device fingerprinting, rate limiting
+- **Real-time**: WebSocket notifications via Socket.IO
+- **Admin**: Full admin dashboard with analytics, user management, and security monitoring
 
-## 🛠️ Technology Stack
+## Technology Stack
 
-* **Frontend**: React 19, Vite, TailwindCSS, Framer Motion
-* **Backend**: Node.js, Express, TypeScript
-* **Database**: PostgreSQL
-* **Tools**: MCP Server for remote management, Swagger for API docs
+- **Frontend**: React 19, TypeScript, Vite, TailwindCSS
+- **Backend**: Node.js, Express, TypeScript (ESM)
+- **Database**: PostgreSQL
+- **Payments**: Stripe (Checkout, Issuing, 3DS2)
+- **Real-time**: Socket.IO
 
-## ⚙️ Setup & Configuration
+## Project Structure
+
+```
+├── src/                  # Frontend (React + Vite)
+│   ├── components/       # Shared UI components
+│   ├── pages/            # Page components
+│   ├── contexts/         # React contexts
+│   ├── hooks/            # Custom hooks
+│   ├── lib/              # API client, utilities
+│   └── router/           # Route configuration
+├── server/               # Backend (Express)
+│   ├── routes/           # API route handlers
+│   ├── services/         # Business logic services
+│   ├── db/               # Database pool, init, migrations
+│   ├── middleware/        # Auth, rate limiting, logging
+│   └── config/           # Swagger, environment config
+├── scripts/              # Utility scripts
+└── public/               # Static assets
+```
+
+## Setup
 
 ### Prerequisites
 
-* Node.js v20+
-* PostgreSQL 16+
+- Node.js v20+
+- PostgreSQL 16+
 
 ### Environment Variables
 
-Ensure the following variables are set in your `.env` file:
+Create a `.env` file with:
 
 ```env
 DATABASE_URL=<your-database-url>
 SESSION_SECRET=<your-session-secret-64-chars-min>
+JWT_SECRET=<your-jwt-secret>
 STRIPE_SECRET_KEY=<your-stripe-secret-key>
+STRIPE_PUBLISHABLE_KEY=<your-stripe-public-key>
+SMTP_HOST=<your-smtp-host>
+SMTP_USER=<your-smtp-user>
+SMTP_PASS=<your-smtp-password>
 NODE_ENV=production
 ```
 
@@ -43,21 +75,16 @@ npm run build
 npm start
 ```
 
-## 📡 API Documentation
+### Development
 
-The full API documentation is available at `/api-docs` when the server is running.
+```bash
+npm run dev
+```
 
-## 🔌 MCP Server
+## API Documentation
 
-This project exposes a Model Context Protocol (MCP) server for remote administration.
-**Tools:**
-
-* `get_system_health`: Check API status.
-* `query_database`: Run SQL queries.
-* `check_logs`: View system logs.
-* `list_files` / `read_file` / `write_file`: File system access.
+Swagger docs available at `/api-docs` when the server is running.
 
 ---
-*Maintained by the CardXC Team*
 
-Auto-check test successful - 2026
+*Maintained by the CardXC Team*
