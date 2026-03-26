@@ -13,8 +13,10 @@ interface BalanceCardsProps {
 }
 
 const currencyConfig: Record<string, { icon: string; color: string; symbol: string; name: string }> = {
-  NGN: { icon: 'ri-currency-fill', color: 'from-orange-500 to-orange-600', symbol: '₦', name: 'Nigerian Naira' },
   USD: { icon: 'ri-money-dollar-circle-fill', color: 'from-lime-500 to-lime-600', symbol: '$', name: 'US Dollar' },
+  EUR: { icon: 'ri-money-euro-circle-fill', color: 'from-blue-500 to-blue-600', symbol: '€', name: 'Euro' },
+  GBP: { icon: 'ri-money-pound-circle-fill', color: 'from-indigo-500 to-indigo-600', symbol: '£', name: 'British Pound' },
+  NGN: { icon: 'ri-currency-fill', color: 'from-orange-500 to-orange-600', symbol: '₦', name: 'Nigerian Naira' },
   BDT: { icon: 'ri-exchange-funds-fill', color: 'from-purple-500 to-purple-600', symbol: '৳', name: 'Bangladeshi Taka' },
 };
 
@@ -27,7 +29,7 @@ export default function BalanceCards({ balances, onDeposit, onWithdraw }: Balanc
   return (
     <div className="space-y-4">
       {balances.map((balance) => {
-        const config = currencyConfig[balance.currency] || currencyConfig.NGN;
+        const config = currencyConfig[balance.currency] || { icon: 'ri-coin-fill', color: 'from-gray-500 to-gray-600', symbol: '', name: balance.currency };
         
         return (
           <div key={balance.currency} className="bg-dark-card rounded-2xl border border-dark-border overflow-hidden">

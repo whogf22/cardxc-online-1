@@ -9,8 +9,10 @@ interface WithdrawModalProps {
 }
 
 const currencyConfig: Record<string, { symbol: string; name: string }> = {
-  NGN: { symbol: '₦', name: 'Nigerian Naira' },
   USD: { symbol: '$', name: 'US Dollar' },
+  EUR: { symbol: '€', name: 'Euro' },
+  GBP: { symbol: '£', name: 'British Pound' },
+  NGN: { symbol: '₦', name: 'Nigerian Naira' },
   BDT: { symbol: '৳', name: 'Bangladeshi Taka' },
 };
 
@@ -23,7 +25,7 @@ export default function WithdrawModal({ currency, availableBalance, onClose, onS
   const [error, setError] = useState('');
   const [step, setStep] = useState<'amount' | 'details' | 'confirmation'>('amount');
 
-  const config = currencyConfig[currency] || currencyConfig.NGN;
+  const config = currencyConfig[currency] || currencyConfig.USD;
 
   const handleAmountSubmit = () => {
     const numAmount = parseFloat(amount);
