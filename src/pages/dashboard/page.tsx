@@ -56,7 +56,6 @@ export default function Dashboard() {
       if (transactionsResult.success && transactionsResult.data?.transactions) {
         setTransactions(transactionsResult.data.transactions);
       } else {
-        console.warn('Transactions fetch error:', transactionsResult.error);
         setTransactions([]);
       }
 
@@ -69,10 +68,7 @@ export default function Dashboard() {
       }
 
       setIsLoading(false);
-
     } catch (error: any) {
-      console.error('[Dashboard] Load error:', error);
-
       setUsdBalance(0);
       setUsdtBalance(0);
       setTransactions([]);
@@ -105,11 +101,9 @@ export default function Dashboard() {
     if (paymentStatus === 'processing') {
       let pollCount = 0;
       const maxPolls = 10;
-
       pollingRef.current = setInterval(() => {
         pollCount++;
         fetchWalletBalances();
-
         if (pollCount >= maxPolls) {
           if (pollingRef.current) {
             clearInterval(pollingRef.current);
@@ -118,7 +112,6 @@ export default function Dashboard() {
         }
       }, 3000);
     }
-
     return () => {
       if (pollingRef.current) {
         clearInterval(pollingRef.current);
@@ -129,7 +122,7 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#0D0D0D] p-4">
+      <div className="min-h-screen bg-dark-bg p-4">
         <DashboardSkeleton />
       </div>
     );
@@ -137,16 +130,24 @@ export default function Dashboard() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center p-4">
-        <div className="bg-[#1a1a1a] rounded-2xl border border-white/10 p-8 max-w-sm w-full text-center">
-          <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+      <div className="min-h-screen bg-dark-bg flex items-center justify-center p-4">
+        <div
+          className="rounded-3xl p-8 max-w-sm w-full text-center animate-scale-in"
+          style={{
+            background: 'linear-gradient(145deg, rgba(20,20,20,0.95), rgba(13,13,13,0.98))',
+            border: '1px solid rgba(255,255,255,0.06)',
+            backdropFilter: 'blur(40px)',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)',
+          }}
+        >
+          <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-red-500/20">
             <i className="ri-error-warning-fill text-3xl text-red-400"></i>
           </div>
           <h2 className="text-lg font-semibold text-white mb-2">Something went wrong</h2>
           <p className="text-neutral-500 text-sm mb-6">{error}</p>
           <button
             onClick={() => loadDashboardData()}
-            className="w-full px-6 py-3 bg-lime-400 text-black font-semibold rounded-xl cursor-pointer hover:bg-lime-300 transition-colors"
+            className="w-full px-6 py-3.5 bg-lime-500 text-black font-bold rounded-xl cursor-pointer hover:bg-lime-400 transition-all duration-300 hover:shadow-glow-sm active:scale-95"
           >
             Try Again
           </button>
@@ -159,10 +160,22 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-dark-bg pb-24 w-full min-w-0 overflow-x-hidden relative">
+      {/* Ambient 3D background orbs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 -left-40 w-80 h-80 bg-lime-500/[0.04] rounded-full blur-[100px]" />
-        <div className="absolute bottom-1/4 -right-40 w-60 h-60 bg-emerald-500/[0.03] rounded-full blur-[80px]" />
+        <div
+          className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full blur-[120px]"
+          style={{ background: 'radial-gradient(circle, rgba(132,204,22,0.04) 0%, transparent 70%)', animation: 'orbFloat1 15s ease-in-out infinite' }}
+        />
+        <div
+          className="absolute top-1/3 -right-60 w-[400px] h-[400px] rounded-full blur-[100px]"
+          style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.03) 0%, transparent 70%)', animation: 'orbFloat2 20s ease-in-out infinite' }}
+        />
+        <div
+          className="absolute -bottom-20 left-1/4 w-[300px] h-[300px] rounded-full blur-[80px]"
+          style={{ background: 'radial-gradient(circle, rgba(132,204,22,0.02) 0%, transparent 70%)', animation: 'orbFloat3 18s ease-in-out infinite' }}
+        />
       </div>
+
       <DashboardHeader />
 
       <main id="main-content" className="relative px-4 sm:px-5 max-w-7xl mx-auto space-y-6 mt-2 w-full" tabIndex={-1}>
@@ -233,6 +246,23 @@ export default function Dashboard() {
           totalBalance={usdBalance + usdtBalance}
         />
       )}
+
+      <style>{`
+        @keyframes orbFloat1 {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          33% { transform: translate(30px, -20px) scale(1.05); }
+          66% { transform: translate(-20px, 30px) scale(0.95); }
+        }
+        @keyframes orbFloat2 {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50% { transform: translate(-40px, 20px) scale(1.1); }
+        }
+        @keyframes orbFloat3 {
+          0%, 100% { transform: translate(0, 0); }
+          33% { transform: translate(20px, -30px); }
+          66% { transform: translate(-30px, 10px); }
+        }
+      `}</style>
     </div>
   );
 }
