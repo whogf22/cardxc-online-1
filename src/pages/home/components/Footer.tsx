@@ -1,45 +1,45 @@
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
 import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_TEL, SUPPORT_WHATSAPP_URL } from '../../../lib/contactPlaceholders';
 
-const QUICK_LINKS = [
-  { label: 'Features', href: '/#features' },
-  { label: 'How It Works', to: '/how-it-works' },
-  { label: 'FAQ', to: '/how-it-works' },
-  { label: 'Contact', href: '/#contact' },
-];
-
-const LEGAL_LINKS = [
-  { label: 'Terms of Service', to: '/terms' },
-  { label: 'Privacy Notice', to: '/privacy' },
-  { label: 'Refund Policy', to: '/refund-policy' },
-  { label: 'AML Policy', to: '/aml-policy' },
-] as const;
-
 const SOCIAL_LINKS = [
-  { name: 'twitter', url: 'https://x.com/cardxc' },
-  { name: 'facebook', url: 'https://www.facebook.com/share/16o9sy49rA/' },
-  { name: 'linkedin', url: 'https://linkedin.com/company/cardxc' },
-  { name: 'instagram', url: 'https://instagram.com/cardxc' },
-] as const;
+  { name: 'twitter', icon: 'ri-twitter-x-fill', url: 'https://x.com/cardxc' },
+  { name: 'facebook', icon: 'ri-facebook-fill', url: 'https://www.facebook.com/share/16o9sy49rA/' },
+  { name: 'linkedin', icon: 'ri-linkedin-fill', url: 'https://linkedin.com/company/cardxc' },
+  { name: 'instagram', icon: 'ri-instagram-fill', url: 'https://instagram.com/cardxc' },
+];
 
 interface FooterProps {
   onOpenContact?: () => void;
 }
 
 export default function Footer({ onOpenContact }: FooterProps) {
+  const [email, setEmail] = useState('');
+  const [subscribed, setSubscribed] = useState(false);
+
+  const handleSubscribe = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (email) {
+      setSubscribed(true);
+      setEmail('');
+      setTimeout(() => setSubscribed(false), 3000);
+    }
+  };
+
   return (
-    <footer id="contact" className="bg-[#0a0a0a] border-t border-white/[0.06] text-white w-full overflow-x-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-10 sm:py-14 lg:py-16 w-full">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-10 lg:gap-12">
+    <footer id="contact" className="relative pt-16 pb-8 overflow-hidden" style={{ background: '#060610', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
+          {/* Brand */}
           <div className="space-y-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-lime-500 rounded-lg flex items-center justify-center shadow-glow-sm">
-                <i className="ri-wallet-3-line text-lg text-black font-bold" aria-hidden />
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0066FF, #0044CC)' }}>
+                <i className="ri-wallet-3-line text-lg text-white font-bold" />
               </div>
-              <span className="text-xl font-bold tracking-tight">CardXC</span>
+              <span className="text-lg font-bold text-white tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>CardXC</span>
             </div>
-            <p className="text-sm text-neutral-400 leading-relaxed max-w-sm">
-              A digital wallet and payments platform. Fast, secure, and affordable international money transfers.
+            <p className="text-neutral-500 text-sm leading-relaxed">
+              The next-generation digital gift card platform. Send premium cards instantly, anywhere in the world.
             </p>
             <div className="flex items-center gap-2.5">
               {SOCIAL_LINKS.map((social) => (
@@ -48,124 +48,96 @@ export default function Footer({ onOpenContact }: FooterProps) {
                   href={social.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/[0.04] hover:bg-lime-500/[0.12] border border-white/[0.06] hover:border-lime-500/20 transition-all"
+                  className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-300 hover:scale-110"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
                   aria-label={`Follow us on ${social.name}`}
                 >
-                  <i className={`ri-${social.name}-line text-base text-neutral-400 hover:text-lime-400`} aria-hidden />
+                  <i className={`${social.icon} text-neutral-400 text-sm`} />
                 </a>
               ))}
             </div>
           </div>
 
-          <div className="space-y-4">
-            <h3 className="text-xs font-semibold text-lime-400 uppercase tracking-[0.15em]">Quick Links</h3>
-            <ul className="space-y-2">
-              {QUICK_LINKS.map((link) => (
-                <li key={link.label}>
-                  {link.label === 'Contact' && onOpenContact ? (
-                    <button
-                      type="button"
-                      onClick={onOpenContact}
-                      className="text-sm text-neutral-400 hover:text-white transition-colors py-1"
-                    >
-                      {link.label}
-                    </button>
-                  ) : 'to' in link && link.to ? (
-                    <Link
-                      to={link.to}
-                      className="text-sm text-neutral-400 hover:text-white transition-colors py-1 inline-block"
-                    >
-                      {link.label}
-                    </Link>
-                  ) : (
-                    <a
-                      href={link.href}
-                      className="text-sm text-neutral-400 hover:text-white transition-colors py-1 inline-block"
-                    >
-                      {link.label}
-                    </a>
-                  )}
-                </li>
-              ))}
+          {/* Navigation */}
+          <div>
+            <h4 className="text-xs font-semibold uppercase tracking-[0.15em] mb-4" style={{ color: '#0066FF' }}>Navigation</h4>
+            <ul className="space-y-2.5">
+              <li><Link to="/" className="text-sm text-neutral-500 hover:text-[#0066FF] transition-colors">Home</Link></li>
+              <li><a href="#features" className="text-sm text-neutral-500 hover:text-[#0066FF] transition-colors">Features</a></li>
+              <li><Link to="/how-it-works" className="text-sm text-neutral-500 hover:text-[#0066FF] transition-colors">How It Works</Link></li>
+              <li><Link to="/giftcards" className="text-sm text-neutral-500 hover:text-[#0066FF] transition-colors">Gift Cards</Link></li>
+              {onOpenContact && (
+                <li><button onClick={onOpenContact} className="text-sm text-neutral-500 hover:text-[#0066FF] transition-colors">Contact</button></li>
+              )}
             </ul>
           </div>
 
-          <div className="space-y-4">
-            <h3 className="text-xs font-semibold text-lime-400 uppercase tracking-[0.15em]">Legal</h3>
-            <ul className="space-y-2">
-              {LEGAL_LINKS.map((link) => (
-                <li key={link.label}>
-                  <Link
-                    to={link.to}
-                    className="text-sm text-neutral-400 hover:text-white transition-colors py-1 inline-block"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
+          {/* Legal */}
+          <div>
+            <h4 className="text-xs font-semibold uppercase tracking-[0.15em] mb-4" style={{ color: '#0066FF' }}>Legal</h4>
+            <ul className="space-y-2.5">
+              <li><Link to="/terms" className="text-sm text-neutral-500 hover:text-[#0066FF] transition-colors">Terms of Service</Link></li>
+              <li><Link to="/privacy" className="text-sm text-neutral-500 hover:text-[#0066FF] transition-colors">Privacy Notice</Link></li>
+              <li><Link to="/refund-policy" className="text-sm text-neutral-500 hover:text-[#0066FF] transition-colors">Refund Policy</Link></li>
+              <li><Link to="/aml-policy" className="text-sm text-neutral-500 hover:text-[#0066FF] transition-colors">AML Policy</Link></li>
             </ul>
           </div>
 
-          <div className="space-y-4">
-            <h3 className="text-xs font-semibold text-lime-400 uppercase tracking-[0.15em]">Contact Us</h3>
-            <ul className="space-y-3">
-              <li className="flex items-start gap-3">
-                <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/[0.04] border border-white/[0.06] shrink-0 mt-0.5">
-                  <i className="ri-mail-line text-lime-400 text-sm" aria-hidden />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] text-neutral-500 uppercase tracking-wider">Email</p>
-                  <a href={`mailto:${SUPPORT_EMAIL}`} className="text-sm text-neutral-300 hover:text-lime-400 transition-colors break-all">
-                    {SUPPORT_EMAIL}
-                  </a>
-                </div>
+          {/* Newsletter + Contact */}
+          <div>
+            <h4 className="text-xs font-semibold uppercase tracking-[0.15em] mb-4" style={{ color: '#0066FF' }}>Stay Updated</h4>
+            <p className="text-neutral-500 text-sm mb-4">Get the latest news and exclusive offers.</p>
+            <form onSubmit={handleSubscribe} className="flex gap-2 mb-5">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
+                className="flex-1 px-4 py-2.5 rounded-lg text-sm text-white placeholder-neutral-600 outline-none transition-all focus:ring-1"
+                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}
+              />
+              <button
+                type="submit"
+                className="px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 hover:scale-[1.02]"
+                style={{ background: 'linear-gradient(135deg, #0066FF, #0044CC)', color: 'white', boxShadow: '0 0 15px rgba(0,102,255,0.2)' }}
+              >
+                {subscribed ? <i className="ri-check-line" /> : <i className="ri-send-plane-fill" />}
+              </button>
+            </form>
+            {subscribed && <p className="text-[#00CC88] text-xs mb-3">Subscribed successfully!</p>}
+            <ul className="space-y-2">
+              <li>
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="flex items-center gap-2 text-neutral-500 text-sm hover:text-[#0066FF] transition-colors">
+                  <i className="ri-mail-fill" /> {SUPPORT_EMAIL}
+                </a>
               </li>
-              <li className="flex items-start gap-3">
-                <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/[0.04] border border-white/[0.06] shrink-0 mt-0.5">
-                  <i className="ri-phone-line text-lime-400 text-sm" aria-hidden />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] text-neutral-500 uppercase tracking-wider">Phone</p>
-                  <a href={SUPPORT_PHONE_TEL} className="text-sm text-neutral-300 hover:text-lime-400 transition-colors">
-                    {SUPPORT_PHONE}
-                  </a>
-                </div>
+              <li>
+                <a href={SUPPORT_PHONE_TEL} className="flex items-center gap-2 text-neutral-500 text-sm hover:text-[#0066FF] transition-colors">
+                  <i className="ri-phone-fill" /> {SUPPORT_PHONE}
+                </a>
               </li>
-              <li className="flex items-start gap-3">
-                <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/[0.04] border border-white/[0.06] shrink-0 mt-0.5">
-                  <i className="ri-whatsapp-line text-lime-400 text-sm" aria-hidden />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] text-neutral-500 uppercase tracking-wider">WhatsApp</p>
-                  <a href={SUPPORT_WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="text-sm text-neutral-300 hover:text-lime-400 transition-colors">
-                    {SUPPORT_PHONE}
-                  </a>
-                </div>
+              <li>
+                <a href={SUPPORT_WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-neutral-500 text-sm hover:text-[#0066FF] transition-colors">
+                  <i className="ri-whatsapp-fill" /> WhatsApp
+                </a>
               </li>
             </ul>
           </div>
         </div>
 
-        <div className="mt-12 pt-8 border-t border-white/[0.06]">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-center sm:text-left">
-              <p className="text-xs text-neutral-500">
-                &copy; {new Date().getFullYear()} CardXC. All rights reserved.
-              </p>
-              <p className="text-xs text-neutral-600 mt-1">
-                CardXC is a digital wallet and payments platform operated by CARDXC LLC.
-              </p>
-            </div>
-            <div className="flex items-center gap-5">
-              <span className="flex items-center gap-1.5 text-xs text-neutral-500">
-                <i className="ri-shield-check-line text-emerald-500" aria-hidden />
-                256-bit SSL
-              </span>
-              <span className="flex items-center gap-1.5 text-xs text-neutral-500">
-                <i className="ri-lock-2-line text-lime-400" aria-hidden />
-                PCI Compliant
-              </span>
-            </div>
+        {/* Bottom bar */}
+        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+          <div>
+            <p className="text-xs text-neutral-600">&copy; {new Date().getFullYear()} CardXC. All rights reserved.</p>
+            <p className="text-xs text-neutral-700 mt-0.5">CardXC is a digital wallet and payments platform operated by CARDXC LLC.</p>
+          </div>
+          <div className="flex items-center gap-5">
+            <span className="flex items-center gap-1.5 text-xs text-neutral-500">
+              <i className="ri-shield-check-line text-[#00CC88]" /> 256-bit SSL
+            </span>
+            <span className="flex items-center gap-1.5 text-xs text-neutral-500">
+              <i className="ri-lock-2-line text-[#0066FF]" /> PCI Compliant
+            </span>
           </div>
         </div>
       </div>

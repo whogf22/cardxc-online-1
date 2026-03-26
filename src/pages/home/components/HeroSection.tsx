@@ -1,99 +1,156 @@
 import { useNavigate } from 'react-router-dom';
-
-const floatingIcons = [
-  { icon: 'ri-gift-2-line', top: '18%', left: '10%', delay: '0s', size: 'w-11 h-11' },
-  { icon: 'ri-bank-card-line', top: '55%', left: '6%', delay: '1.2s', size: 'w-9 h-9' },
-  { icon: 'ri-gift-line', top: '78%', right: '12%', left: 'auto', delay: '0.6s', size: 'w-8 h-8' },
-  { icon: 'ri-wallet-3-line', top: '22%', right: '8%', left: 'auto', delay: '1.8s', size: 'w-10 h-10' },
-  { icon: 'ri-send-plane-line', top: '70%', left: '15%', delay: '0.3s', size: 'w-7 h-7' },
-  { icon: 'ri-global-line', top: '35%', right: '18%', left: 'auto', delay: '1s', size: 'w-8 h-8' },
-];
+import { useEffect, useRef } from 'react';
 
 export default function HeroSection() {
   const navigate = useNavigate();
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const card = cardRef.current;
+    if (!card) return;
+    let animFrame: number;
+    let angle = 0;
+    const animate = () => {
+      angle += 0.3;
+      const rotY = Math.sin(angle * Math.PI / 180) * 15;
+      const rotX = Math.cos(angle * Math.PI / 180) * 5;
+      card.style.transform = `perspective(1000px) rotateY(${rotY}deg) rotateX(${rotX}deg)`;
+      animFrame = requestAnimationFrame(animate);
+    };
+    animate();
+    return () => cancelAnimationFrame(animFrame);
+  }, []);
 
   return (
-    <section className="relative min-h-[85vh] sm:min-h-[90vh] lg:min-h-[92vh] flex items-center justify-center overflow-hidden w-full">
-      <div className="absolute inset-0 bg-gradient-to-b from-[#030303] via-[#051505] to-[#030303]" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_40%,rgba(34,197,94,0.06),transparent)]" />
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-32 w-[500px] h-[500px] bg-lime-500/[0.08] rounded-full blur-[120px] animate-float"></div>
-        <div className="absolute bottom-1/4 -right-32 w-[400px] h-[400px] bg-emerald-500/[0.05] rounded-full blur-[100px] animate-float" style={{ animationDelay: '1.5s' }}></div>
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-lime-500/25 to-transparent"></div>
-        {floatingIcons.map((item, i) => (
-          <div
-            key={i}
-            className={`hidden sm:flex absolute ${item.size} items-center justify-center rounded-xl bg-white/[0.05] border border-white/[0.1] animate-float`}
-            style={{ top: item.top, left: item.left, right: item.right, animationDelay: item.delay }}
-          >
-            <i className={`${item.icon} text-lime-400/80 text-lg`}></i>
-          </div>
-        ))}
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden w-full" style={{ background: '#0A0A0F' }}>
+      {/* Ambient glow orbs */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] rounded-full blur-[150px] opacity-30" style={{ background: 'radial-gradient(circle, #0066FF, transparent)' }} />
+        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] rounded-full blur-[130px] opacity-20" style={{ background: 'radial-gradient(circle, #FFD700, transparent)' }} />
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#0066FF]/30 to-transparent" />
       </div>
 
-      <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
-        <div className="flex items-center justify-center">
-          <div className="space-y-8 max-w-2xl text-center">
-            <div className="inline-flex items-center gap-2 bg-lime-500/[0.1] px-4 py-2 rounded-full border border-lime-500/25 animate-fade-in-up">
-              <div className="w-2 h-2 bg-lime-400 rounded-full animate-pulse"></div>
-              <span className="text-xs font-semibold text-lime-400 uppercase tracking-wider">Send & Earn</span>
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 py-20 sm:py-28">
+        <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
+          {/* Left: Text Content */}
+          <div className="flex-1 space-y-8 text-center lg:text-left">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#0066FF]/30 bg-[#0066FF]/10">
+              <div className="w-2 h-2 bg-[#0066FF] rounded-full animate-pulse" />
+              <span className="text-xs font-semibold text-[#0066FF] uppercase tracking-wider">Next-Gen Gift Cards</span>
             </div>
 
-            <div className="space-y-5 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-[1.08] tracking-tight">
-                Your Money.
-                <br />
-                <span className="bg-gradient-to-r from-lime-400 via-lime-300 to-emerald-400 bg-clip-text text-transparent">Worldwide.</span>
-              </h1>
-              <p className="text-base sm:text-lg text-neutral-400 max-w-md mx-auto leading-relaxed">
-                Send money globally, buy gift cards from top brands, and manage it all in one place. Fast, secure, and built for you.
-              </p>
-            </div>
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-[1.08] tracking-tight" style={{ fontFamily: "'Space Grotesk', 'Inter', sans-serif" }}>
+              Give More
+              <br />
+              Than a{' '}
+              <span className="bg-gradient-to-r from-[#FFD700] via-[#FFA500] to-[#FFD700] bg-clip-text text-transparent">Gift.</span>
+            </h1>
 
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center animate-fade-in-up" style={{ animationDelay: '0.25s' }}>
+            <p className="text-base sm:text-lg text-neutral-400 max-w-lg leading-relaxed">
+              Instant digital cards. Premium design. Send in seconds. The future of gifting starts here.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start">
               <button
                 onClick={() => navigate('/signup')}
-                className="group px-6 sm:px-8 py-3.5 sm:py-4 bg-white text-black font-bold rounded-xl hover:bg-neutral-100 transition-all shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] text-[14px] sm:text-[15px]"
+                className="group px-8 py-4 font-bold rounded-xl text-[15px] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                style={{
+                  background: 'linear-gradient(135deg, #FFD700, #FFA500)',
+                  color: '#0A0A0F',
+                  boxShadow: '0 0 30px rgba(255,215,0,0.3)',
+                }}
               >
-                Sign up for CardXC
-                <i className="ri-arrow-right-line ml-2 group-hover:translate-x-1 transition-transform inline-block"></i>
+                Get Started Free
+                <i className="ri-arrow-right-line ml-2 group-hover:translate-x-1 transition-transform inline-block" />
               </button>
               <button
-                onClick={() => navigate('/giftcards')}
-                className="px-6 sm:px-8 py-3.5 sm:py-4 bg-white/[0.04] text-white font-semibold rounded-xl border border-white/[0.12] hover:bg-white/[0.08] hover:border-lime-500/30 transition-all text-[14px] sm:text-[15px]"
+                onClick={() => {
+                  document.getElementById('card-showcase')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="px-8 py-4 font-semibold rounded-xl text-[15px] text-white border transition-all duration-300 hover:bg-white/[0.05]"
+                style={{
+                  borderColor: 'rgba(255,255,255,0.15)',
+                  backdropFilter: 'blur(20px)',
+                  background: 'rgba(255,255,255,0.03)',
+                }}
               >
-                Browse Gift Cards
+                Explore Cards
               </button>
             </div>
+          </div>
 
-            <div className="flex items-center justify-center gap-8 pt-2 animate-fade-in-up" style={{ animationDelay: '0.35s' }}>
-              {[
-                { value: '100%', label: 'Secure' },
-                { value: '24/7', label: 'Support' },
-                { value: 'Instant', label: 'Transfers' }
-              ].map((stat, i) => (
-                <div key={i} className="flex items-center gap-8">
-                  {i > 0 && <div className="w-px h-8 bg-white/[0.08] -ml-8"></div>}
+          {/* Right: 3D Rotating Gift Card */}
+          <div className="flex-1 flex items-center justify-center">
+            <div className="relative" style={{ perspective: '1200px' }}>
+              {/* Glow behind card */}
+              <div className="absolute inset-0 blur-[60px] opacity-40" style={{ background: 'radial-gradient(circle, #0066FF, transparent)' }} />
+
+              <div
+                ref={cardRef}
+                className="relative w-[320px] h-[200px] sm:w-[400px] sm:h-[250px] rounded-2xl overflow-hidden cursor-pointer"
+                style={{
+                  transformStyle: 'preserve-3d',
+                  boxShadow: '0 25px 60px rgba(0,102,255,0.3), 0 0 100px rgba(255,215,0,0.1)',
+                }}
+              >
+                {/* Card face */}
+                <div
+                  className="absolute inset-0 rounded-2xl"
+                  style={{
+                    background: 'linear-gradient(135deg, #0A0A2E 0%, #1a1a4e 30%, #0066FF 70%, #003399 100%)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                  }}
+                />
+
+                {/* Holographic shimmer overlay */}
+                <div
+                  className="absolute inset-0 rounded-2xl"
+                  style={{
+                    background: 'linear-gradient(105deg, transparent 20%, rgba(255,215,0,0.15) 35%, rgba(0,102,255,0.2) 50%, rgba(255,215,0,0.1) 65%, transparent 80%)',
+                    animation: 'heroShimmer 3s ease-in-out infinite',
+                  }}
+                />
+
+                {/* Card content */}
+                <div className="relative z-10 p-6 sm:p-8 h-full flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,215,0,0.2)', border: '1px solid rgba(255,215,0,0.3)' }}>
+                        <i className="ri-wallet-3-fill text-[#FFD700] text-sm" />
+                      </div>
+                      <span className="text-white font-bold text-lg tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>CardXC</span>
+                    </div>
+                    <i className="ri-visa-fill text-white/40 text-3xl" />
+                  </div>
+
                   <div>
-                    <div className="text-xl font-bold text-white">{stat.value}</div>
-                    <div className="text-xs text-neutral-500 uppercase tracking-wider">{stat.label}</div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-10 h-7 rounded" style={{ background: 'linear-gradient(135deg, #FFD700, #FFA500)' }} />
+                      <div className="w-6 h-6 rounded-full border-2 border-white/20" />
+                    </div>
+                    <div className="text-white/60 text-xs tracking-[0.3em] font-mono">•••• •••• •••• 4829</div>
                   </div>
                 </div>
-              ))}
-            </div>
 
-            <a
-              href="#features"
-              className="inline-flex flex-col items-center gap-2 mt-12 text-neutral-500 hover:text-lime-400 transition-colors group/scroll animate-fade-in-up"
-              style={{ animationDelay: '0.45s' }}
-              aria-label="Scroll to features"
-            >
-              <span className="text-[11px] uppercase tracking-widest">Explore</span>
-              <i className="ri-arrow-down-s-line text-2xl animate-bounce group-hover/scroll:animate-none"></i>
-            </a>
+                {/* Gloss effect */}
+                <div
+                  className="absolute inset-0 rounded-2xl"
+                  style={{
+                    background: 'linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 50%)',
+                  }}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      <style>{`
+        @keyframes heroShimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+      `}</style>
     </section>
   );
 }
