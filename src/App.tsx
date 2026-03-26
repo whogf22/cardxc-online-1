@@ -1,4 +1,5 @@
 import { BrowserRouter } from 'react-router-dom';
+import { Suspense } from 'react';
 import { AppRoutes } from './router';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { SkipToContent } from './components/SkipToContent';
@@ -29,7 +30,16 @@ function App() {
                       <ConnectionBanner />
                       <SystemHealthBanner />
                       <AccountStateBanner />
-                      <AppRoutes />
+                      <Suspense fallback={
+                        <div className="min-h-screen bg-[#030303] flex items-center justify-center">
+                          <div className="flex flex-col items-center gap-4">
+                            <div className="w-10 h-10 border-2 border-lime-500/30 border-t-lime-500 rounded-full animate-spin" />
+                            <span className="text-neutral-500 text-sm font-medium">Loading...</span>
+                          </div>
+                        </div>
+                      }>
+                        <AppRoutes />
+                      </Suspense>
                       <AIAssistant />
                     </AdminDomainGuard>
                   </SessionGuard>
