@@ -148,7 +148,7 @@ export default function TransactionsPage() {
                     : 'bg-dark-elevated text-neutral-400 hover:bg-dark-hover hover:text-white border border-dark-border'
                   }`}
               >
-                {t.charAt(0).toUpperCase() + t.slice(1)}s
+                {t === 'all' ? 'All' : t.charAt(0).toUpperCase() + t.slice(1) + 's'}
               </button>
             ))}
           </div>

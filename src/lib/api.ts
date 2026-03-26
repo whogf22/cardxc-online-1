@@ -344,7 +344,7 @@ export const userApi = {
   },
 
   async getFluzReferralInfo() {
-    return request<{ referral: any }>('/fluz/referral/info');
+    return request<{ referral: any }>('/referrals');
   },
 
   // Fluz gift cards - user's purchased cards

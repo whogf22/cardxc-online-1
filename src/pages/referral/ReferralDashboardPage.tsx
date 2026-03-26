@@ -1,16 +1,21 @@
 import { useState, useEffect } from 'react';
-import { Gift, Users, DollarSign, Copy, Share2, TrendingUp, Award, Check } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Gift, Users, DollarSign, Copy, Share2, TrendingUp, Award, Check, ArrowLeft } from 'lucide-react';
 import { userApi } from '../../lib/api';
 
-interface FluzReferralInfo {
+interface ReferralInfo {
   referralCode: string;
-  referralUrl: string;
-  totalReferrals: number;
-  totalRewards: number;
+  referralLink: string;
+  stats: {
+    successfulReferrals: number;
+    pendingReferrals: number;
+    totalEarned: number;
+  };
 }
 
 export default function ReferralDashboardPage() {
-  const [referralInfo, setReferralInfo] = useState<FluzReferralInfo | null>(null);
+  const navigate = useNavigate();
+  const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
@@ -22,7 +27,10 @@ export default function ReferralDashboardPage() {
     try {
       setLoading(true);
       const response = await userApi.getFluzReferralInfo();
-      setReferralInfo(response.data?.referral ?? null);
+      if (response.success && response.data) {
+        // Server returns { referralCode, referralLink, stats } directly in data
+        setReferralInfo(response.data as unknown as ReferralInfo);
+      }
     } catch (error) {
       console.error('Failed to load referral info:', error);
     } finally {
@@ -71,18 +79,43 @@ export default function ReferralDashboardPage() {
 
   if (!referralInfo) {
     return (
-      <div className="min-h-screen bg-dark-bg flex items-center justify-center">
-        <div className="text-center">
-          <Gift className="w-16 h-16 text-neutral-500 mx-auto mb-4" />
-          <p className="text-neutral-400 text-lg">Failed to load referral information</p>
+      <div className="min-h-screen bg-dark-bg flex flex-col">
+        <div className="p-4">
+          <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors">
+            <ArrowLeft className="w-5 h-5" />
+            <span>Back to Dashboard</span>
+          </button>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Gift className="w-16 h-16 text-neutral-500 mx-auto mb-4" />
+            <p className="text-neutral-400 text-lg mb-4">Could not load referral information</p>
+            <button
+              onClick={loadReferralInfo}
+              className="px-6 py-3 bg-lime-500 hover:bg-lime-600 text-black rounded-xl font-medium transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
+  const totalReferrals = (referralInfo.stats?.successfulReferrals || 0) + (referralInfo.stats?.pendingReferrals || 0);
+  const totalEarned = referralInfo.stats?.totalEarned || 0;
+
   return (
     <div className="min-h-screen bg-dark-bg py-8 px-4">
       <div className="max-w-6xl mx-auto">
+        {/* Back Navigation */}
+        <div className="mb-6">
+          <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors">
+            <ArrowLeft className="w-5 h-5" />
+            <span>Back to Dashboard</span>
+          </button>
+        </div>
+
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-lime-500 rounded-full mb-4">
@@ -101,7 +134,7 @@ export default function ReferralDashboardPage() {
               <TrendingUp className="w-5 h-5 text-lime-400" />
             </div>
             <p className="text-neutral-400 text-sm font-medium mb-1">Total Referrals</p>
-            <p className="text-4xl font-bold text-white">{referralInfo.totalReferrals}</p>
+            <p className="text-4xl font-bold text-white">{totalReferrals}</p>
           </div>
 
           <div className="bg-dark-card rounded-2xl border border-dark-border p-6">
@@ -112,7 +145,7 @@ export default function ReferralDashboardPage() {
               <Award className="w-5 h-5 text-emerald-400" />
             </div>
             <p className="text-neutral-400 text-sm font-medium mb-1">Total Rewards</p>
-            <p className="text-4xl font-bold text-emerald-400">${referralInfo.totalRewards.toFixed(2)}</p>
+            <p className="text-4xl font-bold text-emerald-400">${totalEarned.toFixed(2)}</p>
           </div>
 
           <div className="bg-dark-card rounded-2xl border border-dark-border p-6">
@@ -123,8 +156,8 @@ export default function ReferralDashboardPage() {
             </div>
             <p className="text-neutral-400 text-sm font-medium mb-1">Avg per Referral</p>
             <p className="text-4xl font-bold text-lime-400">
-              ${referralInfo.totalReferrals > 0 
-                ? (referralInfo.totalRewards / referralInfo.totalReferrals).toFixed(2)
+              ${totalReferrals > 0 
+                ? (totalEarned / totalReferrals).toFixed(2)
                 : '0.00'}
             </p>
           </div>
