@@ -7,6 +7,7 @@ import { sensitiveOpLimiter } from '../middleware/rateLimit';
 import { createAuditLog } from '../services/auditService';
 import { logger } from '../middleware/logger';
 import * as fluzApi from '../services/fluzApi';
+import * as stripeIssuingService from '../services/stripeIssuingService';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
@@ -42,7 +43,7 @@ router.get('/:id/reveal', validateUUID, sensitiveOpLimiter, asyncHandler(async (
 
   const id = req.params.id as string;
   const card = await queryOne<any>(`
-    SELECT id, fluz_card_id FROM virtual_cards WHERE id = $1 AND user_id = $2
+    SELECT id, fluz_card_id, issuing_card_id FROM virtual_cards WHERE id = $1 AND user_id = $2
   `, [id, req.user!.id]);
 
   if (!card) {
@@ -56,7 +57,26 @@ router.get('/:id/reveal', validateUUID, sensitiveOpLimiter, asyncHandler(async (
     entityId: id,
   });
 
-  // If card has a Fluz provider card, reveal from provider
+  // If card has Stripe Issuing card, reveal from Stripe
+  if (card.issuing_card_id && stripeIssuingService.isIssuingConfigured()) {
+    try {
+      const revealed = await stripeIssuingService.revealIssuingCard(card.issuing_card_id);
+      return res.json({
+        success: true,
+        data: {
+          cardNumber: revealed.cardNumber,
+          expiryMMYY: revealed.expiryMMYY,
+          cvv: revealed.cvv,
+          cardHolderName: revealed.cardHolderName,
+          billingAddress: null,
+        }
+      });
+    } catch (err: any) {
+      logger.warn('Stripe Issuing card reveal failed', { error: err.message });
+    }
+  }
+
+  // Fallback to Fluz if Stripe Issuing failed or not available
   if (card.fluz_card_id && fluzApi.isConfigured()) {
     try {
       const revealed = await fluzApi.revealVirtualCard(card.fluz_card_id);
@@ -117,9 +137,28 @@ router.post('/',
     const spendingLimitCents = spendingLimit ? Math.round(spendingLimit * 100) : null;
 
     let fluzCardId: string | null = null;
+    let issuingCardId: string | null = null;
     let lastFour = Math.floor(1000 + Math.random() * 9000).toString();
 
-    if (fluzApi.isConfigured()) {
+    // Try Stripe Issuing first (preferred)
+    if (stripeIssuingService.isIssuingConfigured()) {
+      try {
+        const issuedCard = await stripeIssuingService.createIssuingCard({
+          cardName,
+          spendingLimitCents: spendingLimit ? Math.round(spendingLimit * 100) : undefined,
+          spendLimitDuration: (spendLimitDuration?.toLowerCase() || 'monthly') as any,
+          currency,
+        });
+        issuingCardId = issuedCard.issuingCardId;
+        lastFour = issuedCard.last4;
+        logger.info('Stripe Issuing card created for user', { userId: req.user!.id, issuingCardId, last4: lastFour });
+      } catch (stripErr: any) {
+        logger.warn('Stripe Issuing card creation failed, trying Fluz', { userId: req.user!.id, error: stripErr.message });
+      }
+    }
+
+    // Fallback to Fluz if Stripe Issuing failed or not configured
+    if (!issuingCardId && fluzApi.isConfigured()) {
       try {
         const fluzCard = await fluzApi.createVirtualCard({
           spendLimit: spendingLimit || 100,
@@ -134,19 +173,19 @@ router.post('/',
         lastFour = fluzCard.virtualCardLast4 || lastFour;
         logger.info('Provider virtual card created for user', { userId: req.user!.id, providerCardId: fluzCardId, last4: lastFour });
       } catch (providerErr: any) {
-        logger.warn('Provider card creation failed, creating local card only', { userId: req.user!.id, error: providerErr.message });
+        logger.warn('Fluz card creation failed, creating local card only', { userId: req.user!.id, error: providerErr.message });
         // Fall through — create local card without provider
       }
-    } else {
-      logger.info('Card provider not configured, creating local virtual card', { userId: req.user!.id });
+    } else if (!issuingCardId) {
+      logger.info('Card providers not configured, creating local virtual card', { userId: req.user!.id });
     }
 
     const cardId = await transaction(async (client) => {
       const cardResult = await client.query(`
-        INSERT INTO virtual_cards (user_id, card_name, last_four, card_type, spending_limit_cents, is_single_use, currency, fluz_card_id)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO virtual_cards (user_id, card_name, last_four, card_type, spending_limit_cents, is_single_use, currency, fluz_card_id, issuing_card_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING id
-      `, [req.user!.id, cardName, lastFour, cardType, spendingLimitCents, isSingleUse, currency, fluzCardId]);
+      `, [req.user!.id, cardName, lastFour, cardType, spendingLimitCents, isSingleUse, currency, fluzCardId, issuingCardId]);
 
       const cardId = cardResult.rows[0].id;
 

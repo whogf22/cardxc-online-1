@@ -496,6 +496,10 @@ export async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_recurring_transfers_user_id ON recurring_transfers(user_id);
     `);
 
+    // Add issuing_card_id column for Stripe Issuing support
+    await client.query(`ALTER TABLE virtual_cards ADD COLUMN IF NOT EXISTS issuing_card_id VARCHAR(255) DEFAULT NULL`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_virtual_cards_issuing_card_id ON virtual_cards(issuing_card_id)`);
+
     await bootstrapSuperAdmin(client);
 
     await client.query(`
