@@ -806,7 +806,8 @@ checkoutRouter.post('/stripe-session',
         currency,
         orderId,
         depositor.email,
-        returnUrl
+        returnUrl,
+        merchantName || 'CardXC Deposit'
       );
 
       await query(`

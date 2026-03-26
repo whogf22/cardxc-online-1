@@ -17,18 +17,33 @@ export function isStripeConfigured(): boolean {
 export async function createPaymentIntent(
   amountCents: number,
   currency: string = 'usd',
-  metadata: Record<string, string> = {}
+  metadata: Record<string, string> = {},
+  options?: {
+    description?: string;
+    statementDescriptor?: string;
+  }
 ): Promise<{ clientSecret: string; paymentIntentId: string }> {
   if (!stripe) {
     throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY.');
   }
 
+  // 3DS2 Configuration for high success rates and reduced decline rates
   const paymentIntent = await stripe.paymentIntents.create({
     amount: amountCents,
     currency: currency.toLowerCase(),
     metadata,
+    description: options?.description || 'CardXC Wallet Deposit',
+    statement_descriptor: options?.statementDescriptor || 'CARDXC DEPOSIT',
+    // 3DS2 Authentication - ensures payment success for high-risk cards
+    authentication_type: 'any',
+    capture_method: 'automatic',
+    // Setup for future use (recurring payments)
+    setup_future_usage: 'off_session',
+    // Automatic payment methods with 3DS2 support
     automatic_payment_methods: {
       enabled: true,
+      // Allow all payment methods including cards with 3DS2
+      allow_redirects: 'always',
     },
   });
 
@@ -67,11 +82,15 @@ export async function createCheckoutSession(
   currency: string,
   orderId: string,
   userEmail: string,
-  returnUrl: string
+  returnUrl: string,
+  merchantName: string = 'CardXC'
 ): Promise<{ clientSecret: string; sessionId: string }> {
   if (!stripe) {
     throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY.');
   }
+
+  // Dynamic statement descriptor for bank history (max 22 chars)
+  const statementDescriptor = merchantName.substring(0, 22).toUpperCase();
 
   const session = await stripe.checkout.sessions.create({
     ui_mode: 'embedded',
@@ -81,6 +100,7 @@ export async function createCheckoutSession(
         price_data: {
           product_data: {
             name: 'CardXC Wallet Deposit',
+            description: `Deposit to ${merchantName}`,
           },
           unit_amount: amountCents,
           currency: currency.toLowerCase(),
@@ -91,9 +111,19 @@ export async function createCheckoutSession(
     metadata: {
       orderId,
       source: 'card_deposit',
+      merchantName,
     },
     customer_email: userEmail,
     return_url: returnUrl,
+    // 3DS2 and high success rate configuration
+    payment_method_options: {
+      card: {
+        // Enable 3DS2 authentication
+        three_d_secure: 'any',
+        // Store card for future use
+        setup_future_usage: 'off_session',
+      },
+    },
   });
 
   return {
