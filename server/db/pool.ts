@@ -23,11 +23,12 @@ const explicitSSLOff = process.env.DATABASE_SSL === 'false';
 
 /**
  * SSL decision logic:
- * - Production: ALWAYS enforce SSL, even if URL has sslmode=disable (strip it)
- * - Development: Allow SSL bypass only with explicit DATABASE_SSL=false or sslmode=disable in URL
- * - This prevents accidental insecure connections in production fintech environments
+ * - If DATABASE_SSL=false is explicitly set, respect it (e.g. local PostgreSQL on 127.0.0.1)
+ * - If sslmode=disable is in the URL, respect it
+ * - Otherwise enforce SSL in production
+ * - Development: Allow SSL bypass with explicit DATABASE_SSL=false or sslmode=disable in URL
  */
-const useSSL = isProduction ? true : (!urlHasSSLDisabled && !explicitSSLOff);
+const useSSL = explicitSSLOff || urlHasSSLDisabled ? false : isProduction;
 
 /** Minimal pool interface for type-safe usage when pg types resolve to BoundPool */
 interface PoolLike {
