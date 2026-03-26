@@ -9,6 +9,31 @@ import { runFraudChecks } from '../services/fraudService';
 import { logger } from '../middleware/logger';
 import * as fluzApi from '../services/fluzApi';
 import { v4 as uuidv4 } from 'uuid';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+
+// KYC document upload config
+const kycUploadDir = path.join(process.cwd(), 'uploads', 'kyc');
+if (!fs.existsSync(kycUploadDir)) {
+  fs.mkdirSync(kycUploadDir, { recursive: true });
+}
+const kycStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, kycUploadDir),
+  filename: (_req, file, cb) => {
+    const uniqueName = `${Date.now()}-${uuidv4()}${path.extname(file.originalname)}`;
+    cb(null, uniqueName);
+  },
+});
+const kycUpload = multer({
+  storage: kycStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Only JPEG, PNG, WebP, and PDF files are allowed'));
+  },
+});
 
 const router = Router();
 router.use(authenticate);
@@ -323,5 +348,62 @@ router.post('/cards',
     res.status(201).json({ success: true, data: { card: result } });
   })
 );
+
+// KYC Document Upload
+router.post('/kyc/upload',
+  sensitiveOpLimiter,
+  kycUpload.single('document'),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    if (!req.file) {
+      throw new AppError('No document file provided', 400, 'MISSING_FILE');
+    }
+
+    const documentType = req.body.documentType;
+    const validTypes = ['passport', 'national_id', 'drivers_license', 'selfie', 'proof_of_address'];
+    if (!documentType || !validTypes.includes(documentType)) {
+      // Delete uploaded file if validation fails
+      fs.unlinkSync(req.file.path);
+      throw new AppError('Invalid document type. Must be one of: ' + validTypes.join(', '), 400, 'INVALID_TYPE');
+    }
+
+    // Save document record to database
+    const doc = await queryOne(`
+      INSERT INTO kyc_documents (user_id, document_type, file_path, file_name, mime_type)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id, document_type, file_name, status, created_at
+    `, [req.user!.id, documentType, req.file.path, req.file.originalname, req.file.mimetype]);
+
+    // Update user kyc_status to 'pending' (documents submitted, awaiting review)
+    await query(`UPDATE users SET kyc_status = 'pending', updated_at = NOW() WHERE id = $1`, [req.user!.id]);
+
+    await createAuditLog({
+      userId: req.user!.id,
+      action: 'KYC_DOCUMENT_UPLOADED',
+      entityType: 'kyc_document',
+      entityId: doc!.id,
+      newValues: { documentType, fileName: req.file.originalname },
+    });
+
+    res.json({ success: true, data: { document: doc }, message: 'Document uploaded successfully. Your verification is now pending review.' });
+  })
+);
+
+// Get KYC status and documents
+router.get('/kyc/status', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const user = await queryOne(`SELECT kyc_status FROM users WHERE id = $1`, [req.user!.id]);
+  const documents = await query(`
+    SELECT id, document_type, file_name, status, rejection_reason, created_at
+    FROM kyc_documents WHERE user_id = $1 ORDER BY created_at DESC
+  `, [req.user!.id]);
+
+  res.json({
+    success: true,
+    data: {
+      kyc_status: user?.kyc_status || 'not_started',
+      documents,
+      canSubmit: !documents.some((d: any) => d.status === 'pending'),
+    }
+  });
+}));
 
 export { router as userRouter };

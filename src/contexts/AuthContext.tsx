@@ -82,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const user = result.data.user;
         const role = user.role === 'SUPER_ADMIN' ? 'admin' : 'customer';
-        const kycStatus = (user.kyc_status || 'pending').toLowerCase();
+        const kycStatus = (user.kyc_status || 'not_started').toLowerCase();
         const accountStatus = (user.account_status || 'active').toLowerCase();
         return {
           ...prev,
@@ -177,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         resetApiClient();
         
-        const kycStatus = (user.kyc_status || 'pending').toLowerCase();
+        const kycStatus = (user.kyc_status || 'not_started').toLowerCase();
         const accountStatus = (user.account_status || 'active').toLowerCase();
         setAuthState({
           user: {
@@ -223,7 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (user) {
         resetApiClient();
         
-        const kycStatus = (user.kyc_status || 'pending').toLowerCase();
+        const kycStatus = (user.kyc_status || 'not_started').toLowerCase();
         const accountStatus = (user.account_status || 'active').toLowerCase();
         setAuthState({
           user: {

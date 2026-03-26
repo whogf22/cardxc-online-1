@@ -14,6 +14,7 @@ import CryptoWithdrawModal from '../wallet/components/CryptoWithdrawModal';
 import PlatformTransferModal from './components/PlatformTransferModal';
 import { DashboardSkeleton } from '../../components/SkeletonLoader';
 import { KYCStatusBanner } from '../../components/KYCStatusBanner';
+import { KYCDocumentUpload } from '../../components/KYCDocumentUpload';
 
 export default function Dashboard() {
   const [searchParams] = useSearchParams();
@@ -28,7 +29,7 @@ export default function Dashboard() {
   const [showWithdrawTypeModal, setShowWithdrawTypeModal] = useState(false);
   const [showCryptoWithdrawModal, setShowCryptoWithdrawModal] = useState(false);
   const [showPlatformTransferModal, setShowPlatformTransferModal] = useState(false);
-  const [, setShowKYCModal] = useState(false);
+  const [showKYCModal, setShowKYCModal] = useState(false);
   const [showBalance, setShowBalance] = useState(true);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -245,6 +246,21 @@ export default function Dashboard() {
           onSuccess={() => { setShowPlatformTransferModal(false); loadDashboardData(); }}
           totalBalance={usdBalance + usdtBalance}
         />
+      )}
+
+      {showKYCModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowKYCModal(false)} />
+          <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl">
+            <KYCDocumentUpload
+              onComplete={() => {
+                setShowKYCModal(false);
+                loadDashboardData();
+              }}
+              onClose={() => setShowKYCModal(false)}
+            />
+          </div>
+        </div>
       )}
 
       <style>{`

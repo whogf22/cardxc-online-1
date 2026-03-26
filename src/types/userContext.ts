@@ -1,5 +1,5 @@
 // User Context Types
-export type KYCStatus = 'pending' | 'approved' | 'rejected' | 'expired';
+export type KYCStatus = 'not_started' | 'pending' | 'approved' | 'rejected' | 'expired';
 export type VerificationLevel = 'basic' | 'intermediate' | 'advanced';
 export type AccountState = 'active' | 'limited' | 'suspended' | 'closed';
 

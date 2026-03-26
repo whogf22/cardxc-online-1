@@ -16,7 +16,7 @@ export async function initializeDatabase() {
         phone VARCHAR(50),
         country VARCHAR(100),
         role VARCHAR(20) DEFAULT 'USER' CHECK (role IN ('USER', 'SUPER_ADMIN')),
-        kyc_status VARCHAR(20) DEFAULT 'pending' CHECK (kyc_status IN ('pending', 'approved', 'rejected', 'expired')),
+        kyc_status VARCHAR(20) DEFAULT 'not_started' CHECK (kyc_status IN ('not_started', 'pending', 'approved', 'rejected', 'expired')),
         account_status VARCHAR(20) DEFAULT 'active' CHECK (account_status IN ('active', 'limited', 'suspended', 'closed')),
         email_verified BOOLEAN DEFAULT FALSE,
         two_factor_enabled BOOLEAN DEFAULT FALSE,
@@ -624,6 +624,37 @@ export async function initializeDatabase() {
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_deposit_otps_user_id ON deposit_otps(user_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_deposit_otps_order_id ON deposit_otps(order_id)`);
+
+    // KYC Documents table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS kyc_documents (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        document_type VARCHAR(50) NOT NULL CHECK (document_type IN ('passport', 'national_id', 'drivers_license', 'selfie', 'proof_of_address')),
+        file_path TEXT NOT NULL,
+        file_name VARCHAR(255) NOT NULL,
+        mime_type VARCHAR(100),
+        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+        rejection_reason TEXT,
+        reviewed_by UUID REFERENCES users(id),
+        reviewed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_kyc_documents_user_id ON kyc_documents(user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_kyc_documents_status ON kyc_documents(status)`);
+
+    // Alter existing users with 'pending' kyc_status to 'not_started' if they have no KYC documents
+    await client.query(`
+      ALTER TABLE users DROP CONSTRAINT IF EXISTS users_kyc_status_check;
+      ALTER TABLE users ADD CONSTRAINT users_kyc_status_check CHECK (kyc_status IN ('not_started', 'pending', 'approved', 'rejected', 'expired'));
+    `);
+    await client.query(`
+      UPDATE users SET kyc_status = 'not_started' 
+      WHERE kyc_status = 'pending' 
+      AND id NOT IN (SELECT DISTINCT user_id FROM kyc_documents)
+      AND role != 'SUPER_ADMIN'
+    `);
 
     logger.info('Database schema initialized');
   } finally {

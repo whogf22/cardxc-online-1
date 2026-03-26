@@ -21,7 +21,7 @@ export function useUserContext() {
       return;
     }
 
-    const kycStatus = (user.kyc_status || 'pending').toLowerCase() as UserContext['kyc_status'];
+    const kycStatus = (user.kyc_status || 'not_started').toLowerCase() as UserContext['kyc_status'];
     const accountStatus = (user.account_status || 'active').toLowerCase() as UserContext['account_status'];
     const userContext: UserContext = {
       user_id: user.id || '',
