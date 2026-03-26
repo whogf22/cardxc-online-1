@@ -1,6 +1,5 @@
 /**
- * My Fluz Gift Cards - purchased API
- * Ref: https://docs.fluz.app/docs/overview
+ * My Gift Cards - purchased cards
  */
 import { useState, useEffect, useCallback } from 'react';
 import { userApi } from '../../../lib/api';
@@ -90,7 +89,7 @@ export default function FluzGiftCardsTab() {
         </div>
         <h3 className="text-lg font-semibold text-white mb-2">No Gift Cards Yet</h3>
         <p className="text-neutral-400 max-w-sm">
-          Purchase gift cards from the Buy tab to see them here. Your Fluz gift cards will appear after purchase.
+          Purchase gift cards from the Buy tab and your cards will appear here.
         </p>
       </div>
     );

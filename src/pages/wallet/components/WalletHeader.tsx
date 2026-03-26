@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../../lib/supabase';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuthContext } from '../../../contexts/AuthContext';
 
 interface WalletHeaderProps {
   user: any;
@@ -8,10 +8,11 @@ interface WalletHeaderProps {
 
 export default function WalletHeader({ user }: WalletHeaderProps) {
   const navigate = useNavigate();
+  const { signOut } = useAuthContext();
   const [showMenu, setShowMenu] = useState(false);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await signOut();
     navigate('/', { replace: true });
   };
 
@@ -20,19 +21,24 @@ export default function WalletHeader({ user }: WalletHeaderProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-lime-500 rounded-xl flex items-center justify-center">
-              <i className="ri-wallet-3-fill text-black text-xl"></i>
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-white">CardXC</h1>
-              <p className="text-xs text-neutral-500">Secure & Fast</p>
-            </div>
+            <Link to="/dashboard" className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-lime-500 rounded-xl flex items-center justify-center">
+                <i className="ri-wallet-3-fill text-black text-xl"></i>
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-white">CardXC</h1>
+                <p className="text-xs text-neutral-500">Secure & Fast</p>
+              </div>
+            </Link>
           </div>
 
           <div className="flex items-center space-x-4">
-            <button className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-dark-elevated transition-colors cursor-pointer">
+            <Link
+              to="/notifications"
+              className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-dark-elevated transition-colors"
+            >
               <i className="ri-notification-3-line text-xl text-neutral-400"></i>
-            </button>
+            </Link>
 
             <div className="relative">
               <button
@@ -51,33 +57,72 @@ export default function WalletHeader({ user }: WalletHeaderProps) {
               </button>
 
               {showMenu && (
-                <div className="absolute right-0 mt-2 w-56 bg-dark-card rounded-xl border border-dark-border py-2 shadow-xl">
-                  <div className="px-4 py-3 border-b border-dark-border">
-                    <p className="text-sm font-medium text-white">{user?.email}</p>
-                    <p className="text-xs text-neutral-500 mt-1">Personal Account</p>
-                  </div>
-                  <a href="/wallet" className="flex items-center space-x-3 px-4 py-2 hover:bg-dark-elevated transition-colors cursor-pointer">
-                    <i className="ri-wallet-3-line text-neutral-400"></i>
-                    <span className="text-sm text-white">My Payment Account</span>
-                  </a>
-                  <a href="/transactions" className="flex items-center space-x-3 px-4 py-2 hover:bg-dark-elevated transition-colors cursor-pointer">
-                    <i className="ri-history-line text-neutral-400"></i>
-                    <span className="text-sm text-white">Transaction History</span>
-                  </a>
-                  <a href="/settings" className="flex items-center space-x-3 px-4 py-2 hover:bg-dark-elevated transition-colors cursor-pointer">
-                    <i className="ri-settings-3-line text-neutral-400"></i>
-                    <span className="text-sm text-white">Settings</span>
-                  </a>
-                  <div className="border-t border-dark-border mt-2 pt-2">
-                    <button
-                      onClick={handleSignOut}
-                      className="flex items-center space-x-3 px-4 py-2 hover:bg-red-500/10 transition-colors cursor-pointer w-full text-left whitespace-nowrap"
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
+                  <div className="absolute right-0 mt-2 w-56 bg-dark-card rounded-xl border border-dark-border py-2 shadow-xl z-50">
+                    <div className="px-4 py-3 border-b border-dark-border">
+                      <p className="text-sm font-medium text-white">{user?.email}</p>
+                      <p className="text-xs text-neutral-500 mt-1">Personal Account</p>
+                    </div>
+                    <Link
+                      to="/dashboard"
+                      onClick={() => setShowMenu(false)}
+                      className="flex items-center space-x-3 px-4 py-2 hover:bg-dark-elevated transition-colors"
                     >
-                      <i className="ri-logout-box-line text-red-400"></i>
-                      <span className="text-sm text-red-400 font-medium">Sign Out</span>
-                    </button>
+                      <i className="ri-home-5-line text-neutral-400"></i>
+                      <span className="text-sm text-white">Dashboard</span>
+                    </Link>
+                    <Link
+                      to="/wallet"
+                      onClick={() => setShowMenu(false)}
+                      className="flex items-center space-x-3 px-4 py-2 hover:bg-dark-elevated transition-colors"
+                    >
+                      <i className="ri-wallet-3-line text-neutral-400"></i>
+                      <span className="text-sm text-white">Wallet</span>
+                    </Link>
+                    <Link
+                      to="/cards"
+                      onClick={() => setShowMenu(false)}
+                      className="flex items-center space-x-3 px-4 py-2 hover:bg-dark-elevated transition-colors"
+                    >
+                      <i className="ri-bank-card-line text-neutral-400"></i>
+                      <span className="text-sm text-white">Virtual Cards</span>
+                    </Link>
+                    <Link
+                      to="/giftcards"
+                      onClick={() => setShowMenu(false)}
+                      className="flex items-center space-x-3 px-4 py-2 hover:bg-dark-elevated transition-colors"
+                    >
+                      <i className="ri-gift-line text-neutral-400"></i>
+                      <span className="text-sm text-white">Gift Cards</span>
+                    </Link>
+                    <Link
+                      to="/transactions"
+                      onClick={() => setShowMenu(false)}
+                      className="flex items-center space-x-3 px-4 py-2 hover:bg-dark-elevated transition-colors"
+                    >
+                      <i className="ri-history-line text-neutral-400"></i>
+                      <span className="text-sm text-white">Transaction History</span>
+                    </Link>
+                    <Link
+                      to="/profile"
+                      onClick={() => setShowMenu(false)}
+                      className="flex items-center space-x-3 px-4 py-2 hover:bg-dark-elevated transition-colors"
+                    >
+                      <i className="ri-settings-3-line text-neutral-400"></i>
+                      <span className="text-sm text-white">Settings</span>
+                    </Link>
+                    <div className="border-t border-dark-border mt-2 pt-2">
+                      <button
+                        onClick={handleSignOut}
+                        className="flex items-center space-x-3 px-4 py-2 hover:bg-red-500/10 transition-colors cursor-pointer w-full text-left whitespace-nowrap"
+                      >
+                        <i className="ri-logout-box-line text-red-400"></i>
+                        <span className="text-sm text-red-400 font-medium">Sign Out</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
+                </>
               )}
             </div>
           </div>

@@ -11,9 +11,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   { path: '/dashboard', icon: 'ri-home-5-line', activeIcon: 'ri-home-5-fill', label: 'Home', shortLabel: 'Home' },
   { path: '/wallet', icon: 'ri-wallet-3-line', activeIcon: 'ri-wallet-3-fill', label: 'Wallet', shortLabel: 'Wallet' },
-  { path: '/transfer', icon: 'ri-send-plane-line', activeIcon: 'ri-send-plane-fill', label: 'Transfer', shortLabel: 'Send' },
-  { path: '/cards', icon: 'ri-bank-card-line', activeIcon: 'ri-bank-card-fill', label: 'Add Card', shortLabel: 'Card' },
-  { path: '/create-virtual-card', icon: 'ri-add-circle-line', activeIcon: 'ri-add-circle-fill', label: 'Virtual Card', shortLabel: 'Virtual' },
+  { path: '/cards', icon: 'ri-bank-card-line', activeIcon: 'ri-bank-card-fill', label: 'Cards', shortLabel: 'Cards' },
+  { path: '/giftcards', icon: 'ri-gift-line', activeIcon: 'ri-gift-fill', label: 'Gift Cards', shortLabel: 'Gifts' },
   { path: '/profile', icon: 'ri-user-line', activeIcon: 'ri-user-fill', label: 'Account', shortLabel: 'Account' },
 ];
 
@@ -25,7 +24,8 @@ export default function BottomNavigation() {
       <div className="flex items-center justify-between max-w-2xl mx-auto py-2 px-1 gap-0">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path ||
-            (item.path === '/dashboard' && location.pathname === '/');
+            (item.path === '/dashboard' && location.pathname === '/') ||
+            (item.path === '/cards' && location.pathname === '/create-virtual-card');
 
           return (
             <Link

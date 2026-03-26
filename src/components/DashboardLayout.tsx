@@ -13,8 +13,9 @@ const mainNavItems: NavItem[] = [
   { path: '/payments', icon: 'ri-exchange-funds-line', label: 'Payments' },
   { path: '/cards', icon: 'ri-bank-card-line', label: 'Cards' },
   { path: '/create-virtual-card', icon: 'ri-add-circle-line', label: 'Create Virtual Card' },
+  { path: '/giftcards', icon: 'ri-gift-line', label: 'Gift Cards' },
   { path: '/savings', icon: 'ri-safe-2-line', label: 'Savings' },
-  { path: '/rewards', icon: 'ri-gift-line', label: 'Rewards' },
+  { path: '/rewards', icon: 'ri-trophy-line', label: 'Rewards' },
 ];
 
 const secondaryNavItems: NavItem[] = [
