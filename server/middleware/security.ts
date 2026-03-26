@@ -7,6 +7,23 @@ const failedAttempts = new Map<string, { count: number; resetAt: number }>();
 const BLOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 const MAX_FAILED_ATTEMPTS = 5;
 
+// IP blacklist for admin-managed blocking
+const blacklistedIPs = new Set<string>();
+
+export function addToBlacklist(ip: string) {
+  blacklistedIPs.add(ip);
+  logger.info(`[Security] IP added to blacklist: ${ip}`);
+}
+
+export function removeFromBlacklist(ip: string) {
+  blacklistedIPs.delete(ip);
+  logger.info(`[Security] IP removed from blacklist: ${ip}`);
+}
+
+export function getBlacklistedIPs(): string[] {
+  return Array.from(blacklistedIPs);
+}
+
 export function securityHeaders(req: Request, res: Response, next: NextFunction) {
   // Security headers
   res.setHeader('X-Content-Type-Options', 'nosniff');
