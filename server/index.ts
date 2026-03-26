@@ -289,10 +289,25 @@ const staticPath = path.join(__dirname, '../dist');
 const staticPathExists = fs.existsSync(staticPath) && fs.existsSync(path.join(staticPath, 'index.html'));
 
 if (staticPathExists) {
-  app.use(express.static(staticPath, { maxAge: isProduction ? '1d' : 0 }));
+  // Cache hashed assets (JS/CSS) for 1 year, but never cache HTML
+  app.use('/assets', express.static(path.join(staticPath, 'assets'), {
+    maxAge: isProduction ? '365d' : 0,
+    immutable: true,
+  }));
+  app.use(express.static(staticPath, {
+    maxAge: 0,
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      }
+    },
+  }));
 
   app.use((req, res, next) => {
     if (!req.path.startsWith('/api')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.sendFile(path.join(staticPath, 'index.html'));
     } else {
       next();
