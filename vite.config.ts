@@ -98,4 +98,4 @@ export default defineConfig({
     allowedHosts: true,
     cors: true,
   },
-} as any);
+});
