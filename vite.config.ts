@@ -3,6 +3,8 @@ import react from "@vitejs/plugin-react-swc";
 import { resolve } from "node:path";
 import AutoImport from "unplugin-auto-import/vite";
 
+import { cloudflare } from "@cloudflare/vite-plugin";
+
 /// <reference types="vitest" />
 
 const base = process.env.BASE_PATH || "/";
@@ -14,34 +16,31 @@ export default defineConfig({
     __IS_PREVIEW__: JSON.stringify(isPreview),
     __PRODUCTION_MODE__: JSON.stringify(process.env.NODE_ENV === 'production'),
   },
-  plugins: [
-    react(),
-    AutoImport({
-      imports: [
-        {
-          react: [
-            "React", "useState", "useEffect", "useContext", "useReducer",
-            "useCallback", "useMemo", "useRef", "useImperativeHandle",
-            "useLayoutEffect", "useDebugValue", "useDeferredValue",
-            "useId", "useInsertionEffect", "useSyncExternalStore",
-            "useTransition", "startTransition", "lazy", "memo",
-            "forwardRef", "createContext", "createElement", "cloneElement",
-            "isValidElement",
-          ],
-        },
-        {
-          "react-router-dom": [
-            "useNavigate", "useLocation", "useParams", "useSearchParams",
-            "Link", "NavLink", "Navigate", "Outlet",
-          ],
-        },
-        {
-          "react-i18next": ["useTranslation", "Trans"],
-        },
-      ],
-      dts: true,
-    }),
-  ],
+  plugins: [react(), AutoImport({
+    imports: [
+      {
+        react: [
+          "React", "useState", "useEffect", "useContext", "useReducer",
+          "useCallback", "useMemo", "useRef", "useImperativeHandle",
+          "useLayoutEffect", "useDebugValue", "useDeferredValue",
+          "useId", "useInsertionEffect", "useSyncExternalStore",
+          "useTransition", "startTransition", "lazy", "memo",
+          "forwardRef", "createContext", "createElement", "cloneElement",
+          "isValidElement",
+        ],
+      },
+      {
+        "react-router-dom": [
+          "useNavigate", "useLocation", "useParams", "useSearchParams",
+          "Link", "NavLink", "Navigate", "Outlet",
+        ],
+      },
+      {
+        "react-i18next": ["useTranslation", "Trans"],
+      },
+    ],
+    dts: true,
+  }), cloudflare()],
   base,
   build: {
     sourcemap: false,
