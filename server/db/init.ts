@@ -656,6 +656,88 @@ export async function initializeDatabase() {
       AND role != 'SUPER_ADMIN'
     `);
 
+    // Notifications table (used by notificationService)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type VARCHAR(50) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        message TEXT NOT NULL,
+        read BOOLEAN DEFAULT FALSE,
+        metadata JSONB DEFAULT '{}',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(user_id, read) WHERE read = FALSE`);
+
+    // User preferences table (used by preferences route)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS user_preferences (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+        theme VARCHAR(20) DEFAULT 'system',
+        notifications_enabled BOOLEAN DEFAULT TRUE,
+        email_notifications BOOLEAN DEFAULT TRUE,
+        push_notifications BOOLEAN DEFAULT TRUE,
+        language VARCHAR(10) DEFAULT 'en',
+        timezone VARCHAR(100),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Account locks table (used by securityService)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS account_locks (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+        locked_until TIMESTAMP NOT NULL,
+        reason TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_account_locks_user_id ON account_locks(user_id)`);
+
+    // Email verification tokens table (used by backgroundJobs cleanup)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS email_verification_tokens (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token_hash VARCHAR(255) NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        used_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_user_id ON email_verification_tokens(user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_hash ON email_verification_tokens(token_hash)`);
+
+    // Crypto transactions table (used by tronDepositMonitor and cryptoProviderService)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS crypto_transactions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        type VARCHAR(20) NOT NULL DEFAULT 'deposit',
+        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed', 'expired')),
+        amount NUMERIC(20, 8),
+        currency VARCHAR(20) DEFAULT 'USDT',
+        network VARCHAR(50),
+        tx_hash VARCHAR(255) UNIQUE,
+        from_address VARCHAR(255),
+        to_address VARCHAR(255),
+        confirmations INTEGER DEFAULT 0,
+        required_confirmations INTEGER DEFAULT 19,
+        confirmed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_crypto_transactions_user_id ON crypto_transactions(user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_crypto_transactions_tx_hash ON crypto_transactions(tx_hash)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_crypto_transactions_status ON crypto_transactions(status)`);
+
     logger.info('Database schema initialized');
   } finally {
     client.release();

@@ -13,7 +13,7 @@ interface WithdrawModalProps {
   currentBalance: number;
 }
 
-export default function WithdrawModal({ isOpen, onClose, onSuccess, userId: _userId, currentBalance }: WithdrawModalProps) {
+export default function WithdrawModal({ isOpen, onClose, onSuccess, currentBalance }: WithdrawModalProps) {
   const { currency, rates } = useCurrency();
   const format = useCurrencyFormat();
   

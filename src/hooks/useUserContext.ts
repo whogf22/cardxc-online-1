@@ -46,7 +46,7 @@ export function useUserContext() {
     await refreshAuth();
   }, [refreshAuth]);
 
-  const hasFeature = useCallback((_featureName: string): boolean => {
+  const hasFeature = useCallback((_featureName?: string): boolean => {
     if (!context) return false;
     if (context.account_status !== 'active') return false;
     if (context.kyc_status !== 'approved') return false;

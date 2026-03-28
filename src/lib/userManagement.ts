@@ -8,7 +8,7 @@ interface CreateUserData {
   phone?: string;
   country?: string;
   role?: 'USER' | 'SUPER_ADMIN';
-  status?: 'active' | 'suspended' | 'blocked';
+  status?: 'active' | 'suspended' | 'blocked' | 'limited' | 'closed';
 }
 
 interface UpdateUserData {
@@ -17,7 +17,7 @@ interface UpdateUserData {
   full_name?: string;
   phone?: string;
   country?: string;
-  status?: 'active' | 'suspended' | 'blocked';
+  status?: 'active' | 'suspended' | 'blocked' | 'limited' | 'closed';
 }
 
 interface UpdateRoleData {

@@ -42,12 +42,15 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
         return next(new Error('Authentication required'));
       }
 
-      const jwtSecret = process.env.JWT_SECRET || 'cardxc_secure_key';
-      const decoded = jwt.verify(token, jwtSecret) as { userId: number; role?: string };
+      const jwtSecret = process.env.SESSION_SECRET || process.env.JWT_SECRET;
+      if (!jwtSecret) {
+        return next(new Error('Server authentication not configured'));
+      }
+      const decoded = jwt.verify(token, jwtSecret) as { userId: string; sessionId?: string; role?: string };
 
       // Verify user still exists in DB
       const result = await pool.query(
-        'SELECT id, role FROM users WHERE id = $1 AND is_active = true',
+        "SELECT id, role FROM users WHERE id = $1 AND account_status = 'active'",
         [decoded.userId]
       );
 
@@ -94,12 +97,12 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
     socket.on('get:balance', async () => {
       try {
         const result = await pool.query(
-          'SELECT balance, currency FROM wallets WHERE user_id = $1',
+          'SELECT balance_cents, currency FROM wallets WHERE user_id = $1',
           [userId]
         );
         if (result.rows.length > 0) {
           socket.emit('balance:update', {
-            balance: result.rows[0].balance,
+            balance: (Number(result.rows[0].balance_cents) / 100).toFixed(2),
             currency: result.rows[0].currency,
           });
         }
@@ -112,12 +115,15 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
     socket.on('get:transactions', async (limit = 10) => {
       try {
         const result = await pool.query(
-          `SELECT id, type, amount, currency, status, description, created_at
+          `SELECT id, type, amount_cents, currency, status, description, created_at
            FROM transactions WHERE user_id = $1
            ORDER BY created_at DESC LIMIT $2`,
           [userId, Math.min(limit, 50)]
         );
-        socket.emit('transactions:list', result.rows);
+        socket.emit('transactions:list', result.rows.map((r: any) => ({
+          ...r,
+          amount: (Number(r.amount_cents) / 100).toFixed(2),
+        })));
       } catch (err) {
         logger.error('[Socket] get:transactions error:', err);
       }
@@ -240,9 +246,9 @@ async function sendAdminStats(socket: AuthenticatedSocket) {
   try {
     const [usersRes, txRes, pendingRes, balanceRes] = await Promise.all([
       pool.query('SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL \'24 hours\') as today FROM users'),
-      pool.query('SELECT COUNT(*) as total, COALESCE(SUM(amount::numeric), 0) as volume FROM transactions WHERE created_at > NOW() - INTERVAL \'24 hours\''),
+      pool.query('SELECT COUNT(*) as total, COALESCE(SUM(amount_cents), 0) as volume FROM transactions WHERE created_at > NOW() - INTERVAL \'24 hours\''),
       pool.query('SELECT COUNT(*) as count FROM withdrawal_requests WHERE status = \'pending\''),
-      pool.query('SELECT COALESCE(SUM(balance::numeric), 0) as total FROM wallets'),
+      pool.query('SELECT COALESCE(SUM(balance_cents), 0) as total FROM wallets'),
     ]);
 
     socket.emit('admin:stats', {
@@ -252,10 +258,10 @@ async function sendAdminStats(socket: AuthenticatedSocket) {
       },
       transactions: {
         today: parseInt(txRes.rows[0].total),
-        volume24h: parseFloat(txRes.rows[0].volume).toFixed(2),
+        volume24h: (Number(txRes.rows[0].volume) / 100).toFixed(2),
       },
       pendingWithdrawals: parseInt(pendingRes.rows[0].count),
-      totalBalance: parseFloat(balanceRes.rows[0].total).toFixed(2),
+      totalBalance: (Number(balanceRes.rows[0].total) / 100).toFixed(2),
       onlineUsers: onlineUsers.size,
       timestamp: new Date().toISOString(),
     });

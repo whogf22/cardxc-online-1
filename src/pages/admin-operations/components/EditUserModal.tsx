@@ -8,7 +8,7 @@ interface User {
   full_name?: string;
   phone?: string;
   country?: string;
-  status: 'active' | 'suspended' | 'blocked';
+  status: 'active' | 'suspended' | 'blocked' | 'limited' | 'closed';
 }
 
 interface EditUserModalProps {
@@ -24,7 +24,7 @@ export default function EditUserModal({ isOpen, user, onClose, onSuccess }: Edit
     full_name: '',
     phone: '',
     country: '',
-    status: 'active' as 'active' | 'suspended' | 'blocked',
+    status: 'active' as 'active' | 'suspended' | 'blocked' | 'limited' | 'closed',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

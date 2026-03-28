@@ -226,6 +226,14 @@ webhookRouter.post('/payment',
 
     logger.info('webhook_received', { logId, eventType, paymentId });
 
+    if (!PROVIDER_WEBHOOK_SECRET) {
+      if (process.env.NODE_ENV === 'production') {
+        logger.error('webhook_rejected_no_secret', { logId, eventType, message: 'Webhook secret not configured in production' });
+        await query(`UPDATE payment_webhook_logs SET error_message = 'Webhook secret not configured', processed = TRUE WHERE id = $1`, [logId]);
+        return res.status(401).json({ success: false, error: 'Webhook secret not configured' });
+      }
+      logger.warn('webhook_no_secret_dev', { logId, eventType, message: 'Webhook secret not set - skipping verification (dev only)' });
+    }
     if (PROVIDER_WEBHOOK_SECRET) {
       if (!signature) {
         await query(`UPDATE payment_webhook_logs SET error_message = 'Missing signature', processed = TRUE WHERE id = $1`, [logId]);
@@ -886,9 +894,8 @@ webhookRouter.post('/stripe',
         return res.status(400).json({ error: 'Webhook signature verification failed' });
       }
     } else {
-      logger.warn('stripe_webhook_no_secret_configured', { message: 'STRIPE_WEBHOOK_SECRET not set, skipping signature verification' });
-      const body = rawBody ? JSON.parse(rawBody.toString('utf8')) : req.body;
-      event = body;
+      logger.error('stripe_webhook_rejected', { message: 'STRIPE_WEBHOOK_SECRET not configured - rejecting webhook for security' });
+      return res.status(401).json({ error: 'Webhook secret not configured' });
     }
 
     const eventType = event.type;
