@@ -216,7 +216,7 @@ export async function isAccountLocked(userId: string): Promise<boolean> {
     return !!lockRecord;
   } catch (error) {
     logger.error('account_lock_check_error', { userId, error });
-    return false;
+    return true; // fail-closed: treat as locked on error
   }
 }
 
@@ -227,10 +227,10 @@ export async function lockAccount(userId: string, durationMinutes: number = 30) 
   try {
     await query(`
       INSERT INTO account_locks (user_id, locked_until, reason)
-      VALUES ($1, NOW() + INTERVAL '${durationMinutes} minutes', 'Suspicious activity detected')
-      ON CONFLICT (user_id) DO UPDATE 
-      SET locked_until = NOW() + INTERVAL '${durationMinutes} minutes'
-    `, [userId]);
+      VALUES ($1, NOW() + ($2 || ' minutes')::INTERVAL, 'Suspicious activity detected')
+      ON CONFLICT (user_id) DO UPDATE
+      SET locked_until = NOW() + ($2 || ' minutes')::INTERVAL
+    `, [userId, String(Math.max(1, Math.min(durationMinutes, 10080)))]);
 
     logger.warn('account_locked', { userId, durationMinutes });
   } catch (error) {

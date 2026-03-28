@@ -67,7 +67,7 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
   // Stripe state
   const [stripePromise, setStripePromise] = useState<Promise<any> | null>(null);
   const [clientSecret, setClientSecret] = useState<string>('');
-  const [sessionId, setSessionId] = useState<string>('');
+  const [_sessionId, setSessionId] = useState<string>('');
 
   // OTP state
   const [orderId, setOrderId] = useState<string>('');
@@ -138,7 +138,7 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
       checkStatus();
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, []);
+  }, [fetchWalletBalance]);
 
   const resetForm = useCallback(() => {
     setStep('method-selection');
