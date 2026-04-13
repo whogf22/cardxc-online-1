@@ -1,16 +1,7 @@
 User-agent: *
 Allow: /
-
-Sitemap: https://cardxc.online/sitemap.xml
-
-User-agent: Googlebot
-Allow: /
-Crawl-delay: 1
-
-User-agent: Bingbot
-Allow: /
-Crawl-delay: 1
-
 Disallow: /admin*
 Disallow: /api/*
 Disallow: /debug/*
+
+Sitemap: https://cardxc.online/sitemap.xml

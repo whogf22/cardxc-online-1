@@ -45,6 +45,8 @@ const AMLPolicy = lazy(() => import('../pages/aml-policy/page'));
 const ResetPassword = lazy(() => import('../pages/reset-password/page'));
 const ForgotPassword = lazy(() => import('../pages/forgot-password/page'));
 const VerifyEmail = lazy(() => import('../pages/verify-email/page'));
+const GiftCardsPublic = lazy(() => import('../pages/gift-cards-public/page'));
+const FAQ = lazy(() => import('../pages/faq/page'));
 const NotFound = lazy(() => import('../pages/NotFound'));
 const Notifications = lazy(() => import('../pages/notifications/page'));
 const Support = lazy(() => import('../pages/support/page'));
@@ -154,6 +156,8 @@ const routes: RouteObject[] = [
     path: '/rewards',
     element: <ProtectedRoute><Rewards /></ProtectedRoute>,
   },
+  { path: '/gift-cards', element: <GiftCardsPublic /> },
+  { path: '/faq', element: <FAQ /> },
   {
     path: '/giftcards',
     element: <ProtectedRoute><GiftCards /></ProtectedRoute>,
