@@ -697,7 +697,7 @@ export const aiApi = {
   },
 
   async streamMessage(conversationId: string, content: string): Promise<ReadableStreamDefaultReader<string>> {
-    const response = await fetch(`/api/ai/conversations/${conversationId}/messages`, {
+    const response = await fetch(`${API_BASE}/ai/conversations/${conversationId}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
