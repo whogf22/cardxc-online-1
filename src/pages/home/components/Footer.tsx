@@ -4,7 +4,7 @@ import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_TEL, SUPPORT_WHATSAPP_URL }
 const QUICK_LINKS = [
   { label: 'Features', href: '/#features' },
   { label: 'How It Works', to: '/how-it-works' },
-  { label: 'FAQ', to: '/how-it-works' },
+  { label: 'FAQ', to: '/faq' },
   { label: 'Contact', href: '/#contact' },
 ];
 

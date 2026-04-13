@@ -31,10 +31,8 @@ function pickRandom<T>(arr: T[]): T {
 }
 
 function BrandItem({ brand }: { brand: (typeof brands)[0] }) {
-  const [useFallback, setUseFallback] = useState(false);
   const [pressed, setPressed] = useState(false);
   const [flipContent, setFlipContent] = useState(flipMessages[0]);
-  const logoUrl = `https://logo.clearbit.com/${brand.domain}`;
 
   const handleClick = () => {
     setFlipContent(pickRandom(flipMessages));
@@ -51,11 +49,7 @@ function BrandItem({ brand }: { brand: (typeof brands)[0] }) {
       <div className={`brand-flip-inner relative w-full h-full ${pressed ? 'brand-flipped' : ''}`}>
         <div className="brand-flip-front absolute inset-0 flex items-center gap-3 py-3 px-5 rounded-2xl bg-[#0d0d0d] border border-white/[0.06] hover:border-white/[0.1] group/card">
           <div className="brand-logo-wrap w-10 h-10 flex items-center justify-center rounded-xl bg-lime-500/[0.08] border border-lime-500/10 overflow-hidden group-hover/card:animate-cartoon-bounce">
-            {useFallback ? (
-              <i className={`${brand.icon} text-xl text-lime-400`}></i>
-            ) : (
-              <img src={logoUrl} alt={brand.name} className="w-8 h-8 object-contain" loading="lazy" onError={() => setUseFallback(true)} />
-            )}
+            <i className={`${brand.icon} text-xl text-lime-400`}></i>
           </div>
           <span className="text-sm font-semibold text-white whitespace-nowrap">{brand.name}</span>
         </div>
@@ -72,7 +66,7 @@ export default function BrandsStrip() {
   const duplicated = [...brands, ...brands];
 
   return (
-    <section className="relative py-12 sm:py-16 bg-[#030303] border-y border-white/[0.04] overflow-hidden w-full">
+    <section aria-label="Popular gift card brands" className="relative py-12 sm:py-16 bg-[#030303] border-y border-white/[0.04] overflow-hidden w-full">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 w-full">
         <div className="flex justify-center mb-8">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-lime-500/[0.08] rounded-full border border-lime-500/20">
@@ -96,6 +90,9 @@ export default function BrandsStrip() {
         }
         .animate-marquee {
           animation: marquee 35s linear infinite;
+        }
+        .animate-marquee:hover {
+          animation-play-state: paused;
         }
         @keyframes cartoonBounce {
           0%, 100% { transform: scale(1); }

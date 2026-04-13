@@ -50,7 +50,7 @@ export default function HeroSection() {
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center animate-fade-in-up" style={{ animationDelay: '0.25s' }}>
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center animate-fade-in">
               <button
                 onClick={() => navigate('/signup')}
                 className="group px-6 sm:px-8 py-3.5 sm:py-4 bg-white text-black font-bold rounded-xl hover:bg-neutral-100 transition-all shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] text-[14px] sm:text-[15px]"
@@ -59,14 +59,14 @@ export default function HeroSection() {
                 <i className="ri-arrow-right-line ml-2 group-hover:translate-x-1 transition-transform inline-block"></i>
               </button>
               <button
-                onClick={() => navigate('/giftcards')}
+                onClick={() => navigate('/gift-cards')}
                 className="px-6 sm:px-8 py-3.5 sm:py-4 bg-white/[0.04] text-white font-semibold rounded-xl border border-white/[0.12] hover:bg-white/[0.08] hover:border-lime-500/30 transition-all text-[14px] sm:text-[15px]"
               >
                 Browse Gift Cards
               </button>
             </div>
 
-            <div className="flex items-center justify-center gap-8 pt-2 animate-fade-in-up" style={{ animationDelay: '0.35s' }}>
+            <div className="flex items-center justify-center gap-8 pt-2 animate-fade-in">
               {[
                 { value: '100%', label: 'Secure' },
                 { value: '24/7', label: 'Support' },
