@@ -1,3 +1,2 @@
-# Canonical: redirect non-www to www (handled by Cloudflare Page Rules, backup here)
-# SPA fallback - serve index.html for all client-side routes
-/*  /index.html  200
+# SPA routing handled by wrangler.jsonc not_found_handling: single-page-application
+# No redirect rules needed — Cloudflare Workers handles all routing
