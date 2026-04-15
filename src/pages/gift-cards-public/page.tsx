@@ -53,7 +53,7 @@ export default function GiftCardsPublicPage() {
     async function fetchOffers() {
       try {
         setLoading(true);
-        const res = await fetch(`${API_URL}/gift-cards/offers?limit=50&offset=0`);
+        const res = await fetch(`${API_URL}/gift-cards/offers?limit=500&offset=0`);
         const data = await res.json();
         if (data.list) setOffers(data.list);
       } catch (e) {
