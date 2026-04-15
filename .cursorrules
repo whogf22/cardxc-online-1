@@ -1,0 +1,36 @@
+# CardXC.online — Cursor Rules
+
+## Project
+- Gift card marketplace (crypto-to-gift-card)
+- Frontend: React + Vite + TypeScript + Tailwind CSS
+- Backend: Node.js + Express (server/ folder)
+- Deploy: Cloudflare Workers (frontend), Hostinger VPS (backend API)
+
+## Architecture
+- Frontend SPA deployed as Cloudflare Worker (auto-deploy on git push)
+- Backend API at api.cardxc.online (VPS: 76.13.28.186, PM2)
+- Database: PostgreSQL 16
+- CDN: Cloudflare
+
+## Style
+- Dark theme (bg-[#0a0a0f], lime-green accents #a3e635)
+- Tailwind CSS utility classes
+- Remix Icon for icons
+- Inter font family
+
+## Rules
+- Always use TypeScript strict mode
+- Use Tailwind — no inline styles
+- Keep dark theme consistent across all pages
+- API routes in server/routes/
+- Pages in src/pages/
+- Components in src/components/ or page-level components/
+
+## Deploy
+- One command: `./deploy-all.sh "commit message"`
+- Frontend: git push → Cloudflare auto-build
+- Backend: rsync + PM2 restart on VPS
+
+## Security Headers
+- CSP, HSTS, X-Frame-Options configured in public/_headers
+- Do not remove or weaken security headers
