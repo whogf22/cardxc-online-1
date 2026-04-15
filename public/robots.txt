@@ -4,4 +4,4 @@ Disallow: /admin*
 Disallow: /api/*
 Disallow: /debug/*
 
-Sitemap: https://cardxc.online/sitemap.xml
+Sitemap: https://www.cardxc.online/sitemap.xml
