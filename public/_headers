@@ -1,0 +1,8 @@
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(self)
+  X-XSS-Protection: 1; mode=block
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com https://www.googletagmanager.com https://connect.facebook.net https://js.stripe.com; style-src 'self' 'unsafe-inline' https://api.fontshare.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://api.fontshare.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.gstatic.com data:; img-src 'self' https: data: blob:; connect-src 'self' https://api.cardxc.online https://accounts.google.com https://www.googleapis.com https://zendit-api.com https://*.stripe.com https://*.google-analytics.com https://*.analytics.google.com; frame-src https://accounts.google.com https://js.stripe.com; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com;
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload

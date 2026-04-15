@@ -5,6 +5,7 @@ import { DISPUTES_EMAIL, SUPPORT_EMAIL } from '../../lib/contactPlaceholders';
 export default function RefundPolicyPage() {
   useEffect(() => {
     window.scrollTo(0, 0);
+    document.title = 'Refund Policy | CardXC — Cancellations & Disputes';
   }, []);
 
   return (

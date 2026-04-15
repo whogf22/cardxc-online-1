@@ -22,6 +22,7 @@ export default function SignInPage() {
   const [googleOAuthAvailable, setGoogleOAuthAvailable] = useState(false);
 
   useEffect(() => {
+    document.title = 'Sign In | CardXC — Access Your Account';
     if (searchParams.get('session') === 'expired') {
       setError('Your session has expired. Please sign in again.');
     }

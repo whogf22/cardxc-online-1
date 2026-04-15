@@ -33,6 +33,7 @@ export default function CalculatorPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    document.title = 'Currency Calculator | CardXC — Real-Time Exchange Rates';
     loadRates();
     const saved = localStorage.getItem('rateAlerts');
     if (saved) {

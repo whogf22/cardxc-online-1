@@ -1,10 +1,14 @@
 // Forgot Password Page - allows users to request a password reset email
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
 export default function ForgotPasswordPage() {
+  useEffect(() => {
+    document.title = 'Forgot Password | CardXC — Reset Your Password';
+  }, []);
+
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
