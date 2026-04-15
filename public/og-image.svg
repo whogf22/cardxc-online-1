@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#030303"/>
+      <stop offset="50%" stop-color="#051505"/>
+      <stop offset="100%" stop-color="#030303"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#a3e635"/>
+      <stop offset="100%" stop-color="#4ade80"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="rgba(132,204,22,0.08)"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <line x1="0" y1="0" x2="1200" y2="0" stroke="rgba(132,204,22,0.3)" stroke-width="2"/>
+  <!-- Logo -->
+  <rect x="520" y="140" width="56" height="56" rx="14" fill="#84cc16"/>
+  <text x="548" y="175" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="700" font-size="24" fill="#000">CX</text>
+  <text x="590" y="177" font-family="system-ui,sans-serif" font-weight="700" font-size="32" fill="white">CardXC</text>
+  <!-- Heading -->
+  <text x="600" y="300" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="700" font-size="64" fill="white">Your Money.</text>
+  <text x="600" y="380" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="700" font-size="64" fill="url(#accent)">Worldwide.</text>
+  <!-- Subtitle -->
+  <text x="600" y="440" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="400" font-size="22" fill="#a3a3a3">Send money globally, buy gift cards, and manage it all in one place.</text>
+  <!-- Trust bar -->
+  <text x="390" y="540" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="700" font-size="18" fill="white">100% Secure</text>
+  <text x="600" y="540" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="700" font-size="18" fill="white">24/7 Support</text>
+  <text x="810" y="540" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="700" font-size="18" fill="white">Instant Transfers</text>
+  <text x="390" y="560" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="400" font-size="12" fill="#84cc16">■</text>
+  <text x="600" y="560" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="400" font-size="12" fill="#84cc16">■</text>
+  <text x="810" y="560" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="400" font-size="12" fill="#84cc16">■</text>
+  <!-- URL -->
+  <text x="600" y="605" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="500" font-size="16" fill="#525252">www.cardxc.online</text>
+</svg>

@@ -52,7 +52,32 @@ const faqs = [
   {
     question: 'How do I contact support?',
     answer:
-      'Reach us via email, phone, or WhatsApp 24/7. Our support team is always ready to help with any questions or issues.',
+      'Reach us via email at support@cardxc.online, phone at +1 (516) 666-6333, or WhatsApp 24/7. Our support team is always ready to help with any questions or issues.',
+  },
+  {
+    question: 'Can I use my virtual card for subscriptions?',
+    answer:
+      'Yes, CardXC virtual cards work with all major subscription services including Netflix, Spotify, Apple Music, Amazon Prime, and more. Just add your virtual card details as a payment method.',
+  },
+  {
+    question: 'What currencies does CardXC support?',
+    answer:
+      'We support multiple currencies including USD, EUR, GBP, and more. You can hold, send, and receive in different currencies with competitive real-time exchange rates.',
+  },
+  {
+    question: 'How do I add funds to my wallet?',
+    answer:
+      'You can fund your CardXC wallet via bank transfer, debit card, or other supported payment methods. Deposits are typically processed within minutes.',
+  },
+  {
+    question: 'Is there a limit on transactions?',
+    answer:
+      'Transaction limits depend on your verification level. Basic accounts have standard limits, while fully verified accounts enjoy higher limits for transfers and gift card purchases. Complete KYC verification to unlock the highest limits.',
+  },
+  {
+    question: 'What happens if I lose access to my account?',
+    answer:
+      'Use the \'Forgot Password\' feature to reset your credentials via email. If you\'ve also lost access to your email, contact our support team with your registered details for identity verification and account recovery.',
   },
 ];
 
@@ -102,7 +127,7 @@ export default function FAQPage() {
             </button>
 
             <div className="hidden md:flex items-center gap-8">
-              <button onClick={() => navigate('/gift-cards')} className="text-[13px] text-neutral-400 hover:text-lime-400 transition-colors">Gift Cards</button>
+              <Link to="/gift-cards" className="text-[13px] text-neutral-400 hover:text-lime-400 transition-colors">Gift Cards</Link>
               <a href="/#features" className="text-[13px] text-neutral-400 hover:text-lime-400 transition-colors">Features</a>
               <Link to="/how-it-works" className="text-[13px] text-neutral-400 hover:text-lime-400 transition-colors">How It Works</Link>
               <Link to="/faq" className="text-[13px] text-lime-400 font-medium">FAQ</Link>

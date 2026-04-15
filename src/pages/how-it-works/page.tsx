@@ -27,7 +27,7 @@ export default function HowItWorksPage() {
             </button>
 
             <div className="hidden md:flex items-center gap-8">
-              <button onClick={() => navigate('/gift-cards')} className="text-[13px] text-neutral-400 hover:text-lime-400 transition-colors">Gift Cards</button>
+              <Link to="/gift-cards" className="text-[13px] text-neutral-400 hover:text-lime-400 transition-colors">Gift Cards</Link>
               <a href="/#features" className="text-[13px] text-neutral-400 hover:text-lime-400 transition-colors">Features</a>
               <Link to="/how-it-works" className="text-[13px] text-lime-400 font-medium">How It Works</Link>
               <button onClick={() => setIsContactOpen(true)} className="text-[13px] text-neutral-400 hover:text-lime-400 transition-colors">Contact</button>

@@ -216,20 +216,28 @@ export default function PrivacyPage() {
               13. Contact Us
             </h2>
             <p className="leading-relaxed mb-4">
-              If you have any questions, concerns, or requests regarding this Privacy Notice or our privacy practices, please contact us:
+              If you have any questions, concerns, or requests regarding this Privacy Notice or our privacy practices, please contact us. We will respond to all privacy-related requests within <strong>30 days</strong> of receipt.
             </p>
-            <div className="space-y-2">
+            <div className="space-y-3">
+              <p className="flex items-center gap-2">
+                <i className="ri-mail-line text-lime-400"></i>
+                <span className="text-neutral-400 min-w-[80px]">Email:</span>
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="text-neutral-300 hover:text-lime-400 transition-colors">{SUPPORT_EMAIL}</a>
+              </p>
+              <p className="flex items-center gap-2">
+                <i className="ri-building-line text-lime-400"></i>
+                <span className="text-neutral-400 min-w-[80px]">Address:</span>
+                <span className="text-neutral-300">CARDXC LLC, United States</span>
+              </p>
               <p className="flex items-center gap-2">
                 <i className="ri-whatsapp-line text-lime-400"></i>
+                <span className="text-neutral-400 min-w-[80px]">WhatsApp:</span>
                 <a href={SUPPORT_WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="text-neutral-300 hover:text-lime-400 transition-colors">{SUPPORT_PHONE}</a>
               </p>
               <p className="flex items-center gap-2">
                 <i className="ri-phone-line text-lime-400"></i>
+                <span className="text-neutral-400 min-w-[80px]">Phone:</span>
                 <a href={SUPPORT_PHONE_TEL} className="text-neutral-300 hover:text-lime-400 transition-colors">{SUPPORT_PHONE}</a>
-              </p>
-              <p className="flex items-center gap-2">
-                <i className="ri-mail-line text-lime-400"></i>
-                <a href={`mailto:${SUPPORT_EMAIL}`} className="text-neutral-300 hover:text-lime-400 transition-colors">{SUPPORT_EMAIL}</a>
               </p>
             </div>
           </section>

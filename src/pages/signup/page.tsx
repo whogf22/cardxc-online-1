@@ -22,6 +22,7 @@ export default function SignUpPage() {
   const [googleOAuthAvailable, setGoogleOAuthAvailable] = useState(false);
 
   useEffect(() => {
+    document.title = 'Sign Up | CardXC — Create Your Free Account';
     if (!authLoading && isAuthenticated) {
       if (isAdmin) {
         navigate('/admin-dashboard', { replace: true });
@@ -93,40 +94,48 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      <div className="flex-1 flex flex-col px-6 pt-12 pb-8">
+    <div className="min-h-screen bg-[#030303] flex flex-col relative overflow-hidden">
+      {/* Background gradient */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_40%,rgba(34,197,94,0.04),transparent)]" />
+
+      <div className="relative flex-1 flex flex-col px-6 pt-12 pb-8">
+        {/* Close button */}
         <button
           onClick={() => navigate('/')}
-          className="self-end w-10 h-10 flex items-center justify-center"
+          className="self-end w-10 h-10 flex items-center justify-center text-neutral-500 hover:text-white transition-colors"
         >
-          <i className="ri-close-line text-2xl text-gray-400"></i>
+          <i className="ri-close-line text-2xl"></i>
         </button>
 
         <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full">
+          {/* Logo */}
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/25">
-              <i className="ri-bank-card-line text-white text-2xl"></i>
+            <div className="w-12 h-12 bg-lime-500 rounded-xl flex items-center justify-center shadow-lg shadow-lime-500/20">
+              <i className="ri-wallet-3-line text-black text-2xl"></i>
             </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">CardXC</span>
+            <span className="text-2xl font-bold text-white">CardXC</span>
           </div>
 
+          {/* Heading */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Your Account</h1>
-            <p className="text-gray-500">
+            <h1 className="text-3xl font-bold text-white mb-2">Create Your Account</h1>
+            <p className="text-neutral-400">
               Get started with CardXC and take control of your digital payments.
             </p>
           </div>
 
+          {/* Error box */}
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
-              <i className="ri-error-warning-line text-red-500 text-xl mt-0.5 flex-shrink-0"></i>
-              <p className="text-sm text-red-600">{error}</p>
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3">
+              <i className="ri-error-warning-line text-red-400 text-xl mt-0.5 flex-shrink-0"></i>
+              <p className="text-sm text-red-400">{error}</p>
             </div>
           )}
 
           <form onSubmit={handleSignUp} className="space-y-5">
+            {/* Full Name */}
             <div>
-              <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="fullName" className="block text-sm font-medium text-neutral-400 mb-2">
                 Full Name
               </label>
               <input
@@ -136,13 +145,14 @@ export default function SignUpPage() {
                 value={formData.fullName}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-fintech-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3.5 bg-white/[0.04] border border-white/[0.08] rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-lime-500/50 transition-all"
                 placeholder="Full name"
               />
             </div>
 
+            {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-neutral-400 mb-2">
                 Email
               </label>
               <input
@@ -153,13 +163,14 @@ export default function SignUpPage() {
                 onChange={handleChange}
                 required
                 autoComplete="email"
-                className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-fintech-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3.5 bg-white/[0.04] border border-white/[0.08] rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-lime-500/50 transition-all"
                 placeholder="Enter email"
               />
             </div>
 
+            {/* Phone */}
             <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="phone" className="block text-sm font-medium text-neutral-400 mb-2">
                 Phone (optional)
               </label>
               <input
@@ -169,13 +180,14 @@ export default function SignUpPage() {
                 value={formData.phone}
                 onChange={handleChange}
                 autoComplete="tel"
-                className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-fintech-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3.5 bg-white/[0.04] border border-white/[0.08] rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-lime-500/50 transition-all"
                 placeholder="+1234567890"
               />
             </div>
 
+            {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-neutral-400 mb-2">
                 Password
               </label>
               <div className="relative">
@@ -187,19 +199,20 @@ export default function SignUpPage() {
                   onChange={handleChange}
                   required
                   autoComplete="new-password"
-                  className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-fintech-500 focus:border-transparent transition-all pr-12"
+                  className="w-full px-4 py-3.5 bg-white/[0.04] border border-white/[0.08] rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-lime-500/50 transition-all pr-12"
                   placeholder="Enter password (min 8 characters)"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-neutral-500 hover:text-white transition-colors"
                 >
                   <i className={showPassword ? 'ri-eye-off-line text-xl' : 'ri-eye-line text-xl'}></i>
                 </button>
               </div>
             </div>
 
+            {/* Terms checkbox */}
             <div className="flex items-start gap-3">
               <input
                 id="acceptTerms"
@@ -207,24 +220,25 @@ export default function SignUpPage() {
                 type="checkbox"
                 checked={formData.acceptTerms}
                 onChange={handleChange}
-                className="mt-1 w-5 h-5 rounded border-gray-300 text-fintech-500 focus:ring-fintech-500"
+                className="mt-1 w-5 h-5 rounded border-white/[0.08] accent-lime-500 focus:ring-lime-500"
               />
-              <label htmlFor="acceptTerms" className="text-sm text-gray-500">
+              <label htmlFor="acceptTerms" className="text-sm text-neutral-500">
                 By starting my application, I agree to CardXC's{' '}
-                <Link to="/terms" className="text-fintech-600 hover:text-fintech-700">
+                <Link to="/terms" className="text-lime-400 hover:text-lime-300 transition-colors">
                   Terms of service
                 </Link>{' '}
                 and{' '}
-                <Link to="/privacy" className="text-fintech-600 hover:text-fintech-700">
+                <Link to="/privacy" className="text-lime-400 hover:text-lime-300 transition-colors">
                   Privacy Policy
                 </Link>
               </label>
             </div>
 
+            {/* Submit button */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 bg-fintech-500 hover:bg-fintech-600 text-white font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-fintech-500/25"
+              className="w-full py-4 bg-lime-500 hover:bg-lime-400 text-black font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow"
             >
               {loading ? (
                 <>
@@ -237,14 +251,15 @@ export default function SignUpPage() {
             </button>
           </form>
 
+          {/* Google OAuth */}
           {googleOAuthAvailable && import.meta.env.VITE_ALLOW_THIRD_PARTY_REDIRECTS === 'true' && (
             <>
               <div className="relative my-8">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200"></div>
+                  <div className="w-full border-t border-white/[0.06]"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-4 bg-white text-gray-400">Or continue with</span>
+                  <span className="px-4 bg-[#030303] text-neutral-500">Or continue with</span>
                 </div>
               </div>
 
@@ -252,7 +267,7 @@ export default function SignUpPage() {
                 <button
                   onClick={handleGoogleLogin}
                   disabled={loading}
-                  className="w-full flex items-center justify-center gap-3 py-3.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-3 py-3.5 bg-white/[0.04] border border-white/[0.08] rounded-xl text-white hover:bg-white/[0.08] transition-colors disabled:opacity-50"
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -260,15 +275,16 @@ export default function SignUpPage() {
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                   </svg>
-                  <span className="font-medium text-gray-700">Continue with Google</span>
+                  <span className="font-medium">Continue with Google</span>
                 </button>
               </div>
             </>
           )}
 
-          <p className="text-center text-gray-500 mt-8">
+          {/* Login link */}
+          <p className="text-center text-neutral-500 mt-8">
             Already have an account?{' '}
-            <Link to="/signin" className="font-semibold text-fintech-600 hover:text-fintech-700 transition-colors">
+            <Link to="/signin" className="font-semibold text-lime-400 hover:text-lime-300 transition-colors">
               Login
             </Link>
           </p>

@@ -47,12 +47,12 @@ export default function HomePage() {
             </button>
 
             <div className="hidden md:flex items-center gap-0.5">
-              <button
-                onClick={() => navigate('/gift-cards')}
+              <Link
+                to="/gift-cards"
                 className="px-4 py-2 text-[13px] font-medium text-neutral-400 hover:text-lime-400 rounded-lg transition-colors"
               >
                 Gift Cards
-              </button>
+              </Link>
               <a href="#features" className="px-4 py-2 text-[13px] font-medium text-neutral-400 hover:text-lime-400 rounded-lg transition-colors">
                 Features
               </a>
@@ -92,10 +92,10 @@ export default function HomePage() {
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-white/[0.06] bg-[#0d0d0d]/98 backdrop-blur-xl">
             <div className="px-4 py-4 space-y-0.5">
-              <button onClick={() => { navigate('/gift-cards'); setMobileMenuOpen(false); }} className="flex items-center gap-3 w-full text-left py-3.5 px-4 rounded-lg text-neutral-300 hover:text-lime-400 hover:bg-white/[0.04] transition-colors">
+              <Link to="/gift-cards" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 w-full py-3.5 px-4 rounded-lg text-neutral-300 hover:text-lime-400 hover:bg-white/[0.04] transition-colors">
                 <i className="ri-gift-2-line text-lg text-neutral-500"></i>
                 <span className="font-medium">Gift Cards</span>
-              </button>
+              </Link>
               <a href="#features" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 w-full py-3.5 px-4 rounded-lg text-neutral-300 hover:text-lime-400 hover:bg-white/[0.04] transition-colors">
                 <i className="ri-apps-line text-lg text-neutral-500"></i>
                 <span className="font-medium">Features</span>
