@@ -129,7 +129,7 @@ router.post('/signup',
       res.cookie('auth_token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        sameSite: isProduction ? 'none' : 'lax', domain: isProduction ? '.cardxc.online' : undefined,
         maxAge: SESSION_DURATION_HOURS * 60 * 60 * 1000,
         path: '/',
       });
@@ -255,7 +255,7 @@ router.post('/signin',
     res.cookie('auth_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: isProduction ? 'none' : 'lax', domain: isProduction ? '.cardxc.online' : undefined,
       maxAge: SESSION_DURATION_HOURS * 60 * 60 * 1000,
       path: '/',
     });
@@ -299,7 +299,7 @@ router.post(['/signout', '/logout'], asyncHandler(async (req: Request, res: Resp
   res.clearCookie('auth_token', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: isProduction ? 'none' : 'lax', domain: isProduction ? '.cardxc.online' : undefined,
     path: '/',
   });
   
@@ -663,7 +663,7 @@ router.get('/google', asyncHandler(async (req: Request, res: Response) => {
   res.cookie('oauth_state', state, {
     httpOnly: true,
     secure: isSecureContext(req),
-    sameSite: 'lax',
+    sameSite: isProduction ? 'none' : 'lax', domain: isProduction ? '.cardxc.online' : undefined,
     maxAge: 10 * 60 * 1000,
     path: '/',
   });
@@ -822,7 +822,7 @@ router.get('/google/callback', asyncHandler(async (req: Request, res: Response) 
     res.cookie('auth_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: isProduction ? 'none' : 'lax', domain: isProduction ? '.cardxc.online' : undefined,
       maxAge: SESSION_DURATION_HOURS * 60 * 60 * 1000,
       path: '/',
     });
