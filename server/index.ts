@@ -95,6 +95,9 @@ if (!isProduction && process.env.REPL_ID) {
 }
 
 const allowedOrigins = [
+      'https://cardxc.online',
+    'https://www.cardxc.online',
+    'https://api.cardxc.online',
   'http://localhost:5000',
   'http://localhost:5173',
   process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : '',
@@ -228,12 +231,12 @@ app.all('/mcp/initialize', proxyToMcp);
 
 // Health endpoint - MUST be registered BEFORE rate limiting and security checks
 app.use('/api/health', healthRouter);
+  app.use('/health', healthRouter); // alias for load balancer probes
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Rate limiting - applied to all /api routes except health
 app.use('/api', apiLimiter);
-
-// Apply security checks conditionally (skip for health and docs)
+   Apply security checks conditionally (skip for health and docs)
 app.use((req, res, next) => {
   const publicPaths = ['/api/health', '/api-docs', '/', '/mcp', '/auth/token', '/execute', '/tools', '/health', '/.well-known'];
   if (!publicPaths.some(path => req.path.startsWith(path))) {
