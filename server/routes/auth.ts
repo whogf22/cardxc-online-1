@@ -14,7 +14,8 @@ import { sendWelcomeEmail, sendPasswordResetEmail } from '../services/emailServi
 import { logger } from '../middleware/logger';
 import { recordFailedAttempt, clearFailedAttempts } from '../middleware/security';
 import { logSecurityEvent } from '../middleware/securityLogger';
-import { passwordResetLimiter } from '../middleware/rateLimit';
+import { passwordResetLimiter, sensitiveOpLimiter } from '../middleware/rateLimit';
+import { getJwtSecret } from '../lib/jwtSecret';
 import crypto from 'crypto';
 
 // WebAuthn types
@@ -27,20 +28,6 @@ interface WebAuthnCredential {
 
 const router = Router();
 
-const isProduction = process.env.NODE_ENV === 'production';
-
-function getJwtSecret(): string {
-  const secret = process.env.SESSION_SECRET;
-  if (!secret) {
-    if (isProduction) {
-      throw new Error('FATAL: SESSION_SECRET environment variable is required in production');
-    }
-    return 'dev-only-secret-' + (process.env.REPL_ID || 'local');
-  }
-  return secret;
-}
-
-const JWT_SECRET = getJwtSecret();
 const SESSION_DURATION_HOURS = 24;
 
 function getClientInfo(req: Request) {
@@ -60,7 +47,10 @@ async function createSession(userId: string, req: Request): Promise<string> {
     VALUES ($1, $2, $3, $4, $5, $6)
   `, [sessionId, userId, sessionId, ipAddress, userAgent?.substring(0, 500), expiresAt]);
   
-  const token = jwt.sign({ userId, sessionId }, JWT_SECRET, { expiresIn: `${SESSION_DURATION_HOURS}h` });
+  const token = jwt.sign({ userId, sessionId }, getJwtSecret(), {
+    algorithm: 'HS256',
+    expiresIn: `${SESSION_DURATION_HOURS}h`,
+  });
   return token;
 }
 
@@ -284,7 +274,7 @@ router.post(['/signout', '/logout'], asyncHandler(async (req: Request, res: Resp
   
   if (token) {
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; sessionId: string };
+      const decoded = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] }) as { userId: string; sessionId: string };
       await query('UPDATE sessions SET is_active = FALSE WHERE id = $1', [decoded.sessionId]);
       await createAuditLog({
         userId: decoded.userId,
@@ -325,8 +315,8 @@ router.get('/session', asyncHandler(async (req: Request, res: Response) => {
   }
   
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; sessionId: string };
-    
+    const decoded = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] }) as { userId: string; sessionId: string };
+
     const session = await queryOne(`
       SELECT id FROM sessions 
       WHERE id = $1 AND user_id = $2 AND is_active = TRUE AND expires_at > NOW()
@@ -337,8 +327,8 @@ router.get('/session', asyncHandler(async (req: Request, res: Response) => {
       return res.json({ success: true, data: { user: null } });
     }
     
-    const user = await queryOne(`
-      SELECT id, email, full_name, role, kyc_status, account_status, two_factor_enabled
+    const user = await queryOne<any>(`
+      SELECT id, email, full_name, role, kyc_status, account_status
       FROM users WHERE id = $1
     `, [decoded.userId]);
 
@@ -347,7 +337,18 @@ router.get('/session', asyncHandler(async (req: Request, res: Response) => {
       return res.json({ success: true, data: { user: null } });
     }
 
-    res.json({ success: true, data: { user } });
+    // Return only non-sensitive fields; never expose two_factor_enabled,
+    // password_hash, two_factor_secret, or other internal metadata.
+    const safeUser = {
+      id: user.id,
+      email: user.email,
+      full_name: user.full_name,
+      role: user.role,
+      kyc_status: user.kyc_status,
+      account_status: user.account_status,
+    };
+
+    res.json({ success: true, data: { user: safeUser } });
   } catch {
     res.clearCookie('auth_token', { path: '/' });
     res.json({ success: true, data: { user: null } });
@@ -443,8 +444,9 @@ router.post('/2fa/disable', authenticate,
     const { password } = req.body;
     
     const user = await queryOne<any>('SELECT password_hash FROM users WHERE id = $1', [req.user!.id]);
+    if (!user) return res.status(404).json({ error: 'User not found' });
     const valid = await bcrypt.compare(password, user.password_hash);
-    
+
     if (!valid) {
       throw new AppError('Invalid password', 401, 'INVALID_PASSWORD');
     }
@@ -472,6 +474,7 @@ router.post('/change-password', authenticate,
     const { currentPassword, newPassword } = req.body;
 
     const user = await queryOne<any>('SELECT password_hash FROM users WHERE id = $1', [req.user!.id]);
+    if (!user) return res.status(404).json({ error: 'User not found' });
     const valid = await bcrypt.compare(currentPassword, user.password_hash);
     if (!valid) {
       throw new AppError('Current password is incorrect', 401, 'INVALID_PASSWORD');
@@ -594,25 +597,47 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const BOOTSTRAP_ADMIN_EMAIL = process.env.BOOTSTRAP_SUPER_ADMIN_EMAIL ?? '';
 
-const PRODUCTION_DOMAIN = process.env.APP_DOMAIN || 'cardxc.online';
+const PRODUCTION_DOMAIN_ENV = process.env.PRODUCTION_DOMAIN || process.env.APP_DOMAIN || 'cardxc.online';
+const PRODUCTION_DOMAIN = PRODUCTION_DOMAIN_ENV;
 const REPLIT_APP_DOMAIN = process.env.REPLIT_APP_DOMAIN || '';
 
+// Allowlist of recognised Google OAuth 2.0 error codes.
+// Anything else is replaced with a generic `oauth_error` token to avoid
+// reflecting attacker-controlled strings into the redirect URL.
+const GOOGLE_OAUTH_ERROR_ALLOWLIST = new Set([
+  'access_denied',
+  'invalid_request',
+  'unauthorized_client',
+  'unsupported_response_type',
+  'invalid_scope',
+  'server_error',
+  'temporarily_unavailable',
+]);
+
+function sanitizeOAuthError(raw: unknown): string {
+  if (typeof raw !== 'string') return 'oauth_error';
+  return GOOGLE_OAUTH_ERROR_ALLOWLIST.has(raw) ? raw : 'oauth_error';
+}
+
 function getGoogleCallbackUrl(req?: Request): string {
+  // In production, always use the configured PRODUCTION_DOMAIN. Never derive
+  // from the request Host header — it is attacker-controlled.
+  if (process.env.NODE_ENV === 'production') {
+    return `https://${PRODUCTION_DOMAIN}/api/auth/google/callback`;
+  }
+
+  // Non-production: allow derivation from request host for Replit/dev contexts.
   const host = (req?.get('host') || '').replace(/:.*$/, '').trim();
-  
+
   if (host.includes(PRODUCTION_DOMAIN)) {
     return `https://${PRODUCTION_DOMAIN}/api/auth/google/callback`;
   }
-  
+
   if (host.includes('replit.app') || host.includes('replit.dev')) {
     const replitHost = (REPLIT_APP_DOMAIN && REPLIT_APP_DOMAIN.trim()) ? REPLIT_APP_DOMAIN.trim().replace(/:.*$/, '') : host;
     return `https://${replitHost}/api/auth/google/callback`;
   }
-  
-  if (process.env.NODE_ENV === 'production') {
-    return `https://${PRODUCTION_DOMAIN}/api/auth/google/callback`;
-  }
-  
+
   return 'http://localhost:5000/api/auth/google/callback';
 }
 
@@ -686,8 +711,9 @@ router.get('/google/callback', asyncHandler(async (req: Request, res: Response) 
   const { code, state, error: oauthError } = req.query;
 
   if (oauthError) {
-    logger.warn('Google OAuth error', { error: oauthError });
-    return res.redirect(`/signin?error_description=${encodeURIComponent('Google login was cancelled or failed')}`);
+    const sanitized = sanitizeOAuthError(oauthError);
+    logger.warn('Google OAuth error', { error: sanitized });
+    return res.redirect(`/signin?error_description=${encodeURIComponent('Google login was cancelled or failed')}&oauth_error=${encodeURIComponent(sanitized)}`);
   }
 
   if (!code || typeof code !== 'string') {
@@ -836,33 +862,136 @@ router.get('/google/callback', asyncHandler(async (req: Request, res: Response) 
   }
 }));
 
-router.post('/verify-phone', authenticate, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const { phone, code } = req.body;
-  
-  if (!phone || !code) {
-    return res.status(400).json({ success: false, message: 'Phone number and verification code are required' });
-  }
+// Helper: hash an OTP using SHA-256 for constant-time comparison safety.
+function hashOtp(code: string): string {
+  return crypto.createHash('sha256').update(code).digest('hex');
+}
 
-  if (code.length !== 6 || !/^\d{6}$/.test(code)) {
-    return res.status(400).json({ success: false, message: 'Invalid verification code format' });
-  }
+// ─── Phone verification: request OTP ────────────────────────────────────────
+// Generates a 6-digit code, stores its SHA-256 hash in `phone_verification_otps`,
+// and (in production) would dispatch it via SMS. The plaintext code is never
+// persisted or returned in the response.
+router.post('/request-phone-otp',
+  authenticate,
+  sensitiveOpLimiter,
+  body('phone').trim().matches(/^\+?[1-9]\d{7,14}$/).withMessage('Invalid phone number'),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(errors.array()[0].msg, 400, 'VALIDATION_ERROR');
+    }
 
-  const userId = req.user?.id;
-  if (!userId) {
-    return res.status(401).json({ success: false, message: 'Authentication required' });
-  }
+    const userId = req.user!.id;
+    const phone: string = req.body.phone;
 
-  try {
+    // Generate 6-digit code using a CSPRNG.
+    const code = crypto.randomInt(100000, 1000000).toString();
+    const codeHash = hashOtp(code);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Invalidate previous unused OTPs for this user/phone combo.
     await query(
-      'UPDATE users SET phone = $1, updated_at = NOW() WHERE id = $2',
-      [phone, userId]
+      `UPDATE phone_verification_otps
+         SET used_at = NOW()
+       WHERE user_id = $1 AND phone_number = $2 AND used_at IS NULL`,
+      [userId, phone]
     );
 
+    await query(
+      `INSERT INTO phone_verification_otps (user_id, phone_number, code_hash, expires_at)
+       VALUES ($1, $2, $3, $4)`,
+      [userId, phone, codeHash, expiresAt]
+    );
+
+    // In production, dispatch via an SMS provider. For now we only log in
+    // non-production so the code does not appear in real server logs.
+    if (process.env.NODE_ENV !== 'production') {
+      logger.info('phone_otp_generated_dev_only', { userId, phone: phone.substring(0, 3) + '***', code });
+    } else {
+      logger.info('phone_otp_generated', { userId, phone: phone.substring(0, 3) + '***' });
+    }
+
+    await createAuditLog({
+      userId,
+      action: 'PHONE_OTP_REQUESTED',
+      entityType: 'user',
+      entityId: userId,
+      ...getClientInfo(req),
+    });
+
+    res.json({ success: true, message: 'If the phone number is valid, a verification code has been sent.' });
+  })
+);
+
+// ─── Phone verification: verify OTP ─────────────────────────────────────────
+// Looks up the server-issued OTP record matching the authenticated user, the
+// supplied phone number, and an unused/unexpired state. Compares hashed codes
+// in constant time. Only persists the phone on the user row on success.
+router.post('/verify-phone',
+  authenticate,
+  sensitiveOpLimiter,
+  body('phone').trim().matches(/^\+?[1-9]\d{7,14}$/).withMessage('Invalid phone number'),
+  body('code').isLength({ min: 6, max: 6 }).matches(/^\d{6}$/).withMessage('Invalid verification code format'),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(errors.array()[0].msg, 400, 'VALIDATION_ERROR');
+    }
+
+    const { phone, code } = req.body as { phone: string; code: string };
+    const userId = req.user!.id;
+
+    // Find the most recent unused, unexpired OTP for this user+phone.
+    const otpRecord = await queryOne<any>(
+      `SELECT id, code_hash
+         FROM phone_verification_otps
+        WHERE user_id = $1
+          AND phone_number = $2
+          AND used_at IS NULL
+          AND expires_at > NOW()
+        ORDER BY created_at DESC
+        LIMIT 1`,
+      [userId, phone]
+    );
+
+    if (!otpRecord) {
+      throw new AppError('No active verification code for this phone number', 400, 'OTP_NOT_FOUND');
+    }
+
+    const submittedHash = hashOtp(code);
+    const storedHashBuf = Buffer.from(otpRecord.code_hash, 'hex');
+    const submittedHashBuf = Buffer.from(submittedHash, 'hex');
+
+    const match =
+      storedHashBuf.length === submittedHashBuf.length &&
+      crypto.timingSafeEqual(storedHashBuf, submittedHashBuf);
+
+    if (!match) {
+      throw new AppError('Invalid verification code', 400, 'OTP_INVALID');
+    }
+
+    // Mark OTP as used and update user's phone atomically.
+    await transaction(async (client) => {
+      await client.query(
+        `UPDATE phone_verification_otps SET used_at = NOW() WHERE id = $1`,
+        [otpRecord.id]
+      );
+      await client.query(
+        `UPDATE users SET phone = $1, updated_at = NOW() WHERE id = $2`,
+        [phone, userId]
+      );
+    });
+
+    await createAuditLog({
+      userId,
+      action: 'PHONE_VERIFIED',
+      entityType: 'user',
+      entityId: userId,
+      ...getClientInfo(req),
+    });
+
     res.json({ success: true, message: 'Phone number verified successfully' });
-  } catch (err: any) {
-    logger.error('Phone verification error', { error: err.message, userId });
-    res.status(500).json({ success: false, message: 'Failed to verify phone number' });
-  }
-}));
+  })
+);
 
 export { router as authRouter };

@@ -32,7 +32,7 @@ router.get('/unread-count', asyncHandler(async (req: AuthenticatedRequest, res: 
 // Mark single notification as read
 router.post('/:notificationId/read', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { notificationId } = req.params;
-  await markNotificationRead(notificationId, req.user!.id);
+  await markNotificationRead(notificationId as string, req.user!.id);
   res.json({ success: true, message: 'Notification marked as read' });
 }));
 

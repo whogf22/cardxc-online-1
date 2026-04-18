@@ -94,7 +94,7 @@ export async function initializeDatabase() {
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id UUID REFERENCES users(id) ON DELETE CASCADE,
         idempotency_key VARCHAR(255) UNIQUE,
-        type VARCHAR(20) NOT NULL CHECK (type IN ('deposit', 'withdrawal', 'transfer_in', 'transfer_out', 'adjustment', 'payment')),
+        type VARCHAR(30) NOT NULL CHECK (type IN ('deposit', 'withdrawal', 'transfer_in', 'transfer_out', 'adjustment', 'payment', 'card_deposit', 'swap')),
         status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'SUCCESS', 'FAILED', 'REVERSED')),
         amount_cents BIGINT NOT NULL,
         currency VARCHAR(10) NOT NULL,
@@ -113,6 +113,13 @@ export async function initializeDatabase() {
       ALTER TABLE transactions ADD COLUMN IF NOT EXISTS merchant_display_name VARCHAR(255);
     `);
 
+    // Fix CHECK constraint to include card_deposit type (backwards-compatible migration)
+    await client.query(`
+      ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_type_check;
+      ALTER TABLE transactions ADD CONSTRAINT transactions_type_check
+        CHECK (type IN ('deposit', 'withdrawal', 'transfer_in', 'transfer_out', 'adjustment', 'payment', 'card_deposit', 'swap'));
+    `);
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS withdrawal_requests (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -125,7 +132,7 @@ export async function initializeDatabase() {
         account_name VARCHAR(255),
         crypto_address VARCHAR(255),
         crypto_network VARCHAR(50),
-        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'processing', 'completed')),
+        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'processing', 'completed', 'failed')),
         admin_notes TEXT,
         approved_by UUID REFERENCES users(id),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -137,6 +144,7 @@ export async function initializeDatabase() {
     await client.query(`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS withdrawal_type VARCHAR(20) DEFAULT 'bank'`);
     await client.query(`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS crypto_address VARCHAR(255)`);
     await client.query(`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS crypto_network VARCHAR(50)`);
+    await client.query(`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS tx_hash VARCHAR(255)`);
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS admin_adjustments (
@@ -252,9 +260,16 @@ export async function initializeDatabase() {
         currency VARCHAR(10) NOT NULL,
         merchant VARCHAR(255),
         category VARCHAR(50),
-        status VARCHAR(20) DEFAULT 'pending',
+        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'declined', 'reversed')),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
+    `);
+
+    // Fix card_transactions status CHECK constraint (backwards-compatible migration)
+    await client.query(`
+      ALTER TABLE card_transactions DROP CONSTRAINT IF EXISTS card_transactions_status_check;
+      ALTER TABLE card_transactions ADD CONSTRAINT card_transactions_status_check
+        CHECK (status IN ('pending', 'completed', 'declined', 'reversed'));
     `);
 
     await client.query(`
@@ -563,7 +578,7 @@ export async function initializeDatabase() {
       CREATE TABLE IF NOT EXISTS crypto_ledger_entries (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        source_order_id UUID NOT NULL REFERENCES card_orders(id) ON DELETE CASCADE,
+        source_order_id UUID REFERENCES card_orders(id) ON DELETE CASCADE,
         source_transaction_id UUID REFERENCES transactions(id) ON DELETE SET NULL,
         crypto_type VARCHAR(20) NOT NULL,
         amount_cents BIGINT NOT NULL,
@@ -579,6 +594,28 @@ export async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_crypto_ledger_entries_source_order_id ON crypto_ledger_entries(source_order_id);
       CREATE INDEX IF NOT EXISTS idx_crypto_ledger_entries_created_at ON crypto_ledger_entries(created_at);
     `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS crypto_transactions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type VARCHAR(20) NOT NULL CHECK (type IN ('deposit', 'withdrawal', 'swap')),
+        crypto_type VARCHAR(20) NOT NULL,
+        amount NUMERIC(20, 8) NOT NULL,
+        usd_equivalent_cents BIGINT,
+        wallet_address VARCHAR(255),
+        tx_hash VARCHAR(255),
+        network VARCHAR(50),
+        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'failed')),
+        confirmations INTEGER DEFAULT 0,
+        metadata JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_crypto_transactions_user_id ON crypto_transactions(user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_crypto_transactions_tx_hash ON crypto_transactions(tx_hash)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_crypto_transactions_status ON crypto_transactions(status)`);
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS gift_card_requests (
@@ -615,15 +652,45 @@ export async function initializeDatabase() {
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         order_id UUID REFERENCES card_orders(id) ON DELETE CASCADE,
-        otp_code VARCHAR(6) NOT NULL,
+        otp_code VARCHAR(128) NOT NULL,
         expires_at TIMESTAMP NOT NULL,
         verified BOOLEAN DEFAULT FALSE,
         attempts INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    // Widen otp_code to hold SHA-256 hex digests (64 chars) — pre-existing
+    // deployments may still have VARCHAR(6).
+    await client.query(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'deposit_otps' AND column_name = 'otp_code'
+            AND character_maximum_length < 128
+        ) THEN
+          ALTER TABLE deposit_otps ALTER COLUMN otp_code TYPE VARCHAR(128);
+        END IF;
+      END $$;
+    `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_deposit_otps_user_id ON deposit_otps(user_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_deposit_otps_order_id ON deposit_otps(order_id)`);
+
+    // Phone verification OTPs (stores SHA-256 hashed codes, never plaintext).
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS phone_verification_otps (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        phone_number VARCHAR(50) NOT NULL,
+        code_hash VARCHAR(128) NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        used_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_phone_verification_otps_user_id ON phone_verification_otps(user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_phone_verification_otps_phone ON phone_verification_otps(phone_number)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_phone_verification_otps_expires ON phone_verification_otps(expires_at)`);
 
     // KYC Documents table
     await client.query(`
@@ -671,9 +738,20 @@ async function bootstrapSuperAdmin(client: any) {
     return;
   }
 
-  if (bootstrapPassword.length < 8) {
-    logger.warn('Bootstrap password must be at least 8 characters');
-    return;
+  // Enforce strong password policy for the bootstrap SUPER_ADMIN account.
+  // Rationale: this account has full platform access; weak credentials here
+  // compromise the entire system.
+  const hasMinLength = bootstrapPassword.length >= 16;
+  const hasLower = /[a-z]/.test(bootstrapPassword);
+  const hasUpper = /[A-Z]/.test(bootstrapPassword);
+  const hasDigit = /\d/.test(bootstrapPassword);
+  const hasSymbol = /[^A-Za-z0-9]/.test(bootstrapPassword);
+
+  if (!hasMinLength || !hasLower || !hasUpper || !hasDigit || !hasSymbol) {
+    throw new Error(
+      'BOOTSTRAP_SUPER_ADMIN_PASSWORD must be at least 16 characters and include ' +
+        'lowercase, uppercase, digit, and symbol characters.',
+    );
   }
 
   const existing = await client.query('SELECT id, role, password_hash FROM users WHERE email = $1', [bootstrapEmail]);

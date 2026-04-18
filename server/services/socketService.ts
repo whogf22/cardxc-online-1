@@ -3,6 +3,7 @@ import { Server as HttpServer } from 'http';
 import { logger } from '../middleware/logger';
 import { pool } from '../db/pool';
 import jwt from 'jsonwebtoken';
+import { getJwtSecret } from '../lib/jwtSecret';
 
 interface AuthenticatedSocket extends Socket {
   userId?: number;
@@ -42,8 +43,10 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
         return next(new Error('Authentication required'));
       }
 
-      const jwtSecret = process.env.JWT_SECRET || 'cardxc_secure_key';
-      const decoded = jwt.verify(token, jwtSecret) as { userId: number; role?: string };
+      // getJwtSecret() throws at startup if SESSION_SECRET/JWT_SECRET is
+      // missing or too short, so we never accept a socket connection with an
+      // invalid signing key.
+      const decoded = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] }) as { userId: number; role?: string };
 
       // Verify user still exists in DB
       const result = await pool.query(

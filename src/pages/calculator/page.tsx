@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchExchangeRates, getConversionRate, getCurrencyInfo, getRawRates } from '../../lib/exchangeRateService';
+import SEOHead from '../../components/SEOHead';
 
 interface RateAlert {
   id: string;
@@ -117,6 +118,10 @@ export default function CalculatorPage() {
 
   return (
     <div className="min-h-screen bg-dark-bg">
+      <SEOHead
+        title="Exchange Rate Calculator — Real-Time Rates | CardXC"
+        description="Calculate exchange rates and transfer fees instantly. See exactly what you pay and what your recipient gets with CardXC's real-time rate calculator."
+      />
       <header className="fixed top-0 left-0 right-0 z-50 bg-dark-bg/95 backdrop-blur-xl border-b border-dark-border">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex items-center justify-between h-16">

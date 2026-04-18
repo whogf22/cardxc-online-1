@@ -180,7 +180,7 @@ export async function getDatabaseStats() {
       ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC
     `);
 
-    stats.tableStats = tableSizes.rows;
+    stats.tableStats = tableSizes;
 
     // Get index stats
     const indexStats = await query(`
@@ -195,7 +195,7 @@ export async function getDatabaseStats() {
       ORDER BY idx_scan DESC
     `);
 
-    stats.indexStats = indexStats.rows;
+    stats.indexStats = indexStats;
 
     // Get cache hit ratio
     const cacheStats = await query(`
@@ -206,8 +206,8 @@ export async function getDatabaseStats() {
       FROM pg_statio_user_tables
     `);
 
-    if (cacheStats.rows[0]?.ratio) {
-      stats.cacheHitRatio = parseFloat(cacheStats.rows[0].ratio) * 100;
+    if (cacheStats[0]?.ratio) {
+      stats.cacheHitRatio = parseFloat(cacheStats[0].ratio) * 100;
     }
 
     return stats;
@@ -224,17 +224,19 @@ export async function cleanupOldData(daysToKeep: number = 90) {
   try {
     logger.info('cleanup_old_data_started', { daysToKeep });
 
+    const cutoffDate = new Date(Date.now() - daysToKeep * 24 * 60 * 60 * 1000);
+
     // Delete old audit logs
     await query(`
-      DELETE FROM audit_logs 
-      WHERE created_at < NOW() - INTERVAL '${daysToKeep} days'
-    `);
+      DELETE FROM audit_logs
+      WHERE created_at < $1
+    `, [cutoffDate]);
 
     // Delete old payment webhook logs
     await query(`
-      DELETE FROM payment_webhook_logs 
-      WHERE created_at < NOW() - INTERVAL '${daysToKeep} days'
-    `);
+      DELETE FROM payment_webhook_logs
+      WHERE created_at < $1
+    `, [cutoffDate]);
 
     // Delete expired OTP records
     await query(`

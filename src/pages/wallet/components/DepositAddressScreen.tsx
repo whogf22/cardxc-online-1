@@ -27,7 +27,7 @@ export default function DepositAddressScreen({ asset, networks, onBack }: Deposi
   const [showShareOptions, setShowShareOptions] = useState(false);
   const [step, setStep] = useState<DepositStep>('address');
   const [depositAmount, setDepositAmount] = useState('');
-  const [depositId, setDepositId] = useState('');
+  const [_depositId, setDepositId] = useState('');
   const [depositStatus, setDepositStatus] = useState<string>('pending');
   const [depositTxHash, setDepositTxHash] = useState<string | null>(null);
   const [depositConfirmations, setDepositConfirmations] = useState(0);

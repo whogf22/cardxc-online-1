@@ -70,7 +70,7 @@ router.get('/list', asyncHandler(async (req: AuthenticatedRequest, res: Response
     id: r.id,
     referredUser: r.full_name || r.email?.split('@')[0] || 'Pending',
     status: r.status,
-    bonus: r.bonus_cents / 100,
+    bonus: (r.bonus_cents || 0) / 100,
     createdAt: r.created_at,
     completedAt: r.completed_at,
   }));

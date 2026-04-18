@@ -1,7 +1,9 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HTTPServer } from 'http';
+import jwt from 'jsonwebtoken';
 import { logger } from '../middleware/logger';
 import { query, queryOne } from '../db/pool';
+import { getJwtSecret } from '../lib/jwtSecret';
 
 interface UserSocket {
   userId: string;
@@ -21,12 +23,22 @@ export function initializeWebSocket(httpServer: HTTPServer): SocketIOServer {
   });
 
   io.use((socket, next) => {
-    const userId = socket.handshake.auth.userId;
-    if (!userId) {
-      return next(new Error('Authentication error'));
+    const token = socket.handshake.auth?.token;
+    if (!token) {
+      return next(new Error('Authentication error: token required'));
     }
-    socket.data.userId = userId;
-    next();
+    try {
+      // getJwtSecret() throws at startup if the secret is missing or too
+      // short, so we never accept a socket connection with an invalid key.
+      const decoded = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] }) as { userId: string };
+      if (!decoded.userId) {
+        return next(new Error('Authentication error: invalid token'));
+      }
+      socket.data.userId = decoded.userId;
+      next();
+    } catch (err) {
+      return next(new Error('Authentication error: invalid token'));
+    }
   });
 
   io.on('connection', (socket: Socket) => {
@@ -95,7 +107,7 @@ export function initializeWebSocket(httpServer: HTTPServer): SocketIOServer {
         `, [userId, limit, offset]);
 
         socket.emit('transactions_updated', {
-          transactions: transactions.rows.map((t: any) => ({
+          transactions: transactions.map((t: any) => ({
             id: t.id,
             type: t.type,
             amount: t.amount_cents / 100,
@@ -105,7 +117,7 @@ export function initializeWebSocket(httpServer: HTTPServer): SocketIOServer {
             merchant: t.merchant_display_name || t.merchant_name,
             createdAt: t.created_at,
           })),
-          count: transactions.rows.length,
+          count: transactions.length,
           timestamp: new Date().toISOString(),
         });
       } catch (error) {
@@ -159,8 +171,8 @@ export async function emitTransactionUpdate(userId: string, io: SocketIOServer, 
       ${whereClause}
     `, params);
 
-    if (result.rows.length > 0) {
-      const t = result.rows[0];
+    if (result.length > 0) {
+      const t = result[0];
       io.to(`user:${userId}`).emit('transaction_created', {
         id: t.id,
         type: t.type,
@@ -197,8 +209,8 @@ export async function emitCardUpdate(userId: string, io: SocketIOServer, cardId?
       LIMIT 1
     `, params);
 
-    if (result.rows.length > 0) {
-      const card = result.rows[0];
+    if (result.length > 0) {
+      const card = result[0];
       io.to(`user:${userId}`).emit('card_updated', {
         id: card.id,
         name: card.card_name,

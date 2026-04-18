@@ -2,11 +2,18 @@ import { Router, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { query, queryOne, transaction } from '../db/pool';
 import { AppError, asyncHandler } from '../middleware/errorHandler';
-import { authenticate, AuthenticatedRequest } from '../middleware/auth';
+import { authenticate, AuthenticatedRequest, requireAdmin } from '../middleware/auth';
 import { sensitiveOpLimiter, financialOpLimiter } from '../middleware/rateLimit';
 import { createAuditLog } from '../services/auditService';
 import { runFraudChecks } from '../services/fraudService';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  getUnifiedHistory,
+  decodeCursor,
+  VALID_TYPES,
+  VALID_STATUSES,
+  type HistoryFilters,
+} from '../services/transactionHistoryService';
 
 const router = Router();
 router.use(authenticate);
@@ -15,6 +22,60 @@ const MAX_PAGE_SIZE = 100;
 const MAX_OFFSET = 10000;
 const safeLimit = (v: unknown) => Math.min(MAX_PAGE_SIZE, Math.max(1, Number(v) || 50));
 const safeOffset = (v: unknown) => Math.max(0, Math.min(MAX_OFFSET, Number(v) || 0));
+
+// ── Unified transaction history (cursor-based) ───────────────
+
+router.get('/history', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { cursor: rawCursor, limit: rawLimit, type, status, fromDate, toDate } = req.query;
+
+  // Validate type
+  if (type && !VALID_TYPES.includes(type as any)) {
+    throw new AppError(
+      `Invalid type. Allowed: ${VALID_TYPES.join(', ')}`,
+      400,
+      'VALIDATION_ERROR',
+    );
+  }
+
+  // Validate status
+  if (status && !VALID_STATUSES.includes((status as string).toUpperCase() as any)) {
+    throw new AppError(
+      `Invalid status. Allowed: ${VALID_STATUSES.join(', ')}`,
+      400,
+      'VALIDATION_ERROR',
+    );
+  }
+
+  // Validate dates
+  if (fromDate && isNaN(Date.parse(fromDate as string))) {
+    throw new AppError('Invalid fromDate (ISO 8601 expected)', 400, 'VALIDATION_ERROR');
+  }
+  if (toDate && isNaN(Date.parse(toDate as string))) {
+    throw new AppError('Invalid toDate (ISO 8601 expected)', 400, 'VALIDATION_ERROR');
+  }
+
+  // Decode cursor
+  let cursor = null;
+  if (rawCursor) {
+    cursor = decodeCursor(rawCursor as string);
+    if (!cursor) {
+      throw new AppError('Invalid cursor', 400, 'VALIDATION_ERROR');
+    }
+  }
+
+  const filters: HistoryFilters = {
+    type: type as string | undefined,
+    status: status as string | undefined,
+    fromDate: fromDate as string | undefined,
+    toDate: toDate as string | undefined,
+  };
+
+  const limit = Math.min(100, Math.max(1, Number(rawLimit) || 20));
+
+  const result = await getUnifiedHistory(req.user!.id, filters, cursor, limit);
+
+  res.json({ success: true, data: result });
+}));
 
 router.get('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { limit = 50, offset = 0, type, status } = req.query;
@@ -63,6 +124,7 @@ router.get('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) =>
 }));
 
 router.post('/deposit',
+  requireAdmin,
   financialOpLimiter,
   body('amount').isFloat({ min: 1, max: 100000 }).withMessage('Deposit amount must be between $1 and $100,000'),
   body('currency').isIn(['USD', 'EUR', 'GBP', 'NGN']),

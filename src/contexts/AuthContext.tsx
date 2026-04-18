@@ -45,7 +45,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 function clearAllSessionCaches(): void {
   clearSessionCache();
   clearGatewaySessionCache();
-  console.log('[Auth] Session caches cleared');
+  if (import.meta.env.DEV) console.log('[Auth] Session caches cleared');
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -63,13 +63,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkAuth = useCallback(async () => {
     try {
-      console.log('[Auth] Checking authentication');
-      
+      if (import.meta.env.DEV) console.log('[Auth] Checking authentication');
+
       const result = await authApi.getSession();
 
       setAuthState(prev => {
         if (!result.success || !result.data?.user) {
-          console.log('[Auth] No active session');
+          if (import.meta.env.DEV) console.log('[Auth] No active session');
           return {
             ...prev,
             user: null,
@@ -158,7 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     signingIn.current = true;
     try {
-      console.log('[Auth] Signing in');
+      if (import.meta.env.DEV) console.log('[Auth] Signing in');
       
       const result = await authApi.signIn({ email, password, twoFactorToken });
       
@@ -211,7 +211,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = useCallback(async (email: string, password: string, fullName: string, phone?: string) => {
     try {
-      console.log('[Auth] Signing up');
+      if (import.meta.env.DEV) console.log('[Auth] Signing up');
       
       const result = await authApi.signUp({ email, password, fullName, phone });
       
@@ -254,7 +254,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    console.log('[Auth] Signing out');
+    if (import.meta.env.DEV) console.log('[Auth] Signing out');
     clearAllSessionCaches();
     
     await authApi.signOut();

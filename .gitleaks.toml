@@ -7,7 +7,6 @@ title = "CardXC Gitleaks Configuration"
     '''\.git''',
     '''dist''',
     '''package-lock\.json''',
-    '''attached_assets''',
   ]
 
 [[rules]]

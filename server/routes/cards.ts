@@ -9,6 +9,7 @@ import { logger } from '../middleware/logger';
 import * as fluzApi from '../services/fluzApi';
 import * as stripeIssuingService from '../services/stripeIssuingService';
 import { v4 as uuidv4 } from 'uuid';
+import { randomInt } from 'node:crypto';
 
 const router = Router();
 router.use(authenticate);
@@ -138,7 +139,7 @@ router.post('/',
 
     let fluzCardId: string | null = null;
     let issuingCardId: string | null = null;
-    let lastFour = Math.floor(1000 + Math.random() * 9000).toString();
+    let lastFour = randomInt(1000, 10000).toString();
 
     // Try Stripe Issuing first (preferred)
     if (stripeIssuingService.isIssuingConfigured()) {

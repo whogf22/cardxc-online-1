@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import HowItWorksSection from '../home/components/HowItWorksSection';
 import Footer from '../home/components/Footer';
 import ContactModal from '../home/components/ContactModal';
+import SEOHead from '../../components/SEOHead';
 import { useState } from 'react';
 
 export default function HowItWorksPage() {
@@ -11,11 +12,14 @@ export default function HowItWorksPage() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    document.title = 'How It Works | CardXC';
   }, []);
 
   return (
     <div className="min-h-screen bg-[#030303] w-full min-w-0 overflow-x-hidden">
+      <SEOHead
+        title="How It Works — Send Money & Buy Gift Cards | CardXC"
+        description="Learn how CardXC works: sign up, add funds, and send money worldwide or buy gift cards instantly. Simple, secure, and fast."
+      />
       <nav className="fixed top-0 left-0 right-0 z-50 bg-[#030303]/80 backdrop-blur-xl border-b border-white/[0.06] safe-top">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 w-full">
           <div className="flex items-center justify-between h-16">

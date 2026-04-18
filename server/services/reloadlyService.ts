@@ -53,13 +53,16 @@ async function getAccessToken(): Promise<string> {
  */
 async function getAxiosInstance(): Promise<AxiosInstance> {
   if (!axiosInstance) {
-    const token = await getAccessToken();
     axiosInstance = axios.create({
       baseURL: reloadlyBaseUrl,
       headers: {
-        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
+    });
+    axiosInstance.interceptors.request.use(async (config) => {
+      const token = await getAccessToken();
+      config.headers.Authorization = `Bearer ${token}`;
+      return config;
     });
   }
   return axiosInstance;

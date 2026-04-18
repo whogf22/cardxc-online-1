@@ -11,7 +11,7 @@ const cardholderIdEnv = process.env.STRIPE_ISSUING_CARDHOLDER_ID;
 
 let stripe: Stripe | null = null;
 if (stripeSecretKey) {
-  stripe = new Stripe(stripeSecretKey, { apiVersion: '2025-02-24.acacia' });
+  stripe = new Stripe(stripeSecretKey, { apiVersion: '2026-01-28.clover' as any });
 }
 
 export function isIssuingConfigured(): boolean {
@@ -53,7 +53,7 @@ export async function createIssuingCard(options: {
 
   const cardParams: Stripe.Issuing.CardCreateParams = {
     cardholder: cardholderIdEnv,
-    currency: currency.toLowerCase() as Stripe.Issuing.CardCreateParams.Currency,
+    currency: currency.toLowerCase() as any,
     type: 'virtual',
     status: 'active',
     metadata: { cardName },
@@ -181,5 +181,5 @@ export async function createEphemeralKey(issuingCardId: string, apiVersion: stri
     { issuing_card: issuingCardId },
     { apiVersion }
   );
-  return key.secret;
+  return key.secret!;
 }

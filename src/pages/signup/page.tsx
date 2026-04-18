@@ -4,6 +4,7 @@ import { resetApiClient } from '../../lib/apiClient';
 import { trackSignup } from '../../lib/analytics';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useToastContext } from '../../contexts/ToastContext';
+import SEOHead from '../../components/SEOHead';
 
 export default function SignUpPage() {
   const navigate = useNavigate();
@@ -94,6 +95,7 @@ export default function SignUpPage() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
+      <SEOHead title="Sign Up | CardXC" noindex />
       <div className="flex-1 flex flex-col px-6 pt-12 pb-8">
         <button
           onClick={() => navigate('/')}

@@ -1,57 +1,31 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://cardxc.online/</loc>
-    <lastmod>2026-02-03</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
+    <loc>https://www.cardxc.online/</loc>
+    <lastmod>2026-04-16</lastmod>
   </url>
   <url>
-    <loc>https://cardxc.online/signin</loc>
-    <lastmod>2026-02-03</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
+    <loc>https://www.cardxc.online/how-it-works</loc>
+    <lastmod>2026-03-01</lastmod>
   </url>
   <url>
-    <loc>https://cardxc.online/signup</loc>
-    <lastmod>2026-02-03</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
+    <loc>https://www.cardxc.online/calculator</loc>
+    <lastmod>2026-03-01</lastmod>
   </url>
   <url>
-    <loc>https://cardxc.online/calculator</loc>
+    <loc>https://www.cardxc.online/terms</loc>
     <lastmod>2026-02-03</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://cardxc.online/terms</loc>
+    <loc>https://www.cardxc.online/privacy</loc>
     <lastmod>2026-02-03</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://cardxc.online/privacy</loc>
+    <loc>https://www.cardxc.online/refund-policy</loc>
     <lastmod>2026-02-03</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://cardxc.online/refund-policy</loc>
+    <loc>https://www.cardxc.online/aml-policy</loc>
     <lastmod>2026-02-03</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
-  </url>
-  <url>
-    <loc>https://cardxc.online/aml-policy</loc>
-    <lastmod>2026-02-03</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
-  </url>
-  <url>
-    <loc>https://cardxc.online/forgot-password</loc>
-    <lastmod>2026-02-03</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.3</priority>
   </url>
 </urlset>

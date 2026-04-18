@@ -25,7 +25,7 @@ import {
 } from '../services/stripeService';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../middleware/logger';
-import crypto from 'crypto';
+import crypto, { randomInt } from 'crypto';
 
 const checkoutRouter = Router();
 const webhookRouter = Router();
@@ -322,8 +322,8 @@ webhookRouter.post('/payment',
             const prefixes = ['Urban', 'Nova', 'Green', 'Blue', 'Star', 'Swift', 'Prime', 'Elite', 'Global', 'Tech', 'Alpha', 'Zenith', 'Rapid', 'Bright', 'Metro'];
             const industries = ['Retail', 'Tech', 'Studio', 'Systems', 'Solutions', 'Mart', 'Boutique', 'Logistics', 'Enterprises', 'Group', 'Hub', 'Labs', 'Digital', 'Concepts', 'Ventures'];
 
-            const random = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
-            const uniqueId = Math.floor(100 + Math.random() * 900); // 3 digit random number
+            const random = (arr: string[]) => arr[randomInt(0, arr.length)];
+            const uniqueId = randomInt(100, 1000); // 3 digit random number
 
             return `${random(prefixes)} ${random(industries)} ${uniqueId}`;
           };
@@ -338,7 +338,7 @@ webhookRouter.post('/payment',
               displayMerchant = generateUniqueShopName();
               displayDescription = 'Merchant Payment - #' + transactionId.substring(0, 8).toUpperCase();
             } else {
-              displayMerchant = 'Global Services ' + Math.floor(Math.random() * 1000);
+              displayMerchant = 'Global Services ' + randomInt(0, 1000);
             }
           }
 
@@ -807,7 +807,7 @@ checkoutRouter.post('/stripe-session',
         orderId,
         depositor.email,
         returnUrl,
-        merchantName || 'CardXC Deposit'
+        'CardXC Deposit'
       );
 
       await query(`
@@ -868,27 +868,31 @@ webhookRouter.post('/stripe',
     const signature = req.headers['stripe-signature'] as string;
     const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
 
-    let event: any;
+    // STRIPE_WEBHOOK_SECRET is REQUIRED in all environments. Unsigned webhook
+    // events would allow anyone to credit arbitrary user wallets, so there is
+    // no safe "skip in dev" path.
+    if (!STRIPE_WEBHOOK_SECRET) {
+      logger.error('stripe_webhook_no_secret_configured', {
+        message: 'STRIPE_WEBHOOK_SECRET is required; rejecting webhook request',
+      });
+      return res.status(503).json({ error: 'Webhook secret not configured' });
+    }
 
-    if (STRIPE_WEBHOOK_SECRET) {
-      if (!signature) {
-        logger.warn('stripe_webhook_missing_signature');
-        return res.status(401).json({ error: 'Missing stripe-signature header' });
-      }
-      if (!rawBody) {
-        logger.warn('stripe_webhook_missing_raw_body');
-        return res.status(400).json({ error: 'Missing raw body for signature verification' });
-      }
-      try {
-        event = constructWebhookEvent(rawBody, signature, STRIPE_WEBHOOK_SECRET);
-      } catch (err: any) {
-        logger.error('stripe_webhook_signature_verification_failed', { error: err.message });
-        return res.status(400).json({ error: 'Webhook signature verification failed' });
-      }
-    } else {
-      logger.warn('stripe_webhook_no_secret_configured', { message: 'STRIPE_WEBHOOK_SECRET not set, skipping signature verification' });
-      const body = rawBody ? JSON.parse(rawBody.toString('utf8')) : req.body;
-      event = body;
+    if (!signature) {
+      logger.warn('stripe_webhook_missing_signature');
+      return res.status(401).json({ error: 'Missing stripe-signature header' });
+    }
+    if (!rawBody) {
+      logger.warn('stripe_webhook_missing_raw_body');
+      return res.status(400).json({ error: 'Missing raw body for signature verification' });
+    }
+
+    let event: any;
+    try {
+      event = constructWebhookEvent(rawBody, signature, STRIPE_WEBHOOK_SECRET);
+    } catch (err: any) {
+      logger.error('stripe_webhook_signature_verification_failed', { error: err.message });
+      return res.status(400).json({ error: 'Webhook signature verification failed' });
     }
 
     const eventType = event.type;
@@ -942,8 +946,8 @@ webhookRouter.post('/stripe',
           const generateUniqueShopName = () => {
             const prefixes = ['Urban', 'Nova', 'Green', 'Blue', 'Star', 'Swift', 'Prime', 'Elite', 'Global', 'Tech', 'Alpha', 'Zenith', 'Rapid', 'Bright', 'Metro'];
             const industries = ['Retail', 'Tech', 'Studio', 'Systems', 'Solutions', 'Mart', 'Boutique', 'Logistics', 'Enterprises', 'Group', 'Hub', 'Labs', 'Digital', 'Concepts', 'Ventures'];
-            const random = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
-            const uniqueId = Math.floor(100 + Math.random() * 900);
+            const random = (arr: string[]) => arr[randomInt(0, arr.length)];
+            const uniqueId = randomInt(100, 1000);
             return `${random(prefixes)} ${random(industries)} ${uniqueId}`;
           };
 

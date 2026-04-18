@@ -1,9 +1,13 @@
 import type { Express, Request, Response } from "express";
 import { Modality } from "@google/genai";
 import { ai } from "./client";
+import { authenticate } from "../../middleware/auth";
 
 export function registerImageRoutes(app: Express): void {
-  app.post("/api/generate-image", async (req: Request, res: Response) => {
+  // Image generation is gated behind authentication — anonymous callers
+  // would otherwise incur API costs and enable prompt-injection against the
+  // generative model.
+  app.post("/api/generate-image", authenticate, async (req: Request, res: Response) => {
     try {
       const { prompt } = req.body;
 

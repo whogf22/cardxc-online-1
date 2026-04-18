@@ -34,12 +34,16 @@ export async function isPaymentEnabled(): Promise<boolean> {
 }
 
 function checkAdyenConfig(): boolean {
-  const hasAdyenConfig = !!(
-    import.meta.env.VITE_ADYEN_CLIENT_KEY ||
-    import.meta.env.ADYEN_CLIENT_KEY
-  );
+  // Only the public client key may live in the browser bundle.
+  // The server-side API key must never be referenced client-side.
+  if (!import.meta.env.VITE_ADYEN_CLIENT_KEY) {
+    if (import.meta.env.DEV) {
+      console.warn('[paymentUtils] VITE_ADYEN_CLIENT_KEY missing — Adyen UI disabled');
+    }
+    return false;
+  }
 
-  return hasAdyenConfig;
+  return true;
 }
 
 export function getPaymentDisabledMessage(): string {
@@ -65,11 +69,12 @@ export async function withPaymentCheck<T>(
 }
 
 export function hasAdyenConfig(): boolean {
-  return !!(
-    import.meta.env.VITE_ADYEN_API_KEY &&
-    import.meta.env.VITE_ADYEN_MERCHANT_ACCOUNT &&
-    import.meta.env.VITE_ADYEN_CLIENT_KEY
-  );
+  // SECURITY: Adyen server API key and merchant account must never be in the
+  // browser bundle. Server-side config is verified by a backend endpoint; the
+  // client may only reference the public client key.
+  // TODO(backend): expose GET /api/payments/adyen/config returning { configured: boolean }
+  //                and replace this local check with that fetch result.
+  return !!import.meta.env.VITE_ADYEN_CLIENT_KEY;
 }
 
 export function setPaymentDisabled(disabled: boolean): void {

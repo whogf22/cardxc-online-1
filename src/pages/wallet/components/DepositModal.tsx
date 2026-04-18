@@ -22,31 +22,33 @@ const SUPPORTED_CHECKOUT_CURRENCIES = ['USD', 'EUR', 'GBP'];
 
 type Step = 'method-selection' | 'stripe-checkout' | 'otp-verify' | 'processing' | 'success' | 'error';
 
-// API helper for deposit OTP endpoints
+// API helper for deposit OTP endpoints.
+// SECURITY: Auth is carried by the httpOnly session cookie via credentials:'include'.
+// Never read tokens from localStorage/sessionStorage — XSS would exfiltrate them.
 const depositOtpApi = {
   async initiate(amount: number, currency: string) {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token') || '';
     const res = await fetch('/api/deposit-otp/initiate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ amount, currency }),
     });
     return res.json();
   },
   async verify(orderId: string, otpCode: string) {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token') || '';
     const res = await fetch('/api/deposit-otp/verify', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ orderId, otpCode }),
     });
     return res.json();
   },
   async resend(orderId: string) {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token') || '';
     const res = await fetch('/api/deposit-otp/resend', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ orderId }),
     });
     return res.json();
@@ -67,7 +69,7 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
   // Stripe state
   const [stripePromise, setStripePromise] = useState<Promise<any> | null>(null);
   const [clientSecret, setClientSecret] = useState<string>('');
-  const [sessionId, setSessionId] = useState<string>('');
+  const [_sessionId, setSessionId] = useState<string>('');
 
   // OTP state
   const [orderId, setOrderId] = useState<string>('');
@@ -113,7 +115,17 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
     const depositReturn = params.get('deposit');
     const returnSessionId = params.get('session_id');
 
+    // SECURITY: Validate Stripe Checkout session ID format before using it.
+    // Stripe session IDs begin with `cs_` followed by alphanumerics/underscores.
+    const STRIPE_SESSION_ID_RE = /^cs_[a-zA-Z0-9_]+$/;
+
     if (depositReturn === 'return' && returnSessionId) {
+      if (!STRIPE_SESSION_ID_RE.test(returnSessionId)) {
+        setStep('error');
+        setErrorMessage('Invalid payment session. Please try again.');
+        window.history.replaceState({}, '', window.location.pathname);
+        return;
+      }
       setStep('processing');
       const checkStatus = async () => {
         try {
@@ -138,7 +150,7 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
       checkStatus();
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, []);
+  }, [fetchWalletBalance]);
 
   const resetForm = useCallback(() => {
     setStep('method-selection');

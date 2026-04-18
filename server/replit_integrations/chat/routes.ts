@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { GoogleGenAI } from "@google/genai";
 import { chatStorage } from "./storage";
+import { authenticate } from "../../middleware/auth";
 
 /*
 Supported models: gemini-2.5-flash (fast), gemini-2.5-pro (advanced reasoning)
@@ -17,8 +18,10 @@ const ai = new GoogleGenAI({
 });
 
 export function registerChatRoutes(app: Express): void {
+  // All AI conversation endpoints require authentication to prevent anonymous
+  // abuse of the Gemini relay and data exposure.
   // Get all conversations
-  app.get("/api/conversations", async (req: Request, res: Response) => {
+  app.get("/api/conversations", authenticate, async (req: Request, res: Response) => {
     try {
       const conversations = await chatStorage.getAllConversations();
       res.json(conversations);
@@ -34,7 +37,7 @@ export function registerChatRoutes(app: Express): void {
   }
 
   // Get single conversation with messages
-  app.get("/api/conversations/:id", async (req: Request, res: Response) => {
+  app.get("/api/conversations/:id", authenticate, async (req: Request, res: Response) => {
     try {
       const id = parseId(req.params.id);
       if (id === null) {
@@ -53,7 +56,7 @@ export function registerChatRoutes(app: Express): void {
   });
 
   // Create new conversation
-  app.post("/api/conversations", async (req: Request, res: Response) => {
+  app.post("/api/conversations", authenticate, async (req: Request, res: Response) => {
     try {
       const { title } = req.body;
       const conversation = await chatStorage.createConversation(title || "New Chat");
@@ -65,7 +68,7 @@ export function registerChatRoutes(app: Express): void {
   });
 
   // Delete conversation
-  app.delete("/api/conversations/:id", async (req: Request, res: Response) => {
+  app.delete("/api/conversations/:id", authenticate, async (req: Request, res: Response) => {
     try {
       const id = parseId(req.params.id);
       if (id === null) {
@@ -80,7 +83,7 @@ export function registerChatRoutes(app: Express): void {
   });
 
   // Send message and get AI response (streaming)
-  app.post("/api/conversations/:id/messages", async (req: Request, res: Response) => {
+  app.post("/api/conversations/:id/messages", authenticate, async (req: Request, res: Response) => {
     try {
       const conversationId = parseId(req.params.id);
       if (conversationId === null) {

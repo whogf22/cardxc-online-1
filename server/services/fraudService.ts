@@ -339,6 +339,7 @@ export async function getFraudFlags(params: GetFraudFlagsParams): Promise<any[]>
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const limit = params.limit || 100;
+    values.push(limit);
 
     const flags = await query(`
       SELECT ff.*, u.email as user_email, u.full_name as user_name
@@ -346,7 +347,7 @@ export async function getFraudFlags(params: GetFraudFlagsParams): Promise<any[]>
       LEFT JOIN users u ON ff.user_id = u.id
       ${whereClause}
       ORDER BY ff.created_at DESC
-      LIMIT ${limit}
+      LIMIT $${paramIndex}
     `, values);
 
     return flags;

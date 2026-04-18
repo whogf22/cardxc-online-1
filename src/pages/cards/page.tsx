@@ -13,14 +13,13 @@ export default function CardsPage() {
   const navigate = useNavigate();
   const toast = useToastContext();
   const [cards, setCards] = useState<VirtualCard[]>([]);
-  const [prepaidCards, setPrepaidCards] = useState<PrepaidCardData[]>(() => {
-    try {
-      const saved = localStorage.getItem('cardxc_prepaid_cards');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  // SECURITY: Card metadata (even last-four digits or card IDs) must not be
+  // persisted to localStorage — any XSS would exfiltrate it. Cards are
+  // reloaded from /api/cards on mount; a caching layer (React Query / SWR)
+  // should be used if memoisation is needed later.
+  // TODO: clear any legacy cached value once on first mount (best-effort
+  //       cleanup for users upgrading from an older build).
+  const [prepaidCards, setPrepaidCards] = useState<PrepaidCardData[]>([]);
   const [selectedCard, setSelectedCard] = useState<VirtualCard | null>(null);
   const [selectedPrepaidCard, setSelectedPrepaidCard] = useState<PrepaidCardData | null>(null);
   const [, setTransactions] = useState<CardTransaction[]>([]);
@@ -115,12 +114,14 @@ export default function CardsPage() {
   };
 
   useEffect(() => {
+    // SECURITY: best-effort cleanup of the legacy localStorage cache so
+    // previously-persisted card metadata does not linger on upgrade.
     try {
-      localStorage.setItem('cardxc_prepaid_cards', JSON.stringify(prepaidCards));
+      localStorage.removeItem('cardxc_prepaid_cards');
     } catch {
       // ignore
     }
-  }, [prepaidCards]);
+  }, []);
 
   useEffect(() => {
     loadCards();

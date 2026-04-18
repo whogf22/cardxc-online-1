@@ -2,6 +2,7 @@
  * Payment Helper Service
  * Generates unique merchant names for bank statements
  */
+import { randomInt } from 'node:crypto';
 
 const MERCHANTS = [
     'TechZone Electronics',
@@ -31,9 +32,9 @@ const MERCHANTS = [
  * Used for statement descriptors to maintain privacy
  */
 export function generateStatementDescriptor(): string {
-    const randomIndex = Math.floor(Math.random() * MERCHANTS.length);
+    const randomIndex = randomInt(0, MERCHANTS.length);
     // Add a random 3-digit order ID for uniqueness
-    const orderId = Math.floor(100 + Math.random() * 900);
+    const orderId = randomInt(100, 1000);
     return `${MERCHANTS[randomIndex]} ${orderId}`.substring(0, 22); // Max 22 chars for Stripe
 }
 
@@ -43,5 +44,5 @@ export function generateStatementDescriptor(): string {
  */
 export function getRandomMCC(): string {
     const mccs = ['5411', '5732', '5812', '5651', '5999'];
-    return mccs[Math.floor(Math.random() * mccs.length)];
+    return mccs[randomInt(0, mccs.length)];
 }

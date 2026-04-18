@@ -12,12 +12,15 @@ import { v4 as uuidv4 } from 'uuid';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { randomInt } from 'node:crypto';
 
-// KYC document upload config
-const kycUploadDir = path.join(process.cwd(), 'uploads', 'kyc');
-if (!fs.existsSync(kycUploadDir)) {
-  fs.mkdirSync(kycUploadDir, { recursive: true });
-}
+// KYC document upload config.
+// Prefer an absolute path from KYC_UPLOAD_DIR; fall back to `<cwd>/uploads/kyc`.
+// Storing uploads outside the project tree is recommended in production.
+export const kycUploadDir = path.isAbsolute(process.env.KYC_UPLOAD_DIR || '')
+  ? (process.env.KYC_UPLOAD_DIR as string)
+  : path.resolve(process.cwd(), 'uploads', 'kyc');
+fs.mkdirSync(kycUploadDir, { recursive: true });
 const kycStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, kycUploadDir),
   filename: (_req, file, cb) => {
@@ -328,7 +331,7 @@ router.post('/cards',
     }
 
     const { cardName, cardType, spendingLimit } = req.body;
-    const lastFour = Math.floor(1000 + Math.random() * 9000).toString();
+    const lastFour = randomInt(1000, 10000).toString();
     const spendingLimitCents = spendingLimit ? Math.round(spendingLimit * 100) : null;
 
     const result = await queryOne(`
@@ -366,12 +369,14 @@ router.post('/kyc/upload',
       throw new AppError('Invalid document type. Must be one of: ' + validTypes.join(', '), 400, 'INVALID_TYPE');
     }
 
-    // Save document record to database
+    // Persist only the basename (server-generated filename). The absolute path
+    // is reconstructed at read time by joining kycUploadDir with the stored
+    // filename, preventing storage of attacker-influenced absolute paths.
     const doc = await queryOne(`
       INSERT INTO kyc_documents (user_id, document_type, file_path, file_name, mime_type)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING id, document_type, file_name, status, created_at
-    `, [req.user!.id, documentType, req.file.path, req.file.originalname, req.file.mimetype]);
+    `, [req.user!.id, documentType, req.file.filename, req.file.originalname, req.file.mimetype]);
 
     // Update user kyc_status to 'pending' (documents submitted, awaiting review)
     await query(`UPDATE users SET kyc_status = 'pending', updated_at = NOW() WHERE id = $1`, [req.user!.id]);

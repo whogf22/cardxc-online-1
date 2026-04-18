@@ -77,8 +77,8 @@ router.get('/balances',
  */
 router.post('/quote',
     authenticate,
-    body('fromCurrency').trim().notEmpty().isIn(['USD', 'USDT', 'BTC', 'ETH', 'BNB']),
-    body('toCurrency').trim().notEmpty().isIn(['USD', 'USDT', 'BTC', 'ETH', 'BNB']),
+    body('fromCurrency').trim().notEmpty().isIn(['USD', 'USDT']),
+    body('toCurrency').trim().notEmpty().isIn(['USD', 'USDT']),
     body('amount').isFloat({ min: 0.01 }),
     body('slippage').optional().isFloat({ min: 0, max: 0.1 }),
     asyncHandler(async (req: AuthenticatedRequest, res: Response) => {

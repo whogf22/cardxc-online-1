@@ -209,7 +209,7 @@ router.post('/payment-links/:code/pay',
       SELECT balance_cents FROM wallets WHERE user_id = $1 AND currency = $2
     `, [req.user!.id, link.currency]);
 
-    if (!senderWallet || Number(senderWallet.balance_cents) < amountCents) {
+    if (!senderWallet || Number(senderWallet.balance_cents) - Number(senderWallet.reserved_cents || 0) < amountCents) {
       throw new AppError('Insufficient balance', 400, 'INSUFFICIENT_BALANCE');
     }
 
@@ -306,7 +306,7 @@ router.post('/qr/:code/pay',
       SELECT balance_cents FROM wallets WHERE user_id = $1 AND currency = $2
     `, [req.user!.id, qrIntent.currency]);
 
-    if (!senderWallet || Number(senderWallet.balance_cents) < amountCents) {
+    if (!senderWallet || Number(senderWallet.balance_cents) - Number(senderWallet.reserved_cents || 0) < amountCents) {
       throw new AppError('Insufficient balance', 400, 'INSUFFICIENT_BALANCE');
     }
 
@@ -427,7 +427,8 @@ router.post('/split',
       const splitId = splitResult.rows[0].id;
 
       for (const participant of participants) {
-        const user = await queryOne<any>('SELECT id, full_name FROM users WHERE email = $1', [participant.email]);
+        const userResult = await client.query('SELECT id, full_name FROM users WHERE email = $1', [participant.email]);
+        const user = userResult.rows[0] || null;
         const amountCents = Math.round(participant.amount * 100);
 
         await client.query(`

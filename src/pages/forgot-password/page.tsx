@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import SEOHead from '../../components/SEOHead';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -91,6 +92,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="min-h-screen bg-dark-bg flex items-center justify-center px-4 py-12 relative overflow-hidden">
+      <SEOHead title="Forgot Password | CardXC" noindex />
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 -left-20 w-80 h-80 bg-lime-500/[0.07] rounded-full blur-3xl"></div>
         <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-lime-500/[0.07] rounded-full blur-3xl"></div>

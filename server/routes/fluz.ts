@@ -140,6 +140,26 @@ router.post('/virtual-cards',
   })
 );
 
+// Get virtual card transactions (must be before /virtual-cards/:id to avoid route conflict)
+router.get('/virtual-cards/transactions', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  if (!fluzApi.isConfigured()) {
+    throw new AppError('Card service not configured', 503, 'PROVIDER_NOT_CONFIGURED');
+  }
+
+  const { cardIds, startDate, endDate } = req.query;
+  if (!cardIds) {
+    throw new AppError('Card IDs are required', 400, 'VALIDATION_ERROR');
+  }
+
+  const cardIdArray = (cardIds as string).split(',');
+  const transactions = await fluzApi.getVirtualCardTransactions(cardIdArray, {
+    startDate: startDate as string,
+    endDate: endDate as string,
+  });
+
+  res.json({ success: true, data: { transactions } });
+}));
+
 router.get('/virtual-cards/:id',
   param('id').isUUID().withMessage('Invalid card ID'),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -450,26 +470,6 @@ router.get('/transactions', asyncHandler(async (req: AuthenticatedRequest, res: 
   res.json({ success: true, data: { transactions } });
 }));
 
-// New: Get virtual card transactions
-router.get('/virtual-cards/transactions', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  if (!fluzApi.isConfigured()) {
-    throw new AppError('Card service not configured', 503, 'PROVIDER_NOT_CONFIGURED');
-  }
-
-  const { cardIds, startDate, endDate } = req.query;
-  if (!cardIds) {
-    throw new AppError('Card IDs are required', 400, 'VALIDATION_ERROR');
-  }
-
-  const cardIdArray = (cardIds as string).split(',');
-  const transactions = await fluzApi.getVirtualCardTransactions(cardIdArray, {
-    startDate: startDate as string,
-    endDate: endDate as string,
-  });
-
-  res.json({ success: true, data: { transactions } });
-}));
-
 // New: Search merchants with advanced filtering
 router.get('/merchants/search', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   if (!fluzApi.isConfigured()) {
@@ -598,7 +598,7 @@ router.get('/referral/url/:merchantId', asyncHandler(async (req: AuthenticatedRe
   }
 
   const { merchantId } = req.params;
-  const referralUrl = await fluzApi.getReferralUrl(merchantId);
+  const referralUrl = await fluzApi.getReferralUrl(merchantId as string);
   res.json({ success: true, data: { referralUrl } });
 }));
 
@@ -701,7 +701,7 @@ router.get('/virtual-cards/bulk/:orderId', asyncHandler(async (req: Authenticate
   }
 
   const { orderId } = req.params;
-  const status = await fluzApi.getBulkOrderStatus(orderId);
+  const status = await fluzApi.getBulkOrderStatus(orderId as string);
   res.json({ success: true, data: { status } });
 }));
 

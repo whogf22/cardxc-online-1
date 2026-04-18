@@ -1,17 +1,18 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_TEL, SUPPORT_WHATSAPP_URL } from '../../lib/contactPlaceholders';
+import SEOHead from '../../components/SEOHead';
 
 const LAST_UPDATED = '27 June 2025';
 
 export default function TermsPage() {
   useEffect(() => {
     window.scrollTo(0, 0);
-    document.title = 'Terms and Conditions | CardXC';
   }, []);
 
   return (
     <div className="min-h-screen bg-dark-bg">
+      <SEOHead title="Terms and Conditions | CardXC" />
       <header className="bg-dark-bg/95 backdrop-blur-xl border-b border-dark-border sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">

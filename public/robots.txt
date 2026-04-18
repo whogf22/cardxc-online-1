@@ -1,16 +1,60 @@
+# CardXC robots.txt
+# Content-Signal: search=yes, ai-train=no
+
 User-agent: *
 Allow: /
+Disallow: /signin
+Disallow: /signup
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /admin*
+Disallow: /api/*
+Disallow: /debug/*
+Disallow: /dashboard
+Disallow: /wallet
+Disallow: /cards
+Disallow: /transactions
+Disallow: /transfer
+Disallow: /profile
+Disallow: /giftcards
+Disallow: /payments
+Disallow: /savings
+Disallow: /rewards
+Disallow: /swap
+Disallow: /fluz
+Disallow: /notifications
+Disallow: /support
+Disallow: /address-book
 
-Sitemap: https://cardxc.online/sitemap.xml
-
+# Google
 User-agent: Googlebot
 Allow: /
 Crawl-delay: 1
 
+# Bing
 User-agent: Bingbot
 Allow: /
 Crawl-delay: 1
 
-Disallow: /admin*
-Disallow: /api/*
-Disallow: /debug/*
+# Allow AI search crawlers (citations, not training)
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+# Block training-only crawlers
+User-agent: CCBot
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+Sitemap: https://www.cardxc.online/sitemap.xml

@@ -10,15 +10,20 @@ const startTime = Date.now();
 
 // Basic health check
 router.get('/', async (req: Request, res: Response) => {
-  res.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: Math.floor((Date.now() - startTime) / 1000),
-  });
+  try {
+    res.json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: Math.floor((Date.now() - startTime) / 1000),
+    });
+  } catch (err: any) {
+    res.status(500).json({ status: 'error', error: err.message });
+  }
 });
 
 // Detailed health check (for monitoring systems)
 router.get('/detailed', async (req: Request, res: Response) => {
+  try {
   const checks: Record<string, { status: string; latency?: number; error?: string }> = {};
   let overallStatus = 'healthy';
 
@@ -79,6 +84,9 @@ router.get('/detailed', async (req: Request, res: Response) => {
       },
     },
   });
+  } catch (err: any) {
+    res.status(500).json({ status: 'error', error: err.message });
+  }
 });
 
 // Readiness check (for Kubernetes/load balancers)
@@ -107,14 +115,18 @@ router.get('/version', (req: Request, res: Response) => {
 });
 
 router.get('/provider', async (req: Request, res: Response) => {
-  if (!isFluzConfigured()) {
-    return res.json({ provider: 'not_configured' });
+  try {
+    if (!isFluzConfigured()) {
+      return res.json({ provider: 'not_configured' });
+    }
+    const result = await testFluzConnection();
+    if (result.success) {
+      return res.json({ provider: 'ok' });
+    }
+    res.status(503).json({ provider: 'unreachable', error: result.error });
+  } catch (err: any) {
+    res.status(500).json({ provider: 'error', error: err.message });
   }
-  const result = await testFluzConnection();
-  if (result.success) {
-    return res.json({ provider: 'ok' });
-  }
-  res.status(503).json({ provider: 'unreachable', error: result.error });
 });
 
 export { router as healthRouter };

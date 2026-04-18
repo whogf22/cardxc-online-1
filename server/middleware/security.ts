@@ -2,13 +2,81 @@ import { Request, Response, NextFunction } from 'express';
 import { logger } from './logger';
 import { AppError } from './errorHandler';
 
-// IP-based brute force protection
-const failedAttempts = new Map<string, { count: number; resetAt: number }>();
+// IP-based brute force protection.
+//
+// Storage is abstracted behind a small interface so the module can switch
+// between an in-process fallback and a Redis-backed implementation when
+// REDIS_URL is configured. The in-process fallback resets on restart — if
+// you rely on this for brute-force protection across a fleet, configure
+// Redis for durable cross-instance state.
 const BLOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 const MAX_FAILED_ATTEMPTS = 5;
 
-// IP blacklist for admin-managed blocking
-const blacklistedIPs = new Set<string>();
+interface FailedAttemptStore {
+  get(ip: string): { count: number; resetAt: number } | undefined;
+  set(ip: string, value: { count: number; resetAt: number }): void;
+  delete(ip: string): void;
+  cleanup(): void;
+}
+
+interface BlacklistStore {
+  add(ip: string): void;
+  remove(ip: string): void;
+  has(ip: string): boolean;
+  values(): string[];
+}
+
+function createInMemoryFailedAttemptStore(): FailedAttemptStore {
+  const store = new Map<string, { count: number; resetAt: number }>();
+  return {
+    get: (ip) => store.get(ip),
+    set: (ip, value) => {
+      store.set(ip, value);
+    },
+    delete: (ip) => {
+      store.delete(ip);
+    },
+    cleanup: () => {
+      const now = Date.now();
+      for (const [ip, entry] of store) {
+        if (now >= entry.resetAt) store.delete(ip);
+      }
+    },
+  };
+}
+
+function createInMemoryBlacklistStore(): BlacklistStore {
+  const store = new Set<string>();
+  return {
+    add: (ip) => {
+      store.add(ip);
+    },
+    remove: (ip) => {
+      store.delete(ip);
+    },
+    has: (ip) => store.has(ip),
+    values: () => Array.from(store),
+  };
+}
+
+// Select backing store. When REDIS_URL is present a production deployment
+// should wire these to Redis — until that integration is available, we emit
+// a loud warning so operators know restart-clearing is in effect.
+const redisUrl = process.env.REDIS_URL;
+if (!redisUrl) {
+  logger.warn(
+    '[Security] REDIS_URL not configured — failedAttempts/blacklistedIPs are in-process only. ' +
+      'State will be lost on restart and will NOT be shared across instances.',
+  );
+} else {
+  logger.info('[Security] REDIS_URL detected; using in-memory fallback until a Redis-backed store is implemented.');
+}
+
+const failedAttempts = createInMemoryFailedAttemptStore();
+const blacklistedIPs = createInMemoryBlacklistStore();
+
+// Periodic cleanup to prevent memory growth from long-expired entries.
+setInterval(() => failedAttempts.cleanup(), 15 * 60 * 1000);
 
 export function addToBlacklist(ip: string) {
   blacklistedIPs.add(ip);
@@ -16,12 +84,12 @@ export function addToBlacklist(ip: string) {
 }
 
 export function removeFromBlacklist(ip: string) {
-  blacklistedIPs.delete(ip);
+  blacklistedIPs.remove(ip);
   logger.info(`[Security] IP removed from blacklist: ${ip}`);
 }
 
 export function getBlacklistedIPs(): string[] {
-  return Array.from(blacklistedIPs);
+  return blacklistedIPs.values();
 }
 
 export function securityHeaders(req: Request, res: Response, next: NextFunction) {
@@ -109,7 +177,12 @@ export function clearFailedAttempts(ip: string) {
   failedAttempts.delete(ip);
 }
 
-// SQL Injection detection patterns
+// SQL Injection / XSS detection patterns. These are heuristics only — the
+// real defence is parameterized queries (handled in db/pool.ts) and context-
+// aware output encoding in the frontend. This WAF layer runs on an explicit
+// allowlist of (path, field) pairs so it does NOT fire on free-text content
+// fields (descriptions, names, chat bodies) where words like "select" or
+// "union" are legitimate.
 const SQL_INJECTION_PATTERNS = [
   /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|EXECUTE|UNION|SCRIPT)\b)/i,
   /(--|#|\/\*|\*\/|;)/,
@@ -117,7 +190,6 @@ const SQL_INJECTION_PATTERNS = [
   /('|"|`).*(\bor\b|\band\b).*('|"|`)/i,
 ];
 
-// XSS detection patterns
 const XSS_PATTERNS = [
   /<script[^>]*>.*?<\/script>/gi,
   /javascript:/gi,
@@ -127,55 +199,81 @@ const XSS_PATTERNS = [
   /<embed[^>]*>/gi,
 ];
 
+/**
+ * Explicit allowlist of request locations to scan. Each entry is a
+ * (path pattern, field list) pair. Paths are matched exactly OR via prefix
+ * ending in "/" or "/*". Fields are specific JSON keys (for body / query /
+ * params). Only structured identifier-like fields (IDs, emails, currency
+ * codes, enum values, URL / path parts) are scanned — never free-text
+ * content fields.
+ */
+interface WafRule {
+  pathExact?: string;
+  pathPrefix?: string;
+  bodyFields?: string[];
+  queryFields?: string[];
+  paramFields?: string[];
+}
+
+const WAF_RULES: WafRule[] = [
+  { pathPrefix: '/api/auth/', bodyFields: ['email', 'currency', 'role'], queryFields: ['email'] },
+  { pathPrefix: '/api/admin/', queryFields: ['userId', 'orderId', 'status'], paramFields: ['id'] },
+  { pathPrefix: '/api/payments/', bodyFields: ['currency', 'provider'], queryFields: ['status', 'orderId'], paramFields: ['id'] },
+  { pathPrefix: '/api/cards/', paramFields: ['id'] },
+  { pathPrefix: '/api/user/', bodyFields: ['currency', 'walletType'] },
+];
+
+function findRule(reqPath: string): WafRule | null {
+  for (const rule of WAF_RULES) {
+    if (rule.pathExact && reqPath === rule.pathExact) return rule;
+    if (rule.pathPrefix && reqPath.startsWith(rule.pathPrefix)) return rule;
+  }
+  return null;
+}
+
+function scanValue(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  if (value.length <= 2) return false;
+  return (
+    SQL_INJECTION_PATTERNS.some((p) => p.test(value)) ||
+    XSS_PATTERNS.some((p) => p.test(value))
+  );
+}
+
+function scanFields(source: Record<string, unknown> | undefined, fields: string[] | undefined): { field: string; value: string } | null {
+  if (!source || !fields) return null;
+  for (const field of fields) {
+    const raw = source[field];
+    if (Array.isArray(raw)) {
+      for (const item of raw) {
+        if (scanValue(item)) return { field, value: String(item) };
+      }
+    } else if (scanValue(raw)) {
+      return { field, value: String(raw) };
+    }
+  }
+  return null;
+}
+
 export function detectMaliciousInput(req: Request, res: Response, next: NextFunction) {
-  // Skip detection for health checks and public endpoints
-  const publicPaths = ['/api/health', '/api-docs'];
-  if (publicPaths.some(path => req.path.startsWith(path))) {
-    return next();
+  const rule = findRule(req.path);
+  if (!rule) return next();
+
+  const hit =
+    scanFields(req.body as Record<string, unknown> | undefined, rule.bodyFields) ||
+    scanFields(req.query as Record<string, unknown> | undefined, rule.queryFields) ||
+    scanFields(req.params as Record<string, unknown> | undefined, rule.paramFields);
+
+  if (hit) {
+    logger.warn('[Security] Malicious input detected', {
+      ip: req.ip,
+      path: req.path,
+      field: hit.field,
+      sample: hit.value.substring(0, 100),
+    });
+    throw new AppError('Invalid input detected', 400, 'INVALID_INPUT');
   }
-  
-  const checkValue = (value: any, path: string): boolean => {
-    if (typeof value === 'string') {
-      if (value.length > 2) {
-        const sqlMatch = SQL_INJECTION_PATTERNS.some(pattern => pattern.test(value));
-        const xssMatch = XSS_PATTERNS.some(pattern => pattern.test(value));
-        
-        if (sqlMatch || xssMatch) {
-          logger.warn(`[Security] Malicious input detected from ${req.ip} at ${path}: ${value.substring(0, 100)}`);
-          return true;
-        }
-      }
-    } else if (typeof value === 'object' && value !== null) {
-      for (const key in value) {
-        if (checkValue(value[key], `${path}.${key}`)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  };
-  
-  // Check body
-  if (req.body && typeof req.body === 'object') {
-    if (checkValue(req.body, 'body')) {
-      throw new AppError('Invalid input detected', 400, 'INVALID_INPUT');
-    }
-  }
-  
-  // Check query params
-  if (req.query && typeof req.query === 'object') {
-    if (checkValue(req.query, 'query')) {
-      throw new AppError('Invalid input detected', 400, 'INVALID_INPUT');
-    }
-  }
-  
-  // Check params
-  if (req.params && typeof req.params === 'object') {
-    if (checkValue(req.params, 'params')) {
-      throw new AppError('Invalid input detected', 400, 'INVALID_INPUT');
-    }
-  }
-  
+
   next();
 }
 

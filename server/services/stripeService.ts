@@ -34,8 +34,6 @@ export async function createPaymentIntent(
     metadata,
     description: options?.description || 'CardXC Wallet Deposit',
     statement_descriptor: options?.statementDescriptor || 'CARDXC DEPOSIT',
-    // 3DS2 Authentication - ensures payment success for high-risk cards
-    authentication_type: 'any',
     capture_method: 'automatic',
     // Setup for future use (recurring payments)
     setup_future_usage: 'off_session',
@@ -119,11 +117,11 @@ export async function createCheckoutSession(
     payment_method_options: {
       card: {
         // Enable 3DS2 authentication
-        three_d_secure: 'any',
+        request_three_d_secure: 'any',
         // Store card for future use
         setup_future_usage: 'off_session',
       },
-    },
+    } as any,
   });
 
   return {

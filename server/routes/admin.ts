@@ -135,7 +135,17 @@ router.get('/overview', asyncHandler(async (req: AuthenticatedRequest, res: Resp
 router.get('/users', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const limit = Math.min(parseInt(req.query.limit as string, 10) || 50, 100);
   const offset = Math.max(0, parseInt(req.query.offset as string, 10) || 0);
-  const search = req.query.search as string;
+  const rawSearch = req.query.search;
+
+  // Enforce a max length on the search term to block expensive wildcard
+  // queries (ILIKE '%...%' with huge inputs is very slow on large tables).
+  let search: string | null = null;
+  if (typeof rawSearch === 'string' && rawSearch.trim().length > 0) {
+    if (rawSearch.length > 100) {
+      throw new AppError('Search term must be 100 characters or fewer', 400, 'VALIDATION_ERROR');
+    }
+    search = rawSearch;
+  }
 
   let whereClause = '1=1';
   const params: any[] = [];
@@ -455,9 +465,9 @@ router.post('/withdrawals/:withdrawalId/approve',
       `, [notes, req.user!.id, withdrawalId]);
 
       await client.query(`
-        UPDATE wallets 
+        UPDATE wallets
         SET balance_cents = balance_cents - $1, reserved_cents = reserved_cents - $1, updated_at = NOW()
-        WHERE user_id = $2 AND currency = $3
+        WHERE user_id = $2 AND currency = $3 AND balance_cents >= $1
       `, [withdrawal.amount_cents, withdrawal.user_id, withdrawal.currency]);
 
       await client.query(`

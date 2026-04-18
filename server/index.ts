@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -6,7 +7,6 @@ import path from 'path';
 import fs from 'fs';
 import http from 'http';
 import { fileURLToPath } from 'url';
-import { config } from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import { logger, requestLogger } from './middleware/logger';
 import { errorHandler } from './middleware/errorHandler';
@@ -55,8 +55,6 @@ import { initSocketIO } from './services/socketService';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-config();
-
 function validateEnvironment() {
   const required = ['DATABASE_URL'];
   const missing = required.filter(key => !process.env[key]);
@@ -66,8 +64,13 @@ function validateEnvironment() {
     process.exit(1);
   }
 
-  if (!process.env.SESSION_SECRET) {
-    console.warn('[WARN] SESSION_SECRET not set, using default (not recommended for production)');
+  // SESSION_SECRET / JWT_SECRET is mandatory. getJwtSecret() (from
+  // ./lib/jwtSecret) throws on first access if missing or too short, so the
+  // validation happens the moment any JWT call site runs. We intentionally
+  // do not fall back to warn-only behaviour here.
+  if (!process.env.SESSION_SECRET && !process.env.JWT_SECRET) {
+    console.error('[FATAL] SESSION_SECRET (or JWT_SECRET) must be set (min 32 chars)');
+    process.exit(1);
   }
 }
 
@@ -110,7 +113,11 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.googleapis.com", "https://js.stripe.com"],
+      // TODO: migrate remaining inline scripts (primarily the Vite HMR
+      // bootstrap in dev and any third-party embeds) to nonce-based CSP so
+      // 'unsafe-inline' can be dropped. 'unsafe-eval' is removed because no
+      // current script path requires eval().
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.googleapis.com", "https://js.stripe.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
       fontSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.gstatic.com", "https://cdn.fontshare.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
@@ -134,15 +141,19 @@ app.use(helmet({
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.some(allowed => {
-      const cleanAllowed = allowed.replace(/^https?:\/\//, '');
-      const cleanOrigin = origin.replace(/^https?:\/\//, '');
-      return cleanOrigin === cleanAllowed || cleanOrigin.endsWith('.' + cleanAllowed);
-    })) {
-      callback(null, true);
-    } else {
-      callback(null, false);
+    // Exact-match allowlist only. We intentionally do NOT allow arbitrary
+    // subdomain matches — a compromised subdomain must not silently gain
+    // cross-origin credentials. Add required subdomains explicitly to
+    // REPLIT_DOMAINS / allowedOrigins.
+    if (!origin) {
+      return callback(null, true);
     }
+    const cleanOrigin = origin.replace(/^https?:\/\//, '');
+    const matched = allowedOrigins.some(allowed => {
+      const cleanAllowed = allowed.replace(/^https?:\/\//, '');
+      return cleanOrigin === cleanAllowed;
+    });
+    callback(null, matched);
   },
   credentials: true,
 }));
@@ -186,7 +197,31 @@ app.use(securityLogger);
 
 const mcpProxyPaths = ['/mcp', '/auth/token', '/execute', '/tools', '/health/auth', '/.well-known/mcp.json'];
 
+// MCP proxy is internal-only. Accept requests only from loopback IPs or with
+// a valid X-MCP-Auth header matching process.env.MCP_INTERNAL_TOKEN. External
+// clients must never reach the MCP service directly via this proxy.
+const LOOPBACK_IPS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+
+function isMcpRequestAuthorized(req: express.Request): boolean {
+  const remoteIp = req.ip || req.socket?.remoteAddress || '';
+  if (LOOPBACK_IPS.has(remoteIp)) {
+    return true;
+  }
+  const token = process.env.MCP_INTERNAL_TOKEN;
+  if (token) {
+    const header = req.get('X-MCP-Auth');
+    if (header && header === token) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function proxyToMcp(req: express.Request, res: express.Response) {
+  if (!isMcpRequestAuthorized(req)) {
+    logger.warn('mcp_proxy_unauthorized', { ip: req.ip, path: req.originalUrl });
+    return res.status(403).json({ error: 'Forbidden: MCP proxy is internal-only' });
+  }
   const options: http.RequestOptions = {
     hostname: '127.0.0.1',
     port: MCP_PORT,
@@ -228,25 +263,42 @@ app.all('/mcp/initialize', proxyToMcp);
 
 // Health endpoint - MUST be registered BEFORE rate limiting and security checks
 app.use('/api/health', healthRouter);
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Swagger UI is NOT exposed publicly in production. In non-production it is
+// mounted under /api-docs for developer convenience.
+if (!isProduction) {
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+}
 
 // Rate limiting - applied to all /api routes except health
 app.use('/api', apiLimiter);
 
-// Apply security checks conditionally (skip for health and docs)
+// Apply security checks with a strict, exact-match bypass allowlist.
+// Previously `publicPaths.some(startsWith)` matched every path because '/'
+// is a prefix of everything; only explicit system endpoints may skip.
+const SECURITY_BYPASS_EXACT = new Set([
+  '/api/health',
+  '/api/metrics',
+]);
+
+function shouldBypassSecurityChecks(reqPath: string): boolean {
+  if (SECURITY_BYPASS_EXACT.has(reqPath)) return true;
+  if (reqPath === '/') return true;
+  if (reqPath.startsWith('/api/mcp')) return true;
+  return false;
+}
+
 app.use((req, res, next) => {
-  const publicPaths = ['/api/health', '/api-docs', '/', '/mcp', '/auth/token', '/execute', '/tools', '/health', '/.well-known'];
-  if (!publicPaths.some(path => req.path.startsWith(path))) {
-    validateRequestSize(req, res, () => {
-      blockSuspiciousIPs(req, res, () => {
-        detectMaliciousInput(req, res, () => {
-          preventPathTraversal(req, res, next);
-        });
+  if (shouldBypassSecurityChecks(req.path)) {
+    return next();
+  }
+  validateRequestSize(req, res, () => {
+    blockSuspiciousIPs(req, res, () => {
+      detectMaliciousInput(req, res, () => {
+        preventPathTraversal(req, res, next);
       });
     });
-  } else {
-    next();
-  }
+  });
 });
 app.use('/api/auth', authRouter);
 app.use('/api/user', userRouter);

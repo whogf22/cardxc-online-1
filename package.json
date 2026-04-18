@@ -22,6 +22,7 @@
     "@vitejs/plugin-react-swc": "^4.2.3",
     "autoprefixer": "^10.4.21",
     "bcryptjs": "^3.0.3",
+    "browser-use-sdk": "^3.4.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "date-fns": "^3.6.0",

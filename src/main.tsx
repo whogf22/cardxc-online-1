@@ -189,7 +189,24 @@ function showErrorUI(message: string, missingVars: string[] = []) {
       fontSize: '0.875rem',
       marginBottom: '1.5rem'
     });
-    helpP.innerHTML = 'Please check your <code style="background: #f3f4f6; padding: 0.25rem 0.5rem; border-radius: 4px;">.env</code> file and ensure all required variables are set. See <code style="background: #f3f4f6; padding: 0.25rem 0.5rem; border-radius: 4px;">.env.example</code> for reference.';
+    // SECURITY: Build help message via safe DOM APIs (no innerHTML) so bootstrap
+    // error-handling code never establishes an unsafe DOM injection pattern.
+    const codeStyle = {
+      background: '#f3f4f6',
+      padding: '0.25rem 0.5rem',
+      borderRadius: '4px'
+    };
+    const envCode = document.createElement('code');
+    Object.assign(envCode.style, codeStyle);
+    envCode.textContent = '.env';
+    const exampleCode = document.createElement('code');
+    Object.assign(exampleCode.style, codeStyle);
+    exampleCode.textContent = '.env.example';
+    helpP.appendChild(document.createTextNode('Please check your '));
+    helpP.appendChild(envCode);
+    helpP.appendChild(document.createTextNode(' file and ensure all required variables are set. See '));
+    helpP.appendChild(exampleCode);
+    helpP.appendChild(document.createTextNode(' for reference.'));
     
     const button = document.createElement('button');
     button.onclick = () => window.location.reload();
@@ -208,9 +225,9 @@ function showErrorUI(message: string, missingVars: string[] = []) {
     card.appendChild(button);
     errorContainer.appendChild(card);
     
-    // Clear and append
-    rootElement.innerHTML = '';
-    rootElement.appendChild(errorContainer);
+    // Clear and append — use replaceChildren() instead of innerHTML='' for
+    // a consistent, safe DOM-clearing pattern in bootstrap code.
+    rootElement.replaceChildren(errorContainer);
   }
 }
 

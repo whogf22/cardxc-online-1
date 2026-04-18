@@ -71,11 +71,16 @@ export default defineConfig({
     port: 5000,
     host: "0.0.0.0",
     allowedHosts: true,
-    cors: true,
+    // SECURITY: restrict CORS to known local dev origins rather than `true`
+    // (which reflects the request Origin unconditionally).
+    cors: {
+      origin: ["http://localhost:5173", "http://localhost:3000"],
+      credentials: true,
+    },
     strictPort: false,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:5001',
         changeOrigin: true,
         secure: false,
       },
@@ -95,6 +100,10 @@ export default defineConfig({
     port: 5000,
     host: "0.0.0.0",
     allowedHosts: true,
-    cors: true,
+    // SECURITY: match dev CORS — explicit origin allowlist, not `true`.
+    cors: {
+      origin: ["http://localhost:5173", "http://localhost:3000"],
+      credentials: true,
+    },
   },
 });

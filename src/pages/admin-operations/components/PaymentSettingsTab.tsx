@@ -31,7 +31,9 @@ export default function PaymentSettingsTab() {
       // Check payment provider config via backend API
       let providerConfigured = false;
       try {
-        const response = await fetch('/api/admin/payment-provider-status');
+        const response = await fetch('/api/admin/payment-provider-status', {
+          credentials: 'include',
+        });
         if (response.ok) {
           const result = await response.json();
           providerConfigured = result.data?.configured === true;
@@ -40,9 +42,23 @@ export default function PaymentSettingsTab() {
         providerConfigured = false;
       }
 
-      // Use local state for payment disabled mode (no database table needed)
-      const savedMode = localStorage.getItem('payment_disabled_mode');
-      const paymentDisabled = savedMode === null ? true : savedMode === 'true';
+      // SECURITY: payment-disabled mode MUST come from the server. A client
+      // flag is trivially flipped in the browser console.
+      // TODO(backend): expose GET /api/admin/payment-mode returning
+      //                { disabled: boolean } and replace the fallback below.
+      let paymentDisabled = true;
+      try {
+        const modeResponse = await fetch('/api/admin/payment-mode', {
+          credentials: 'include',
+        });
+        if (modeResponse.ok) {
+          const result = await modeResponse.json();
+          paymentDisabled = result.data?.disabled !== false;
+        }
+      } catch {
+        // Fail closed: treat payments as disabled if the server check fails.
+        paymentDisabled = true;
+      }
 
       setSettings({
         payment_disabled_mode: paymentDisabled || !providerConfigured,
@@ -68,8 +84,23 @@ export default function PaymentSettingsTab() {
         return;
       }
 
-      // Store in localStorage as fallback (no payment_settings table)
-      localStorage.setItem('payment_disabled_mode', String(!enabled));
+      // SECURITY: persist payment-mode server-side. A client-only flag would
+      // be trivially flipped in the browser console.
+      // TODO(backend): implement POST /api/admin/payment-mode { disabled: boolean }
+      //                with admin-role check and audit logging. This endpoint
+      //                is the authoritative source consumed by /api/admin/payment-mode
+      //                in loadSettings() and by public payment-enabled checks.
+      const updateResponse = await fetch('/api/admin/payment-mode', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ disabled: !enabled }),
+      });
+
+      if (!updateResponse.ok) {
+        setError('Failed to update payment mode. Please try again.');
+        return;
+      }
 
       setSettings({
         ...settings,

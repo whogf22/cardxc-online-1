@@ -207,7 +207,7 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
         user_id, amount_cents, currency, withdrawal_type,
         crypto_address, crypto_network, status
       )
-      VALUES ($1, $2, 'USD', 'crypto', $3, $4, 'pending_payout')
+      VALUES ($1, $2, 'USD', 'crypto', $3, $4, 'processing')
       RETURNING id
     `, [
             request.userId, amountCents,
@@ -292,7 +292,7 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
 
             await client.query(`
         UPDATE withdrawal_requests 
-        SET status = 'failed', admin_notes = $1
+        SET status = 'rejected', admin_notes = $1
         WHERE id = $2
       `, [error.message, withdrawalId]);
         });

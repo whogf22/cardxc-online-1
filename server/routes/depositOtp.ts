@@ -30,7 +30,11 @@ const MAX_OTP_ATTEMPTS = 5;
 const USDT_RATE = parseFloat(process.env.USDT_RATE || '1.0');
 
 function generateOtp(): string {
-  return crypto.randomInt(100000, 999999).toString();
+  return crypto.randomInt(100000, 1000000).toString();
+}
+
+function hashOtp(code: string): string {
+  return crypto.createHash('sha256').update(code).digest('hex');
 }
 
 // ─── 1. INITIATE DEPOSIT: Create Stripe session + send OTP ───────────────────
@@ -105,10 +109,12 @@ router.post(
       [userId]
     );
 
+    // Store the SHA-256 hash of the OTP, never the plaintext. The plaintext
+    // is only held in memory long enough to dispatch via email.
     await query(
       `INSERT INTO deposit_otps (user_id, order_id, otp_code, expires_at)
        VALUES ($1, $2, $3, $4)`,
-      [userId, orderId, otpCode, expiresAt]
+      [userId, orderId, hashOtp(otpCode), expiresAt]
     );
 
     // Send OTP email
@@ -197,8 +203,14 @@ router.post(
       throw new AppError('Too many failed attempts. Please initiate a new deposit.', 429, 'OTP_MAX_ATTEMPTS');
     }
 
-    // Verify OTP
-    if (otpRecord.otp_code !== otpCode) {
+    // Verify OTP via constant-time comparison of SHA-256 hashes.
+    const submittedHash = hashOtp(otpCode);
+    const storedHashBuf = Buffer.from(otpRecord.otp_code, 'hex');
+    const submittedHashBuf = Buffer.from(submittedHash, 'hex');
+    const otpMatch =
+      storedHashBuf.length === submittedHashBuf.length &&
+      crypto.timingSafeEqual(storedHashBuf, submittedHashBuf);
+    if (!otpMatch) {
       await query(
         'UPDATE deposit_otps SET attempts = attempts + 1 WHERE id = $1',
         [otpRecord.id]
@@ -386,7 +398,7 @@ router.post(
     await query(
       `INSERT INTO deposit_otps (user_id, order_id, otp_code, expires_at)
        VALUES ($1, $2, $3, $4)`,
-      [userId, orderId, otpCode, expiresAt]
+      [userId, orderId, hashOtp(otpCode), expiresAt]
     );
 
     await sendDepositOtpEmail(

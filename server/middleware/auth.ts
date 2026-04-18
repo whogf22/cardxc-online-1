@@ -2,18 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { queryOne } from '../db/pool';
 import { AppError } from './errorHandler';
-
-const isProduction = process.env.NODE_ENV === 'production';
-
-function getJwtSecret(): string {
-  const secret = process.env.SESSION_SECRET;
-  if (!secret && isProduction) {
-    throw new Error('FATAL: SESSION_SECRET environment variable is required in production');
-  }
-  return secret || 'dev-only-secret-do-not-use-in-production';
-}
-
-const JWT_SECRET = getJwtSecret();
+import { getJwtSecret } from '../lib/jwtSecret';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -34,7 +23,7 @@ export async function authenticate(req: AuthenticatedRequest, res: Response, nex
     
     let decoded: any;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
+      decoded = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] });
     } catch {
       throw new AppError('Invalid or expired token', 401, 'INVALID_TOKEN');
     }

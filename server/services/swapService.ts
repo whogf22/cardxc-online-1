@@ -275,7 +275,7 @@ export async function executeSwap(request: SwapRequest): Promise<{
         user_id, type, status, amount_cents, currency,
         description, metadata
       )
-      VALUES ($1, 'swap', 'SUCCESS', $2, $3, $4, $5)
+      VALUES ($1, 'adjustment', 'SUCCESS', $2, $3, $4, $5)
       RETURNING id
     `, [
             request.userId, amountCents, request.fromCurrency,

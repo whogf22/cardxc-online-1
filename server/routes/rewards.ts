@@ -69,9 +69,9 @@ router.get('/cashback', asyncHandler(async (req: AuthenticatedRequest, res: Resp
     success: true,
     data: {
       summary: {
-        totalEarned: Number(summary?.total_earned || 0),
-        pending: Number(summary?.pending || 0),
-        credited: Number(summary?.credited || 0),
+        totalEarned: Number(summary?.total_earned || 0) / 100,
+        pending: Number(summary?.pending || 0) / 100,
+        credited: Number(summary?.credited || 0) / 100,
       },
       recentRewards,
     },
@@ -216,7 +216,7 @@ router.get('/subscriptions', asyncHandler(async (req: AuthenticatedRequest, res:
     success: true,
     data: {
       subscriptions,
-      monthlyTotal: Number(totalMonthly?.total || 0),
+      monthlyTotal: Number(totalMonthly?.total || 0) / 100,
     },
   });
 }));

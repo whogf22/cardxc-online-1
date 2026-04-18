@@ -8,7 +8,7 @@ interface User {
   full_name?: string;
   phone?: string;
   country?: string;
-  status: 'active' | 'suspended' | 'blocked';
+  status: 'active' | 'suspended' | 'blocked' | 'limited' | 'closed';
 }
 
 interface EditUserModalProps {
@@ -24,7 +24,7 @@ export default function EditUserModal({ isOpen, user, onClose, onSuccess }: Edit
     full_name: '',
     phone: '',
     country: '',
-    status: 'active' as 'active' | 'suspended' | 'blocked',
+    status: 'active' as 'active' | 'suspended' | 'blocked' | 'limited' | 'closed',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -170,12 +170,14 @@ export default function EditUserModal({ isOpen, user, onClose, onSuccess }: Edit
             <select
               required
               value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'suspended' | 'blocked' })}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'suspended' | 'blocked' | 'limited' | 'closed' })}
               className="input-dark w-full px-4 py-2.5 rounded-lg text-sm"
             >
               <option value="active">Active</option>
+              <option value="limited">Limited</option>
               <option value="suspended">Suspended</option>
               <option value="blocked">Blocked</option>
+              <option value="closed">Closed</option>
             </select>
           </div>
 

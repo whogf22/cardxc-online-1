@@ -37,8 +37,12 @@ yarn-error.log*
 # Local env files
 .env
 .env.local
+.env.save
 .env.production
 .env.*.local
+
+# attached_assets may contain leaked secrets from historical pastes
+attached_assets/
 
 # Editor directories and files
 .vscode/*

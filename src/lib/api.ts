@@ -216,6 +216,40 @@ export const userApi = {
     return request<{ transactions: any[] }>(`/user/transactions${query ? `?${query}` : ''}`);
   },
 
+  async getTransactionHistory(params?: {
+    cursor?: string;
+    limit?: number;
+    type?: string;
+    status?: string;
+    fromDate?: string;
+    toDate?: string;
+  }) {
+    const qs = new URLSearchParams();
+    if (params?.cursor) qs.set('cursor', params.cursor);
+    if (params?.limit) qs.set('limit', String(params.limit));
+    if (params?.type) qs.set('type', params.type);
+    if (params?.status) qs.set('status', params.status);
+    if (params?.fromDate) qs.set('fromDate', params.fromDate);
+    if (params?.toDate) qs.set('toDate', params.toDate);
+    const q = qs.toString();
+    return request<{
+      transactions: Array<{
+        id: string;
+        source: 'wallet' | 'card' | 'giftcard';
+        type: string;
+        status: string;
+        amount: number;
+        currency: string;
+        description: string | null;
+        category: string | null;
+        merchantName: string | null;
+        createdAt: string;
+      }>;
+      nextCursor: string | null;
+      hasMore: boolean;
+    }>(`/transactions/history${q ? `?${q}` : ''}`);
+  },
+
   async requestWithdrawal(data: {
     amount: number;
     currency: string;

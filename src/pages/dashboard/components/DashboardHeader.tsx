@@ -45,7 +45,7 @@ export default function DashboardHeader() {
       }));
       setNotifications(notifs);
       setUnreadCount(notifs.filter(n => !n.read).length);
-    } catch (err) {
+    } catch (_err) {
       setNotifications([]);
     }
   };

@@ -39,8 +39,8 @@ export async function calculateFraudScore(context: TransactionContext): Promise<
       LIMIT 10
     `, [context.userId]);
 
-    if (userTransactions.rows.length > 0) {
-      const amounts = userTransactions.rows.map((t: any) => t.amount_cents / 100);
+    if (userTransactions.length > 0) {
+      const amounts = userTransactions.map((t: any) => t.amount_cents / 100);
       const avgAmount = amounts.reduce((a: number, b: number) => a + b, 0) / amounts.length;
       const maxAmount = Math.max(...amounts);
 
@@ -225,12 +225,13 @@ export async function isAccountLocked(userId: string): Promise<boolean> {
  */
 export async function lockAccount(userId: string, durationMinutes: number = 30) {
   try {
+    const lockedUntil = new Date(Date.now() + durationMinutes * 60000);
     await query(`
       INSERT INTO account_locks (user_id, locked_until, reason)
-      VALUES ($1, NOW() + INTERVAL '${durationMinutes} minutes', 'Suspicious activity detected')
-      ON CONFLICT (user_id) DO UPDATE 
-      SET locked_until = NOW() + INTERVAL '${durationMinutes} minutes'
-    `, [userId]);
+      VALUES ($1, $2, 'Suspicious activity detected')
+      ON CONFLICT (user_id) DO UPDATE
+      SET locked_until = $2
+    `, [userId, lockedUntil]);
 
     logger.warn('account_locked', { userId, durationMinutes });
   } catch (error) {

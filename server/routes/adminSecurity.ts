@@ -127,7 +127,7 @@ router.post('/blacklist', asyncHandler(async (req: AuthenticatedRequest, res: Re
 router.delete('/blacklist/:ip', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { ip } = req.params;
   
-  removeFromBlacklist(ip);
+  removeFromBlacklist(ip as string);
 
   await createAuditLog({
     userId: req.user!.id,
@@ -168,7 +168,7 @@ router.post('/force-logout/:userId', asyncHandler(async (req: AuthenticatedReque
     userId: req.user!.id,
     action: 'FORCE_LOGOUT',
     entityType: 'user',
-    entityId: userId,
+    entityId: userId as string,
     newValues: { reason },
   });
 
@@ -216,7 +216,7 @@ router.post('/lock-account/:userId', asyncHandler(async (req: AuthenticatedReque
     userId: req.user!.id,
     action: 'ACCOUNT_LOCKED',
     entityType: 'user',
-    entityId: userId,
+    entityId: userId as string,
     newValues: { reason, lockUntil },
   });
 
@@ -236,7 +236,7 @@ router.post('/unlock-account/:userId', asyncHandler(async (req: AuthenticatedReq
     userId: req.user!.id,
     action: 'ACCOUNT_UNLOCKED',
     entityType: 'user',
-    entityId: userId,
+    entityId: userId as string,
   });
 
   res.json({ success: true, message: 'Account unlocked' });

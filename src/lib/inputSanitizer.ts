@@ -13,7 +13,15 @@ export function sanitizeHTML(html: string, allowTags: string[] = []): string {
   });
 }
 
-export function sanitizeText(text: string): string {
+/**
+ * HTML-entity-encode a string for safe insertion into an HTML attribute value
+ * (e.g. `title="..."`, `alt="..."`).
+ *
+ * SECURITY: Do NOT use this result with `textContent` — it would double-encode
+ * (`&amp;` would render literally). For textContent use `escapeHTML` or just
+ * assign the raw string to `textContent` directly.
+ */
+export function escapeForHTMLAttribute(text: string): string {
   if (typeof window === 'undefined') {
     return text;
   }
@@ -46,5 +54,5 @@ export function validateAndSanitizeInput(input: string, maxLength: number = 1000
     return null;
   }
 
-  return sanitizeText(trimmed);
+  return escapeForHTMLAttribute(trimmed);
 }

@@ -214,6 +214,11 @@ async function processRecurringTransfers() {
           VALUES ($1, 'transfer_out', $2, $3, 'SUCCESS', $4)
         `, [transfer.user_id, transfer.amount_cents, transfer.currency, `Recurring transfer to ${recipientName}`]);
 
+        await client.query(`
+          INSERT INTO transactions (user_id, type, amount_cents, currency, status, description)
+          VALUES ($1, 'transfer_in', $2, $3, 'SUCCESS', $4)
+        `, [recipient.id, transfer.amount_cents, transfer.currency, `Recurring transfer received`]);
+
         let nextRun: Date;
         const now = new Date();
         switch (transfer.frequency) {

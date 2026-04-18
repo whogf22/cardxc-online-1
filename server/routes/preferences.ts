@@ -90,7 +90,7 @@ router.get('/devices', asyncHandler(async (req: AuthenticatedRequest, res: Respo
 router.post('/devices/:deviceId/trust', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { deviceId } = req.params;
   
-  const success = await trustDevice(req.user!.id, deviceId);
+  const success = await trustDevice(req.user!.id, deviceId as string);
   if (!success) {
     throw new AppError('Device not found', 404, 'NOT_FOUND');
   }
@@ -99,7 +99,7 @@ router.post('/devices/:deviceId/trust', asyncHandler(async (req: AuthenticatedRe
     userId: req.user!.id,
     action: 'DEVICE_TRUSTED',
     entityType: 'device',
-    entityId: deviceId,
+    entityId: deviceId as string,
   });
 
   res.json({ success: true, message: 'Device trusted' });
@@ -109,7 +109,7 @@ router.post('/devices/:deviceId/trust', asyncHandler(async (req: AuthenticatedRe
 router.delete('/devices/:deviceId', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { deviceId } = req.params;
   
-  const success = await revokeDevice(req.user!.id, deviceId);
+  const success = await revokeDevice(req.user!.id, deviceId as string);
   if (!success) {
     throw new AppError('Device not found', 404, 'NOT_FOUND');
   }
@@ -118,7 +118,7 @@ router.delete('/devices/:deviceId', asyncHandler(async (req: AuthenticatedReques
     userId: req.user!.id,
     action: 'DEVICE_REVOKED',
     entityType: 'device',
-    entityId: deviceId,
+    entityId: deviceId as string,
   });
 
   res.json({ success: true, message: 'Device revoked' });

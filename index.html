@@ -2,69 +2,190 @@
 <html lang="en" style="background-color:#030303;">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2384cc16'/%3E%3Ctext x='50%25' y='55%25' text-anchor='middle' dominant-baseline='middle' font-family='system-ui' font-weight='700' font-size='16' fill='%23000'%3ECX%3C/text%3E%3C/svg%3E" />
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%2384cc16'/%3E%3Ctext x='50%25' y='55%25' text-anchor='middle' dominant-baseline='middle' font-family='system-ui' font-weight='700' font-size='72' fill='%23000'%3ECX%3C/text%3E%3C/svg%3E" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    
-    <!-- Force rebuild - Version 151.0 Premium Dark Theme -->
-    <meta name="build-version" content="152.0" />
-    <meta name="build-timestamp" content="2026-03-26T03:00:00Z" />
-    
+
+    <!-- Content Security Policy (first line of defence; edge/Cloudflare should
+         also emit a matching response header). 'unsafe-inline' on style-src
+         is required for Vite-injected styles and for the inline <style> below;
+         'unsafe-inline' on script-src is kept only for JSON-LD <script> blocks
+         and inline onload handlers. Tighten at the edge with a per-request
+         nonce once the CDN layer supports it. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://api.fontshare.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: https:; font-src 'self' data: https://api.fontshare.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; connect-src 'self' https://api.cardxc.online https://*.supabase.co wss://*.supabase.co; frame-src 'self' https://js.stripe.com https://checkout.stripe.com; object-src 'none'; base-uri 'self'; form-action 'self';" />
+
     <!-- Primary Meta Tags -->
-    <title>CardXC - Premium Virtual Cards | Global Payment Solutions</title>
-    <meta name="title" content="CardXC - Premium Virtual Cards | Global Payment Solutions" />
+    <title>CardXC — Send Money Worldwide & Buy Gift Cards</title>
+    <meta name="title" content="CardXC — Send Money Worldwide & Buy Gift Cards" />
     <meta name="description" content="CardXC is the premium fintech platform for virtual payment cards. Bank-level security, instant global payments, real-time rates, and 24/7 support. Manage your digital spending with VISA and Mastercard." />
-    <meta name="keywords" content="virtual cards, payment cards, fintech, CardXC, international payments, secure payments, digital wallet, global banking, VISA, Mastercard" />
+    <meta name="keywords" content="virtual cards, payment cards, fintech, CardXC, international payments, secure payments, digital wallet, global banking, VISA, Mastercard, send money worldwide, buy gift cards" />
     <meta name="author" content="CardXC" />
     <meta name="robots" content="index, follow" />
     <meta name="language" content="English" />
     <meta name="revisit-after" content="7 days" />
     <meta name="theme-color" content="#030303" />
-    
+
     <!-- Facebook Domain Verification -->
     <meta name="facebook-domain-verification" content="deglnwo7fyatnu81bt81lhsbbamzb2" />
-    
+
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://cardxc.online/" />
-    <meta property="og:title" content="CardXC - Premium Virtual Cards | Global Payment Solutions" />
+    <meta property="og:url" content="https://www.cardxc.online/" />
+    <meta property="og:title" content="CardXC — Send Money Worldwide & Buy Gift Cards" />
     <meta property="og:description" content="The premium fintech platform for virtual payment cards. Bank-level security, instant global payments, and real-time rates." />
-    <meta property="og:image" content="https://cardxc.online/og-image.png" />
+    <meta property="og:image" content="https://www.cardxc.online/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/png" />
     <meta property="og:site_name" content="CardXC" />
     <meta property="og:locale" content="en_US" />
-    
+
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:url" content="https://cardxc.online/" />
-    <meta name="twitter:title" content="CardXC - Premium Virtual Cards" />
+    <meta name="twitter:url" content="https://www.cardxc.online/" />
+    <meta name="twitter:title" content="CardXC — Send Money Worldwide & Buy Gift Cards" />
     <meta name="twitter:description" content="The premium fintech platform for virtual payment cards. Join our global user base." />
-    <meta name="twitter:image" content="https://cardxc.online/twitter-image.png" />
-    
+    <meta name="twitter:image" content="https://www.cardxc.online/og-image.png" />
+
     <!-- Canonical URL -->
-    <link rel="canonical" href="https://cardxc.online" />
-    
+    <link rel="canonical" href="https://www.cardxc.online/" />
+
     <!-- Additional SEO -->
-    <meta name="last-modified" content="2026-02-22" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="format-detection" content="telephone=no" />
-    
+
     <!-- DNS Prefetch for CDN domains -->
-    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
     <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
-    
+    <link rel="dns-prefetch" href="https://api.fontshare.com">
+
     <!-- Preconnect for performance -->
-    <link rel="preconnect" href="https://api.fontshare.com">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    
-    <!-- Fonts - Satoshi (Premium) + Fallbacks -->
-    <link href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,900&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Icons -->
-    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.6.0/fonts/remixicon.css" rel="stylesheet" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+
+    <!-- Fonts - Satoshi (async, non-render-blocking).
+         NOTE: api.fontshare.com serves a dynamic CSS that references woff2
+         files with rotating URLs, so SRI is infeasible against the CSS
+         endpoint itself. The CSP style-src directive above restricts the
+         allowed origin; self-hosting the font remains the stronger long-term
+         fix. -->
+    <link rel="preload" href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,900&display=swap" as="style" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,900&display=swap" rel="stylesheet" crossorigin="anonymous"></noscript>
+
+    <!-- Font display fallback to prevent FOIT -->
+    <style>
+      body, * { font-display: swap; }
+      .font-satoshi, h1, h2, h3, h4, h5, h6 { font-family: 'Satoshi', system-ui, -apple-system, sans-serif; }
+    </style>
+
+    <!-- Icons (async, non-render-blocking).
+         TODO(sri): generate and pin sha384 integrity hashes for the two
+         pinned CDN CSS files below, e.g.:
+           curl -sSL <url> | openssl dgst -sha384 -binary | openssl base64 -A
+         Then add integrity="sha384-…" to each <link>. Hashes must be refreshed
+         any time the pinned version changes. Self-hosting is the stronger
+         long-term fix for a fintech app. crossorigin="anonymous" is added
+         today so that adding integrity= later does not break loading. -->
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/remixicon@4.6.0/fonts/remixicon.css" as="style" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link href="https://cdn.jsdelivr.net/npm/remixicon@4.6.0/fonts/remixicon.css" rel="stylesheet" crossorigin="anonymous" /></noscript>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" media="print" crossorigin="anonymous" onload="this.media='all'" />
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" /></noscript>
+
+    <!-- Structured Data: Organization -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FinancialService",
+      "@id": "https://www.cardxc.online/#organization",
+      "name": "CardXC",
+      "url": "https://www.cardxc.online",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://www.cardxc.online/og-image.png",
+        "width": 1200,
+        "height": 630
+      },
+      "description": "Digital wallet and payments platform for virtual cards, gift cards, and global money transfers.",
+      "sameAs": [
+        "https://x.com/cardxc",
+        "https://www.linkedin.com/company/cardxc",
+        "https://www.instagram.com/cardxc",
+        "https://www.facebook.com/share/16o9sy49rA/"
+      ],
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer service",
+        "availableLanguage": "English",
+        "url": "https://www.cardxc.online/support"
+      },
+      "areaServed": "Worldwide"
+    }
+    </script>
+
+    <!-- Structured Data: WebSite -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "@id": "https://www.cardxc.online/#website",
+      "name": "CardXC",
+      "url": "https://www.cardxc.online",
+      "publisher": {
+        "@id": "https://www.cardxc.online/#organization"
+      }
+    }
+    </script>
+
+    <!-- Structured Data: FAQ (homepage FAQ section) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What are the fees for sending money?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "CardXC charges a transparent fee on each transfer—typically lower than traditional banks. Use our Fee Calculator to see the exact amount you pay and what your recipient gets before you send."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How fast are transfers?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Most transfers complete within minutes. Same-day delivery is available to many countries. You can track status in your account."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is my money secure?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. We use 256-bit SSL encryption, two-factor authentication, and 24/7 fraud monitoring. Your funds are protected with bank-level security."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which countries do you support?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "You can send money and gift cards to 180+ countries. Supported currencies and limits depend on your account and destination."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I get started?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Sign up with your email, verify your account, add funds to your wallet, then send money or buy gift cards. No paperwork required to start."
+          }
+        }
+      ]
+    }
+    </script>
   </head>
   <body style="background-color:#030303;color:#fff;">
     <div id="root" style="background-color:#030303;min-height:100vh;"></div>

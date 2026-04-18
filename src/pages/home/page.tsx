@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import HeroSection from './components/HeroSection';
 import BrandsStrip from './components/BrandsStrip';
@@ -6,6 +6,7 @@ import FeaturesSection from './components/FeaturesSection';
 import StatsSection from './components/StatsSection';
 import Footer from './components/Footer';
 import ContactModal from './components/ContactModal';
+import SEOHead from '../../components/SEOHead';
 
 export default function HomePage() {
   const [isContactOpen, setIsContactOpen] = useState(false);
@@ -15,10 +16,6 @@ export default function HomePage() {
 
   const sessionExpired = searchParams.get('session') === 'expired';
 
-  useEffect(() => {
-    document.title = 'CardXC | Send Money Worldwide & Buy Gift Cards';
-  }, []);
-
   const handleSignInAgain = () => {
     searchParams.delete('session');
     setSearchParams(searchParams);
@@ -27,6 +24,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[#030303] w-full min-w-0 overflow-x-hidden">
+      <SEOHead title="CardXC — Send Money Worldwide & Buy Gift Cards" />
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-lime-500 focus:text-black focus:rounded-lg focus:font-semibold"

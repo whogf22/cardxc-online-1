@@ -4,6 +4,38 @@ import { resetApiClient } from '../../lib/apiClient';
 import { trackLogin } from '../../lib/analytics';
 import { checkBiometricSupport } from '../../lib/authHelpers';
 import { useAuthContext } from '../../contexts/AuthContext';
+import SEOHead from '../../components/SEOHead';
+
+// Allowlist of known authentication errors. Anything not in this map falls
+// back to a generic message so a crafted `error_description` URL param cannot
+// be used to display attacker-controlled text on the signin page.
+const KNOWN_ERRORS: Record<string, string> = {
+  access_denied: 'Access denied.',
+  invalid_request: 'Invalid authentication request.',
+  expired_token: 'Your session expired. Please sign in again.',
+  otp_expired: 'Your confirmation link has expired. Please sign in again.',
+  invalid_token: 'Your sign-in link is invalid or has already been used.',
+  session_expired: 'Your session has expired. Please sign in again.',
+  unauthorized: 'You are not authorized to perform this action.',
+};
+
+const GENERIC_AUTH_ERROR = 'An authentication error occurred.';
+const MAX_ERROR_LEN = 120;
+
+function resolveSigninError(raw: string | null): string | null {
+  if (!raw) return null;
+  const decoded = decodeURIComponent(raw.replace(/\+/g, ' ')).trim();
+  if (!decoded) return null;
+
+  // Exact-match allowlist first.
+  if (Object.prototype.hasOwnProperty.call(KNOWN_ERRORS, decoded)) {
+    return KNOWN_ERRORS[decoded];
+  }
+
+  // Otherwise: strip anything outside a safe printable set and truncate.
+  const stripped = decoded.replace(/[^\w .,!?-]/g, '').slice(0, MAX_ERROR_LEN).trim();
+  return stripped.length > 0 ? stripped : GENERIC_AUTH_ERROR;
+}
 
 export default function SignInPage() {
   const navigate = useNavigate();
@@ -27,8 +59,9 @@ export default function SignInPage() {
     }
     
     const errorDesc = searchParams.get('error_description');
-    if (errorDesc) {
-      setError(decodeURIComponent(errorDesc.replace(/\+/g, ' ')));
+    const resolved = resolveSigninError(errorDesc);
+    if (resolved) {
+      setError(resolved);
     }
   }, [searchParams]);
 
@@ -194,6 +227,7 @@ export default function SignInPage() {
 
   return (
     <div className="min-h-screen bg-dark-bg flex flex-col relative overflow-hidden">
+      <SEOHead title="Sign In | CardXC" noindex />
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 -left-40 w-[600px] h-[600px] bg-lime-500/[0.07] rounded-full blur-[120px] animate-pulse-soft"></div>
         <div className="absolute bottom-1/4 -right-40 w-[500px] h-[500px] bg-lime-500/[0.07] rounded-full blur-[140px]"></div>
