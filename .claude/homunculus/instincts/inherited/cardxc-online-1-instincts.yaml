@@ -1,0 +1,334 @@
+# Instincts generated from https://github.com/whogf22/cardxc-online-1
+# Generated: 2026-04-19T04:59:55.832Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: cardxc-online-1-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/whogf22/cardxc-online-1
+---
+
+# Cardxc Online 1 Commit Length
+
+## Action
+
+Write moderate-length commit messages (~62 characters)
+
+## Evidence
+
+- Average commit message length: 62 chars
+- Based on 4 commits
+
+---
+id: cardxc-online-1-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/whogf22/cardxc-online-1
+---
+
+# Cardxc Online 1 Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: cardxc-online-1-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/whogf22/cardxc-online-1
+---
+
+# Cardxc Online 1 Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: cardxc-online-1-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/whogf22/cardxc-online-1
+---
+
+# Cardxc Online 1 Export Style
+
+## Action
+
+Prefer mixed exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: mixed
+
+---
+id: cardxc-online-1-arch-type-based
+trigger: "when adding new code"
+confidence: 0.8
+domain: architecture
+source: repo-analysis
+source_repo: https://github.com/whogf22/cardxc-online-1
+---
+
+# Cardxc Online 1 Arch Type Based
+
+## Action
+
+Place code in the appropriate type folder (components/, services/, utils/, etc.)
+
+## Evidence
+
+- Type-based module organization detected
+- Folders: components, contexts, pages
+
+---
+id: cardxc-online-1-workflow-lint-error-remediation
+trigger: "when doing lint error remediation"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/whogf22/cardxc-online-1
+---
+
+# Cardxc Online 1 Workflow Lint Error Remediation
+
+## Action
+
+Follow the lint-error-remediation workflow:
+1. Update eslint.config.ts to adjust rules or ignore patterns
+2. Refactor source files to comply with new or existing lint rules (e.g., prefix unused variables with underscore)
+3. Update related configuration files if necessary (e.g., tsconfig, package-lock.json)
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: eslint.config.ts, src/**/*.tsx, src/**/*.ts
+
+---
+id: cardxc-online-1-workflow-audit-bugfix-and-hardening
+trigger: "when doing audit bugfix and hardening"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/whogf22/cardxc-online-1
+---
+
+# Cardxc Online 1 Workflow Audit Bugfix And Hardening
+
+## Action
+
+Follow the audit-bugfix-and-hardening workflow:
+1. Identify and fix bugs and security issues in middleware and core logic
+2. Update or add tests for critical components and middleware
+3. Harden configuration files and middleware logic
+4. Update related UI components if needed
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: server/middleware/**/*.ts, server/middleware/__tests__/*.test.ts, src/pages/dashboard/components/*.tsx
+
+---
+id: cardxc-online-1-instinct-naming-conventions
+trigger: "When creating or renaming files, functions, classes, or constants in the codebase"
+confidence: 0.85
+domain: code-style
+source: repo-analysis
+source_repo: whogf22/cardxc-online-1
+---
+
+# Cardxc Online 1 Instinct Naming Conventions
+
+## Action
+
+Apply naming conventions: files and functions in camelCase, classes in PascalCase, constants in SCREAMING_SNAKE_CASE
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions
+- Consistent usage in src/components, src/contexts, src/pages
+
+---
+id: cardxc-online-1-instinct-import-style
+trigger: "When importing modules within the codebase"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: whogf22/cardxc-online-1
+---
+
+# Cardxc Online 1 Instinct Import Style
+
+## Action
+
+Use relative import paths instead of absolute or alias-based imports
+
+## Evidence
+
+- Pattern in codeStyle.importStyle
+- Seen in src/**/*.ts and src/**/*.tsx
+
+---
+id: cardxc-online-1-instinct-export-style
+trigger: "When exporting modules, functions, or classes"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: whogf22/cardxc-online-1
+---
+
+# Cardxc Online 1 Instinct Export Style
+
+## Action
+
+Use mixed export style (both named and default exports as appropriate)
+
+## Evidence
+
+- Pattern in codeStyle.exportStyle
+- Observed in src/components and src/contexts
+
+---
+id: cardxc-online-1-instinct-testing-location
+trigger: "When adding or updating tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: whogf22/cardxc-online-1
+---
+
+# Cardxc Online 1 Instinct Testing Location
+
+## Action
+
+Place test files either alongside implementation (as __tests__ folders) or mixed within the codebase, especially in server/middleware/__tests__
+
+## Evidence
+
+- Pattern in architecture.folderStructure.testLocation
+- Files in server/middleware/__tests__/*.test.ts
+
+---
+id: cardxc-online-1-instinct-test-critical-components
+trigger: "When performing audits or significant changes to middleware or core logic"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: whogf22/cardxc-online-1
+---
+
+# Cardxc Online 1 Instinct Test Critical Components
+
+## Action
+
+Update or add tests for critical components and middleware, especially in server/middleware/__tests__
+
+## Evidence
+
+- Workflow audit-bugfix-and-hardening step: Update or add tests for critical components and middleware
+- Files in server/middleware/__tests__/*.test.ts
+
+---
+id: cardxc-online-1-instinct-git-commit-prefix
+trigger: "When committing changes related to audits or large-scale fixes"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: whogf22/cardxc-online-1
+---
+
+# Cardxc Online 1 Instinct Git Commit Prefix
+
+## Action
+
+Prefix commit messages with 'audit:' for audit-related changes
+
+## Evidence
+
+- Pattern in commits.prefixes: 'audit'
+- Examples: 'audit: initial plan for full repository audit', 'audit: fix bugs, security issues, lint errors, add tests and harden config'
+
+---
+id: cardxc-online-1-instinct-git-commit-format-fixes
+trigger: "When committing fixes for lint errors or code style issues"
+confidence: 0.8
+domain: git
+source: repo-analysis
+source_repo: whogf22/cardxc-online-1
+---
+
+# Cardxc Online 1 Instinct Git Commit Format Fixes
+
+## Action
+
+Use descriptive commit messages indicating the scope and nature of the fix (e.g., 'Fix all 42 @typescript-eslint/no-unused-vars ESLint errors')
+
+## Evidence
+
+- Commit example: 'Fix all 42 @typescript-eslint/no-unused-vars ESLint errors'
+
+---
+id: cardxc-online-1-instinct-lint-error-remediation
+trigger: "When someone wants to resolve lint errors project-wide, especially after updating lint rules or dependencies"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: whogf22/cardxc-online-1
+---
+
+# Cardxc Online 1 Instinct Lint Error Remediation
+
+## Action
+
+Update eslint.config.ts, refactor source files to comply with lint rules, and update related configuration files as needed
+
+## Evidence
+
+- Workflow: lint-error-remediation
+- Commit sequence: Update eslint.config.ts, refactor source files, update config files
+
+---
+id: cardxc-online-1-instinct-audit-bugfix-and-hardening
+trigger: "When someone initiates a codebase audit for security, stability, or compliance reasons"
+confidence: 0.85
+domain: workflow
+source: repo-analysis
+source_repo: whogf22/cardxc-online-1
+---
+
+# Cardxc Online 1 Instinct Audit Bugfix And Hardening
+
+## Action
+
+Fix bugs and security issues in middleware and core logic, update or add tests, harden configuration, and update related UI components
+
+## Evidence
+
+- Workflow: audit-bugfix-and-hardening
+- Commit sequence: fix bugs/security, update tests, harden config, update UI components
+
