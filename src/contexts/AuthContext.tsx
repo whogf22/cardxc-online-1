@@ -5,6 +5,8 @@ import { clearSessionCache } from '../lib/api';
 import { clearGatewaySessionCache } from '../lib/gateway';
 import { resetApiClient } from '../lib/apiClient';
 
+const isDev = import.meta.env.DEV;
+
 export interface User {
   id: string;
   email: string;
@@ -45,7 +47,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 function clearAllSessionCaches(): void {
   clearSessionCache();
   clearGatewaySessionCache();
-  console.log('[Auth] Session caches cleared');
+  if (isDev) console.log('[Auth] Session caches cleared');
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -63,13 +65,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkAuth = useCallback(async () => {
     try {
-      console.log('[Auth] Checking authentication');
+      if (isDev) console.log('[Auth] Checking authentication');
       
       const result = await authApi.getSession();
 
       setAuthState(prev => {
         if (!result.success || !result.data?.user) {
-          console.log('[Auth] No active session');
+          if (isDev) console.log('[Auth] No active session');
           return {
             ...prev,
             user: null,
@@ -104,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
       });
     } catch (err) {
-      console.warn('[Auth] Auth check error:', err instanceof Error ? err.message : err);
+      if (isDev) console.warn('[Auth] Auth check error:', err instanceof Error ? err.message : err);
       setAuthState(prev => ({
         ...prev,
         loading: false,
@@ -135,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     timeoutTimer = setTimeout(() => {
       if (isMounted && !authCheckCompleted.current) {
-        console.warn('[Auth] Auth check timeout');
+        if (isDev) console.warn('[Auth] Auth check timeout');
         setAuthState(prev => {
           if (prev.loading) {
             return { ...prev, loading: false };
@@ -158,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     signingIn.current = true;
     try {
-      console.log('[Auth] Signing in');
+      if (isDev) console.log('[Auth] Signing in');
       
       const result = await authApi.signIn({ email, password, twoFactorToken });
       
@@ -202,7 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       return { success: true };
     } catch (err) {
-      console.error('[Auth] Sign in error:', err);
+      if (isDev) console.error('[Auth] Sign in error:', err);
       return { success: false, error: err instanceof Error ? err.message : 'Login failed' };
     } finally {
       signingIn.current = false;
@@ -211,7 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = useCallback(async (email: string, password: string, fullName: string, phone?: string) => {
     try {
-      console.log('[Auth] Signing up');
+      if (isDev) console.log('[Auth] Signing up');
       
       const result = await authApi.signUp({ email, password, fullName, phone });
       
@@ -248,13 +250,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       return { success: true };
     } catch (err) {
-      console.error('[Auth] Sign up error:', err);
+      if (isDev) console.error('[Auth] Sign up error:', err);
       return { success: false, error: err instanceof Error ? err.message : 'Signup failed' };
     }
   }, []);
 
   const signOut = useCallback(async () => {
-    console.log('[Auth] Signing out');
+    if (isDev) console.log('[Auth] Signing out');
     clearAllSessionCaches();
     
     await authApi.signOut();

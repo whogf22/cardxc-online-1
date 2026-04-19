@@ -35,7 +35,7 @@ export default function TotalAssetCard({ usdBalance, usdtBalance, showBalance, o
       if (progress < 1) requestAnimationFrame(animate);
     };
     requestAnimationFrame(animate);
-  }, [totalBalance, showBalance]);
+  }, [totalBalance, showBalance]); // eslint-disable-line react-hooks/exhaustive-deps -- displayBalance used as animation start value, not a reactive dependency
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!cardRef.current) return;

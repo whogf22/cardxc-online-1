@@ -85,7 +85,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess, userId: _user
       checkStatus();
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- intentionally runs only on mount to check URL params
 
   const resetForm = useCallback(() => {
     setStep('method-selection');

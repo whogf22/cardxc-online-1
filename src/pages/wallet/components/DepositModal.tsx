@@ -138,7 +138,7 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
       checkStatus();
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- intentionally runs only on mount to check URL params
 
   const resetForm = useCallback(() => {
     setStep('method-selection');
