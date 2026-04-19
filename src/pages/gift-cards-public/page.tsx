@@ -42,7 +42,7 @@ export default function GiftCardsPublicPage() {
   const [offers, setOffers] = useState<GiftCardOffer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCountry, setSelectedCountry] = useState('US');
+  const [_selectedCountry, _setSelectedCountry] = useState('US');
 
   useEffect(() => {
     window.scrollTo(0, 0);

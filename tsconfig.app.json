@@ -26,9 +26,9 @@
     "strictPropertyInitialization": false,
     "noImplicitThis": false,
     "useUnknownInCatchVariables": false,
-    "alwaysStrict": false,
+    "alwaysStrict": true,
     "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": false,
+    "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": false,
     "paths": {
       "@/*": ["./src/*"],

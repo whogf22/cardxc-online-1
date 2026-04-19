@@ -8,6 +8,11 @@ const trustProxy = process.env.TRUST_PROXY === 'true' || !!process.env.REPL_ID;
 // Store rate limit violations for security monitoring
 const rateLimitViolations = new Map<string, number>();
 
+// Periodically clean up rate limit violations to prevent memory leaks (every 10 minutes)
+setInterval(() => {
+  rateLimitViolations.clear();
+}, 10 * 60 * 1000).unref();
+
 const createRateLimiter = (options: {
   windowMs: number;
   max: number;
