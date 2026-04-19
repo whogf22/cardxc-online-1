@@ -5,12 +5,18 @@ import { logSecurityEvent } from './securityLogger';
 const isDev = process.env.NODE_ENV !== 'production';
 const trustProxy = process.env.TRUST_PROXY === 'true' || !!process.env.REPL_ID;
 
-// Store rate limit violations for security monitoring
-const rateLimitViolations = new Map<string, number>();
+// Store rate limit violations for security monitoring with timestamps
+const rateLimitViolations = new Map<string, { count: number; firstSeen: number }>();
 
-// Periodically clean up rate limit violations to prevent memory leaks (every 10 minutes)
+// Periodically clean up stale rate limit violations to prevent memory leaks (every 10 minutes)
+const VIOLATION_TTL_MS = 60 * 60 * 1000; // 1 hour
 setInterval(() => {
-  rateLimitViolations.clear();
+  const now = Date.now();
+  for (const [ip, entry] of rateLimitViolations) {
+    if (now - entry.firstSeen > VIOLATION_TTL_MS) {
+      rateLimitViolations.delete(ip);
+    }
+  }
 }, 10 * 60 * 1000).unref();
 
 const createRateLimiter = (options: {
@@ -43,18 +49,19 @@ const createRateLimiter = (options: {
     },
     handler: (req: any, res: any) => {
       const ip = ipKeyGenerator(req, res);
-      const violations = (rateLimitViolations.get(ip) || 0) + 1;
-      rateLimitViolations.set(ip, violations);
+      const existing = rateLimitViolations.get(ip);
+      const count = existing ? existing.count + 1 : 1;
+      rateLimitViolations.set(ip, { count, firstSeen: existing?.firstSeen ?? Date.now() });
       
       // Log security event
       logSecurityEvent(
         'RATE_LIMIT_EXCEEDED',
-        violations > 5 ? 'high' : 'medium',
+        count > 5 ? 'high' : 'medium',
         req as any,
         { 
           limit: options.max,
           window: options.windowMs,
-          violations,
+          violations: count,
           endpoint: req.path,
         }
       );
@@ -122,7 +129,11 @@ export const webhookLimiter = createRateLimiter({
 });
 
 export function getRateLimitViolations(): Map<string, number> {
-  return new Map(rateLimitViolations);
+  const result = new Map<string, number>();
+  for (const [ip, entry] of rateLimitViolations) {
+    result.set(ip, entry.count);
+  }
+  return result;
 }
 
 export function clearRateLimitViolations(ip?: string): void {
