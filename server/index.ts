@@ -113,7 +113,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.googleapis.com", "https://js.stripe.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.googleapis.com", "https://js.stripe.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
       fontSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.gstatic.com", "https://cdn.fontshare.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
@@ -236,7 +236,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Rate limiting - applied to all /api routes except health
 app.use('/api', apiLimiter);
-   Apply security checks conditionally (skip for health and docs)
+// Apply security checks conditionally (skip for health and docs)
 app.use((req, res, next) => {
   const publicPaths = ['/api/health', '/api-docs', '/', '/mcp', '/auth/token', '/execute', '/tools', '/health', '/.well-known'];
   if (!publicPaths.some(path => req.path.startsWith(path))) {
@@ -291,7 +291,7 @@ app.use((req, res, next) => {
     res.status(404).json({
       success: false,
       error: {
-        message: `API route ${req.method} ${req.originalUrl} not found`,
+        message: 'API route not found',
         code: 'NOT_FOUND',
       }
     });

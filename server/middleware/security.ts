@@ -62,8 +62,8 @@ export function validateRequestSize(req: Request, res: Response, next: NextFunct
 
 export function blockSuspiciousIPs(req: Request, res: Response, next: NextFunction) {
   // Skip blocking for health checks and public endpoints
-  const publicPaths = ['/api/health', '/api-docs', '/'];
-  if (publicPaths.some(path => req.path.startsWith(path))) {
+  const publicPaths = ['/api/health', '/api-docs'];
+  if (publicPaths.some(path => req.path.startsWith(path)) || req.path === '/') {
     return next();
   }
   
