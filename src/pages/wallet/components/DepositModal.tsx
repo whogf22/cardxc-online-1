@@ -67,7 +67,6 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
   // Stripe state
   const [stripePromise, setStripePromise] = useState<Promise<any> | null>(null);
   const [clientSecret, setClientSecret] = useState<string>('');
-  const [sessionId, setSessionId] = useState<string>('');
 
   // OTP state
   const [orderId, setOrderId] = useState<string>('');
@@ -138,6 +137,7 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
       checkStatus();
       window.history.replaceState({}, '', window.location.pathname);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const resetForm = useCallback(() => {
@@ -148,7 +148,6 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
     setNewBalance(null);
     setIsProcessing(false);
     setClientSecret('');
-    setSessionId('');
     setOrderId('');
     setMaskedEmail('');
     setOtpCode(['', '', '', '', '', '']);
@@ -196,11 +195,10 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
     try {
       const response = await depositOtpApi.initiate(numAmount, checkoutCurrency);
       if (response.success && response.data) {
-        const { orderId: newOrderId, clientSecret: cs, sessionId: sid, email, expiresAt } = response.data;
+        const { orderId: newOrderId, clientSecret: cs, email, expiresAt } = response.data;
         setOrderId(newOrderId);
         setMaskedEmail(email);
         setClientSecret(cs);
-        setSessionId(sid);
         setOtpExpiry(expiresAt ? new Date(expiresAt) : null);
         setOtpCode(['', '', '', '', '', '']);
         setOtpError('');
@@ -308,7 +306,6 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
 
   const handleCancelCheckout = () => {
     setClientSecret('');
-    setSessionId('');
     setStep('method-selection');
   };
 
@@ -577,7 +574,6 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
                     setStep('method-selection');
                     setErrorMessage('');
                     setClientSecret('');
-                    setSessionId('');
                   }}
                   className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-6 py-4 rounded-xl font-bold transition-all cursor-pointer shadow-lg shadow-emerald-500/30"
                 >

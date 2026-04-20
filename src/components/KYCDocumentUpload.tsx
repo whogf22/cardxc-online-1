@@ -48,8 +48,6 @@ const DOCUMENT_TYPES = {
 
 type DocumentType = keyof typeof DOCUMENT_TYPES;
 
-// Minimum required: one ID document + selfie
-const REQUIRED_DOCS: DocumentType[] = ['selfie'];
 const ID_DOCS: DocumentType[] = ['passport', 'national_id', 'drivers_license'];
 
 export function KYCDocumentUpload({ onComplete, onClose }: KYCDocumentUploadProps) {
