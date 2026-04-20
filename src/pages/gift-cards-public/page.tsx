@@ -42,7 +42,6 @@ export default function GiftCardsPublicPage() {
   const [offers, setOffers] = useState<GiftCardOffer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCountry, setSelectedCountry] = useState('US');
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -178,7 +177,7 @@ export default function GiftCardsPublicPage() {
         </div>
       </main>
 
-      <Footer onContactClick={() => setIsContactOpen(true)} />
+      <Footer onOpenContact={() => setIsContactOpen(true)} />
       <ContactModal isOpen={isContactOpen} onClose={() => setIsContactOpen(false)} />
     </div>
   );

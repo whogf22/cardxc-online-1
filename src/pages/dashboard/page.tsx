@@ -69,7 +69,7 @@ export default function Dashboard() {
       }
 
       setIsLoading(false);
-    } catch (error: any) {
+    } catch (_error: any) {
       setUsdBalance(0);
       setUsdtBalance(0);
       setTransactions([]);

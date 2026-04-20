@@ -32,7 +32,6 @@ export default function DepositModal({ isOpen, onClose, onSuccess, userId: _user
 
   const [stripePromise, setStripePromise] = useState<Promise<any> | null>(null);
   const [clientSecret, setClientSecret] = useState<string>('');
-  const [sessionId, setSessionId] = useState<string>('');
 
   const fetchWalletBalance = useCallback(async (): Promise<number> => {
     try {
@@ -85,6 +84,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess, userId: _user
       checkStatus();
       window.history.replaceState({}, '', window.location.pathname);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const resetForm = useCallback(() => {
@@ -95,7 +95,6 @@ export default function DepositModal({ isOpen, onClose, onSuccess, userId: _user
     setNewBalance(null);
     setIsProcessing(false);
     setClientSecret('');
-    setSessionId('');
   }, []);
 
   useEffect(() => {
@@ -155,7 +154,6 @@ export default function DepositModal({ isOpen, onClose, onSuccess, userId: _user
       if (response.success && response.data?.clientSecret) {
         trackDeposit(amountUSD, currency, 'card');
         setClientSecret(response.data.clientSecret);
-        setSessionId(response.data.sessionId);
         setStep('stripe-checkout');
       } else {
         setErrorMessage(response.error?.message || 'Failed to create checkout session');
@@ -179,7 +177,6 @@ export default function DepositModal({ isOpen, onClose, onSuccess, userId: _user
 
   const handleCancelCheckout = () => {
     setClientSecret('');
-    setSessionId('');
     setStep('method-selection');
   };
 
@@ -411,7 +408,6 @@ export default function DepositModal({ isOpen, onClose, onSuccess, userId: _user
                     setStep('method-selection');
                     setErrorMessage('');
                     setClientSecret('');
-                    setSessionId('');
                   }}
                   className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all cursor-pointer"
                 >
