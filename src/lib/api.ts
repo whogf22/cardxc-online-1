@@ -381,7 +381,10 @@ export const userApi = {
     return request<{ referral: any }>('/referrals');
   },
 
-  // Fluz gift cards - user's purchased cards
+  // Fluz gift cards (SHARED platform account). ADMIN-ONLY on the backend.
+  // Do NOT call these from user-facing pages: the Fluz provider is a single
+  // shared account, so listing/revealing here exposes other users' redeemable
+  // codes. User "My Gift Cards" reads per-user data via giftCardApi.getRequests().
   async getFluzGiftCards(filters?: { status?: string[]; limit?: number; offset?: number }) {
     const params = new URLSearchParams();
     if (filters?.status?.length) params.append('status', filters.status.join(','));
@@ -390,6 +393,7 @@ export const userApi = {
     return request<{ giftCards: any[] }>(`/fluz/gift-cards${params.toString() ? `?${params}` : ''}`);
   },
 
+  // ADMIN-ONLY (shared account). See getFluzGiftCards note above.
   async revealFluzGiftCard(giftCardId: string) {
     return request<{ code: string; pin?: string; url?: string }>(`/fluz/gift-cards/${giftCardId}/reveal`, {
       method: 'POST',
