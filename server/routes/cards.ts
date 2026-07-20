@@ -508,9 +508,14 @@ router.post('/:id/top-up',
     }
 
     await transaction(async (client) => {
-      await client.query(`
-        UPDATE wallets SET balance_cents = balance_cents - $1 WHERE user_id = $2 AND currency = $3
+      // Guarded debit prevents concurrent top-ups from overdrawing the wallet.
+      const debit = await client.query(`
+        UPDATE wallets SET balance_cents = balance_cents - $1 WHERE user_id = $2 AND currency = $3 AND balance_cents >= $1
       `, [amountCents, req.user!.id, currency]);
+
+      if (debit.rowCount === 0) {
+        throw new AppError('Insufficient wallet balance', 400, 'INSUFFICIENT_BALANCE');
+      }
 
       await client.query(`
         UPDATE virtual_cards SET balance_cents = balance_cents + $1, updated_at = NOW() WHERE id = $2

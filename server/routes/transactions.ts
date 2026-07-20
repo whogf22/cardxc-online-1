@@ -272,10 +272,17 @@ router.post('/transfer',
         RETURNING id
       `, [recipient.id, amountCents, currency, `Transfer from ${req.user!.email}`, outgoingTx.rows[0].id]);
 
-      await client.query(`
+      // Guarded debit prevents concurrent transfers from overdrawing the wallet
+      // (balance_cents has no CHECK constraint, and the pre-check above is
+      // outside this transaction).
+      const debit = await client.query(`
         UPDATE wallets SET balance_cents = balance_cents - $1, updated_at = NOW()
-        WHERE user_id = $2 AND currency = $3
+        WHERE user_id = $2 AND currency = $3 AND balance_cents - reserved_cents >= $1
       `, [amountCents, req.user!.id, currency]);
+
+      if (debit.rowCount === 0) {
+        throw new AppError('Insufficient balance', 400, 'INSUFFICIENT_BALANCE');
+      }
 
       await client.query(`
         INSERT INTO wallets (user_id, currency, balance_cents)

@@ -241,16 +241,24 @@ router.post('/withdraw',
     }
 
     const result = await transaction(async (client) => {
-      // Reserve balance based on wallet type
+      // Reserve balance based on wallet type. Both debits are guarded so that
+      // concurrent withdrawal requests cannot drive the balance negative (the
+      // pre-check above runs outside this transaction).
       if (walletType === 'usdt') {
         // For USDT, we deduct immediately (no reserved_cents for USDT)
-        await client.query(`
-          UPDATE wallets SET usdt_balance_cents = usdt_balance_cents - $1 WHERE user_id = $2 AND currency = $3
+        const debit = await client.query(`
+          UPDATE wallets SET usdt_balance_cents = usdt_balance_cents - $1 WHERE user_id = $2 AND currency = $3 AND usdt_balance_cents >= $1
         `, [amountCents, req.user!.id, currency]);
+        if (debit.rowCount === 0) {
+          throw new AppError('Insufficient USDT balance', 400, 'INSUFFICIENT_USDT_BALANCE');
+        }
       } else {
-        await client.query(`
-          UPDATE wallets SET reserved_cents = reserved_cents + $1 WHERE user_id = $2 AND currency = $3
+        const reserve = await client.query(`
+          UPDATE wallets SET reserved_cents = reserved_cents + $1 WHERE user_id = $2 AND currency = $3 AND balance_cents - reserved_cents >= $1
         `, [amountCents, req.user!.id, currency]);
+        if (reserve.rowCount === 0) {
+          throw new AppError('Insufficient balance', 400, 'INSUFFICIENT_BALANCE');
+        }
       }
 
       const withdrawalResult = await client.query(`
