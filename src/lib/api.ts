@@ -368,10 +368,13 @@ export const userApi = {
     });
   },
 
+  // ADMIN-ONLY (shared account): platform billing addresses used for card
+  // creation, NOT per-user data. User crypto addresses live under /address-book.
   async getFluzAddresses() {
     return request<{ addresses: any[] }>('/fluz/addresses');
   },
 
+  // ADMIN-ONLY (shared account). See getFluzAddresses note above.
   async saveFluzAddress(address: any) {
     return request<{ address: any }>('/fluz/addresses', {
       method: 'POST',

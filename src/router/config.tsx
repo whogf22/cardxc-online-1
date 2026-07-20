@@ -180,7 +180,7 @@ const routes: RouteObject[] = [
   },
   {
     path: '/fluz/addresses',
-    element: <ProtectedRoute><FluzAddressBook /></ProtectedRoute>,
+    element: <AdminRoute><FluzAddressBook /></AdminRoute>,
   },
 
   { path: '/customer-dashboard', element: <Navigate to="/dashboard" replace /> },

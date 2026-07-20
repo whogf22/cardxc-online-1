@@ -63,6 +63,8 @@ vi.mock('../../services/fluzApi', () => ({
   purchaseGiftCard: (...a: unknown[]) => providerCall('purchaseGiftCard', ...a).then(() => ({ giftCard: { giftCardId: 'g', offer: { name: 'n' } } })),
   depositCashBalance: (...a: unknown[]) => providerCall('depositCashBalance', ...a).then(() => ({ cashBalanceDeposits: [], balances: [] })),
   getVirtualCardBalance: (...a: unknown[]) => providerCall('getVirtualCardBalance', ...a).then(() => []),
+  getUserAddresses: (...a: unknown[]) => providerCall('getUserAddresses', ...a).then(() => []),
+  saveAddress: (...a: unknown[]) => providerCall('saveAddress', ...a).then(() => ({ addressId: 'a' })),
   // Low-sensitivity reads that should remain open to any authenticated user.
   getMerchants: (...a: unknown[]) => providerCall('getMerchants', ...a).then(() => []),
   getBusinessCategories: (...a: unknown[]) => providerCall('getBusinessCategories', ...a).then(() => []),
@@ -105,6 +107,8 @@ const gatedRoutes: Array<{ method: 'get' | 'post' | 'put'; path: string; body?: 
   { method: 'post', path: `/api/fluz/gift-cards/${VALID_UUID}/reveal` },
   { method: 'post', path: '/api/fluz/gift-cards/purchase', body: { offerId: VALID_UUID, amount: 10 } },
   { method: 'post', path: '/api/fluz/virtual-cards/balance', body: { cardIds: ['c1'] } },
+  { method: 'get', path: '/api/fluz/addresses' },
+  { method: 'post', path: '/api/fluz/addresses', body: { streetAddress: '1 A St', city: 'X', state: 'CA', postalCode: '90001', country: 'US' } },
 ];
 
 describe('Fluz shared-account authorization', () => {

@@ -562,7 +562,10 @@ router.post('/offers/quote',
 );
 
 // New: Get user addresses
-router.get('/addresses', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+// Shared-account billing addresses (used for card creation on the shared Fluz
+// account). ADMIN-ONLY: these are the platform account's addresses (PII), not
+// per-user data. User crypto withdrawal addresses live under /address-book.
+router.get('/addresses', requireSuperAdmin, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   if (!fluzApi.isConfigured()) {
     throw new AppError('Card service not configured', 503, 'PROVIDER_NOT_CONFIGURED');
   }
@@ -571,8 +574,9 @@ router.get('/addresses', asyncHandler(async (req: AuthenticatedRequest, res: Res
   res.json({ success: true, data: { addresses } });
 }));
 
-// New: Save address
+// Save address on the shared Fluz account. ADMIN-ONLY (see GET /addresses note).
 router.post('/addresses',
+  requireSuperAdmin,
   body('streetAddress').notEmpty().withMessage('Street address is required'),
   body('city').notEmpty().withMessage('City is required'),
   body('state').notEmpty().withMessage('State is required'),
