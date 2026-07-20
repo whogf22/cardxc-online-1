@@ -748,13 +748,25 @@ export const aiApi = {
       credentials: 'include',
       body: JSON.stringify({ content }),
     });
-    const reader = response.body?.getReader();
+    if (!response.ok || !response.body) {
+      // Surface a real error instead of returning a reader that would loop
+      // forever emitting empty strings (reader?.read() -> undefined -> not done).
+      let message = `Chat request failed (${response.status}).`;
+      try {
+        const err = await response.json();
+        message = err?.error?.message || err?.message || message;
+      } catch {
+        // non-JSON error body; keep the status-based message
+      }
+      throw new Error(message);
+    }
+    const reader = response.body.getReader();
     const decoder = new TextDecoder();
     return {
       read: async () => {
-        const result = await reader?.read();
-        if (result?.done) return { done: true, value: '' };
-        return { done: false, value: decoder.decode(result?.value) };
+        const result = await reader.read();
+        if (result.done) return { done: true, value: '' };
+        return { done: false, value: decoder.decode(result.value) };
       },
     } as any;
   },
