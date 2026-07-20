@@ -617,6 +617,35 @@ export async function initializeDatabase() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_crypto_transactions_tx_hash ON crypto_transactions(tx_hash)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_crypto_transactions_status ON crypto_transactions(status)`);
 
+    // Reconcile crypto_transactions with the columns/values the deposit monitor
+    // and crypto payout service actually use. The original CREATE TABLE above is
+    // kept for historical installs, but the code writes additional columns and a
+    // 'completed' status that the original definition did not allow. Without
+    // these ALTERs a fresh database would throw on every crypto deposit credit
+    // and every crypto withdrawal record.
+    await client.query(`ALTER TABLE crypto_transactions ADD COLUMN IF NOT EXISTS currency VARCHAR(20)`);
+    await client.query(`ALTER TABLE crypto_transactions ADD COLUMN IF NOT EXISTS from_address VARCHAR(255)`);
+    await client.query(`ALTER TABLE crypto_transactions ADD COLUMN IF NOT EXISTS to_address VARCHAR(255)`);
+    await client.query(`ALTER TABLE crypto_transactions ADD COLUMN IF NOT EXISTS required_confirmations INTEGER DEFAULT 20`);
+    await client.query(`ALTER TABLE crypto_transactions ADD COLUMN IF NOT EXISTS confirmed_at TIMESTAMP`);
+    await client.query(`ALTER TABLE crypto_transactions ADD COLUMN IF NOT EXISTS error_message TEXT`);
+    await client.query(`ALTER TABLE crypto_transactions ADD COLUMN IF NOT EXISTS fee NUMERIC(20, 8)`);
+    await client.query(`ALTER TABLE crypto_transactions ADD COLUMN IF NOT EXISTS withdrawal_request_id UUID`);
+    // Unclaimed incoming deposits (no matching pending intent) are recorded with
+    // no owner yet, so user_id must be nullable. The original definition made it
+    // NOT NULL, which would reject the deposit monitor's unclaimed-deposit insert.
+    await client.query(`ALTER TABLE crypto_transactions ALTER COLUMN user_id DROP NOT NULL`);
+    // crypto_type was NOT NULL but the code never sets it (it uses currency +
+    // network instead). Relax it so inserts do not violate the constraint.
+    await client.query(`ALTER TABLE crypto_transactions ALTER COLUMN crypto_type DROP NOT NULL`);
+    // Widen the status CHECK to include the lifecycle values the code writes
+    // ('completed') alongside the originals.
+    await client.query(`
+      ALTER TABLE crypto_transactions DROP CONSTRAINT IF EXISTS crypto_transactions_status_check;
+      ALTER TABLE crypto_transactions ADD CONSTRAINT crypto_transactions_status_check
+        CHECK (status IN ('pending', 'processing', 'confirmed', 'completed', 'failed'));
+    `);
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS gift_card_requests (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

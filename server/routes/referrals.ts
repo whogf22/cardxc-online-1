@@ -114,11 +114,20 @@ export async function completeReferral(referredUserId: string): Promise<boolean>
     }
 
     await transaction(async (client) => {
-      // Update referral status
-      await client.query(`
+      // Atomically claim the referral: only the first caller to flip it from
+      // 'pending' to 'completed' gets a row back. This is the concurrency guard
+      // that prevents two racing calls (e.g. duplicate deposit webhooks) from
+      // paying the bonus twice.
+      const claim = await client.query(`
         UPDATE referrals SET status = 'completed', completed_at = NOW()
-        WHERE id = $1
+        WHERE id = $1 AND status = 'pending'
+        RETURNING id
       `, [referral.id]);
+
+      if (claim.rowCount === 0) {
+        // Someone else already completed it; abort without crediting.
+        throw new Error('REFERRAL_ALREADY_COMPLETED');
+      }
 
       // Credit referrer wallet
       await client.query(`
@@ -168,7 +177,14 @@ export async function completeReferral(referredUserId: string): Promise<boolean>
 
     return true;
   } catch (err) {
-    logger.error('[Referral] Error completing referral', { error: err instanceof Error ? err.message : 'Unknown error' });
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    // A lost race (another concurrent call already paid the bonus) is expected
+    // and safe: no bonus was double-credited. Treat it as a benign no-op.
+    if (message === 'REFERRAL_ALREADY_COMPLETED') {
+      logger.info('[Referral] Skipped already-completed referral (concurrent claim)', { referredUserId });
+      return false;
+    }
+    logger.error('[Referral] Error completing referral', { error: message });
     return false;
   }
 }
