@@ -70,11 +70,12 @@ export function SessionGuard({ children }: SessionGuardProps) {
     // Reduced frequency - check every 5 minutes instead of 2 minutes
     // Initial check after 30 seconds to avoid immediate duplicate calls
     const interval = setInterval(checkSession, 300000); // 5 minutes
-    setTimeout(checkSession, 30000); // 30 seconds initial delay
+    const timeoutId = setTimeout(checkSession, 30000); // 30 seconds initial delay
 
     return () => {
       authListener.subscription.unsubscribe();
       clearInterval(interval);
+      clearTimeout(timeoutId);
     };
   }, [isPublicPage]);
 

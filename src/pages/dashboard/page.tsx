@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { userApi } from '../../lib/api';
 import { useAuth } from '../../hooks/useAuth';
@@ -78,7 +78,7 @@ export default function Dashboard() {
     }
   };
 
-  const fetchWalletBalances = async () => {
+  const fetchWalletBalances = useCallback(async () => {
     try {
       const walletsResult = await userApi.getWallets();
       if (walletsResult.success && walletsResult.data?.wallets) {
@@ -91,7 +91,7 @@ export default function Dashboard() {
     } catch (err) {
       console.error('[Dashboard] Balance polling error:', err);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadDashboardData();
@@ -102,16 +102,17 @@ export default function Dashboard() {
     if (paymentStatus === 'processing') {
       let pollCount = 0;
       const maxPolls = 10;
-      pollingRef.current = setInterval(() => {
+      const intervalId = setInterval(() => {
         pollCount++;
         fetchWalletBalances();
         if (pollCount >= maxPolls) {
-          if (pollingRef.current) {
-            clearInterval(pollingRef.current);
+          clearInterval(intervalId);
+          if (pollingRef.current === intervalId) {
             pollingRef.current = null;
           }
         }
       }, 3000);
+      pollingRef.current = intervalId;
     }
     return () => {
       if (pollingRef.current) {
@@ -119,7 +120,7 @@ export default function Dashboard() {
         pollingRef.current = null;
       }
     };
-  }, [searchParams]);
+  }, [searchParams, fetchWalletBalances]);
 
   if (isLoading) {
     return (

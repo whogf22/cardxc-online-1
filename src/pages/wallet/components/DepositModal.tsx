@@ -127,28 +127,44 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
         return;
       }
       setStep('processing');
+      let cancelled = false;
+      let pollTimer: ReturnType<typeof setTimeout> | null = null;
+      let attempts = 0;
+      const MAX_ATTEMPTS = 30; // ~60s at 2s interval
       const checkStatus = async () => {
+        if (cancelled) return;
         try {
           const res = await checkoutApi.getStripeSessionStatus(returnSessionId);
+          if (cancelled) return;
           if (res.success && res.data) {
             if (res.data.status === 'complete' && res.data.paymentStatus === 'paid') {
               const balance = await fetchWalletBalance();
+              if (cancelled) return;
               setNewBalance(balance);
               setStep('success');
             } else if (res.data.status === 'expired') {
               setStep('error');
               setErrorMessage('Payment session expired. Please try again.');
+            } else if (attempts >= MAX_ATTEMPTS) {
+              setStep('error');
+              setErrorMessage('Payment is taking longer than expected. Please check your balance shortly.');
             } else {
-              setTimeout(checkStatus, 2000);
+              attempts += 1;
+              pollTimer = setTimeout(checkStatus, 2000);
             }
           }
         } catch {
+          if (cancelled) return;
           setStep('error');
           setErrorMessage('Failed to verify payment status.');
         }
       };
       checkStatus();
       window.history.replaceState({}, '', window.location.pathname);
+      return () => {
+        cancelled = true;
+        if (pollTimer) clearTimeout(pollTimer);
+      };
     }
   }, [fetchWalletBalance]);
 
