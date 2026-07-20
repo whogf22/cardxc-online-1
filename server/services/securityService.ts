@@ -169,8 +169,8 @@ export function sanitizeInput(input: string, maxLength: number = 255): string {
   return input
     .trim()
     .slice(0, maxLength)
-    .replace(/[<>\"']/g, '') // Remove potential XSS characters
-    .replace(/[;--]/g, ''); // Remove potential SQL injection characters
+    .replace(/[<>"']/g, '') // Remove potential XSS characters
+    .replace(/;|--/g, ''); // Remove potential SQL injection characters (semicolons, comment markers)
 }
 
 /**

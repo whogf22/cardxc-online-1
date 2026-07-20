@@ -45,7 +45,7 @@ export async function checkForNewDeposits(): Promise<void> {
             return;
         }
 
-        const data = await response.json();
+        const data = await response.json() as { data?: any[] };
         const transactions = data?.data || [];
 
         if (transactions.length === 0) {
@@ -240,7 +240,7 @@ export async function getWalletBalance(): Promise<{ trx: number; usdt: number } 
         const accountUrl = `${TRONGRID_BASE}/v1/accounts/${DEPOSIT_ADDRESS}`;
         const response = await fetch(accountUrl, { headers: getTronGridHeaders() });
         if (!response.ok) return null;
-        const data = await response.json();
+        const data = await response.json() as { data?: any[] };
         const account = data?.data?.[0];
         if (!account) return null;
 

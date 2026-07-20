@@ -55,17 +55,17 @@ async function fetchExchangeRates(): Promise<Record<string, number>> {
 
     try {
         const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
-        const data = await response.json();
+        const data = await response.json() as { rates?: Record<string, number> };
 
         // Also fetch crypto rates
         const cryptoResponse = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,binancecoin,tether&vs_currencies=usd');
-        const cryptoData = await cryptoResponse.json();
+        const cryptoData = await cryptoResponse.json() as Record<string, { usd?: number }>;
 
         exchangeRateCache = {
             // Fiat rates (already relative to USD)
-            'EUR': data.rates.EUR || 0.92,
-            'GBP': data.rates.GBP || 0.79,
-            'NGN': data.rates.NGN || 1540,
+            'EUR': data.rates?.EUR || 0.92,
+            'GBP': data.rates?.GBP || 0.79,
+            'NGN': data.rates?.NGN || 1540,
 
             // Crypto rates (USD per 1 crypto)
             'BTC': cryptoData.bitcoin?.usd || 43000,

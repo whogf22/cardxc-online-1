@@ -754,7 +754,7 @@ router.get('/google/callback', asyncHandler(async (req: Request, res: Response) 
       return res.redirect('/signin?error_description=' + encodeURIComponent('Failed to exchange authorization code'));
     }
 
-    const tokens = await tokenResponse.json();
+    const tokens = await tokenResponse.json() as { access_token?: string };
     const { access_token } = tokens;
 
     const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
@@ -766,7 +766,7 @@ router.get('/google/callback', asyncHandler(async (req: Request, res: Response) 
       return res.redirect('/signin?error_description=' + encodeURIComponent('Failed to get user information from Google'));
     }
 
-    const googleUser = await userInfoResponse.json();
+    const googleUser = await userInfoResponse.json() as { email?: string; name?: string; picture?: string };
     const { email, name, picture } = googleUser;
 
     if (!email) {

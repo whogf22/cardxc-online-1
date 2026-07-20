@@ -111,6 +111,8 @@
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "npm run build && wrangler dev",
     "type-check": "tsc --noEmit --project tsconfig.app.json",
+    "type-check:server": "tsc --noEmit --project tsconfig.server.json",
+    "type-check:all": "npm run type-check && npm run type-check:server",
     "test": "vitest run",
     "test:watch": "vitest",
     "mcp": "node mcp-server/index.js",
