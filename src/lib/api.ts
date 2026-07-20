@@ -338,6 +338,8 @@ export const userApi = {
     });
   },
 
+  // ADMIN-ONLY (shared account): returns the ENTIRE platform account's provider
+  // transactions. Do NOT surface on user pages. Per-user history: /transactions.
   async getFluzTransactions(filters?: { startDate?: string; endDate?: string; limit?: number; offset?: number }) {
     const params = new URLSearchParams();
     if (filters?.startDate) params.append('startDate', filters.startDate);

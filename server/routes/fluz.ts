@@ -479,7 +479,11 @@ router.post('/gift-cards/purchase',
 );
 
 // New: Get transaction history
-router.get('/transactions', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+// Shared-account provider transaction history. ADMIN-ONLY: getTransactions()
+// returns the ENTIRE platform account's transactions (only date/pagination
+// filtered), so exposing it to any user leaks all users' provider activity.
+// Per-user transaction history is served by the /api/transactions router.
+router.get('/transactions', requireSuperAdmin, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   if (!fluzApi.isConfigured()) {
     throw new AppError('Card service not configured', 503, 'PROVIDER_NOT_CONFIGURED');
   }

@@ -168,7 +168,7 @@ const routes: RouteObject[] = [
   },
   {
     path: '/fluz/transactions',
-    element: <ProtectedRoute><FluzTransactions /></ProtectedRoute>,
+    element: <AdminRoute><FluzTransactions /></AdminRoute>,
   },
   {
     path: '/fluz/merchants',
