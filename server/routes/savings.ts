@@ -73,6 +73,8 @@ router.post('/vaults/:id/deposit',
       throw new AppError('Vault not found', 404, 'NOT_FOUND');
     }
 
+    // Fast-fail UX check. The authoritative guard is the conditional UPDATE
+    // inside the transaction below, which prevents overdraw under concurrency.
     const wallet = await queryOne<any>(`
       SELECT balance_cents FROM wallets WHERE user_id = $1 AND currency = $2
     `, [req.user!.id, vault.currency]);
@@ -82,10 +84,17 @@ router.post('/vaults/:id/deposit',
     }
 
     await transaction(async (client) => {
-      await client.query(`
+      // Atomic, guarded debit: only succeeds if the wallet still has enough.
+      // Prevents a TOCTOU race where two concurrent deposits both pass the
+      // pre-check above and overdraw the wallet into a negative balance.
+      const debit = await client.query(`
         UPDATE wallets SET balance_cents = balance_cents - $1, updated_at = NOW()
-        WHERE user_id = $2 AND currency = $3
+        WHERE user_id = $2 AND currency = $3 AND balance_cents >= $1
       `, [amountCents, req.user!.id, vault.currency]);
+
+      if (debit.rowCount === 0) {
+        throw new AppError('Insufficient balance', 400, 'INSUFFICIENT_BALANCE');
+      }
 
       await client.query(`
         UPDATE savings_vaults SET balance_cents = balance_cents + $1, updated_at = NOW()
@@ -131,10 +140,16 @@ router.post('/vaults/:id/withdraw',
     }
 
     await transaction(async (client) => {
-      await client.query(`
+      // Atomic, guarded debit against the vault balance. Prevents a race where
+      // two concurrent withdrawals both pass the pre-check and overdraw the vault.
+      const debit = await client.query(`
         UPDATE savings_vaults SET balance_cents = balance_cents - $1, updated_at = NOW()
-        WHERE id = $2
+        WHERE id = $2 AND balance_cents >= $1
       `, [amountCents, id]);
+
+      if (debit.rowCount === 0) {
+        throw new AppError('Insufficient vault balance', 400, 'INSUFFICIENT_BALANCE');
+      }
 
       await client.query(`
         INSERT INTO wallets (user_id, currency, balance_cents)
