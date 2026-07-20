@@ -236,7 +236,14 @@ webhookRouter.post('/payment',
         .createHmac('sha256', PROVIDER_WEBHOOK_SECRET)
         .update(payloadForSignature)
         .digest('hex');
-      if (signature !== expectedSignature) {
+      // Constant-time comparison to avoid leaking the expected HMAC via timing.
+      // Length-guard first: timingSafeEqual throws on unequal-length buffers,
+      // and a length mismatch is itself a definitive rejection.
+      const sigBuf = Buffer.from(signature, 'utf8');
+      const expBuf = Buffer.from(expectedSignature, 'utf8');
+      const signatureValid =
+        sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf);
+      if (!signatureValid) {
         await query(`UPDATE payment_webhook_logs SET error_message = 'Invalid signature', processed = TRUE WHERE id = $1`, [logId]);
         logger.warn('webhook_invalid_signature', { logId, eventType, paymentId });
         return res.status(401).json({ success: false, error: 'Invalid signature' });
