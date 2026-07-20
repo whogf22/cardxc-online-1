@@ -617,6 +617,8 @@ export const adminApi = {
     });
   },
 
+  // Bulk virtual-card ops on the SHARED platform Fluz account. ADMIN-ONLY on
+  // the backend (requireSuperAdmin); only call from admin surfaces.
   async bulkCreateVirtualCards(cards: any[]) {
     return request<{ cards: any[]; total: number }>('/fluz/virtual-cards/bulk', {
       method: 'POST',

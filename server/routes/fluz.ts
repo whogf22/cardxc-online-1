@@ -614,8 +614,11 @@ router.post('/addresses',
   })
 );
 
-// New: Get referral information
-router.get('/referral/info', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+// Get referral information for the shared platform account. ADMIN-ONLY: this
+// returns the platform account's referral code and TOTAL REWARDS earned, which
+// is shared financial data, not per-user. The user-facing referral dashboard
+// reads per-user data from the /api/referrals router.
+router.get('/referral/info', requireSuperAdmin, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   if (!fluzApi.isConfigured()) {
     throw new AppError('Card service not configured', 503, 'PROVIDER_NOT_CONFIGURED');
   }
@@ -728,8 +731,10 @@ router.post('/virtual-cards/bulk',
   })
 );
 
-// New: Get bulk order status
-router.get('/virtual-cards/bulk/:orderId', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+// Get bulk order status. ADMIN-ONLY: bulk virtual-card orders belong to the
+// shared platform account (the create side, POST /virtual-cards/bulk, is also
+// requireSuperAdmin), so their status must not be readable by regular users.
+router.get('/virtual-cards/bulk/:orderId', requireSuperAdmin, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   if (!fluzApi.isConfigured()) {
     throw new AppError('Card service not configured', 503, 'PROVIDER_NOT_CONFIGURED');
   }
