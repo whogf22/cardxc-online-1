@@ -645,6 +645,19 @@ export async function initializeDatabase() {
       ALTER TABLE crypto_transactions ADD CONSTRAINT crypto_transactions_status_check
         CHECK (status IN ('pending', 'processing', 'confirmed', 'completed', 'failed'));
     `);
+    // Defense-in-depth against double-crediting an on-chain deposit: enforce that
+    // a given tx_hash can appear at most once. This is a PARTIAL unique index so
+    // the many pending intents that carry a NULL tx_hash are unaffected. If the
+    // application-level dedup ever races, the second insert/update fails loudly
+    // instead of silently crediting the same deposit twice.
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS uniq_crypto_transactions_tx_hash
+        ON crypto_transactions(tx_hash) WHERE tx_hash IS NOT NULL
+    `).catch((e: any) => {
+      // A pre-existing install may already contain duplicate tx_hash rows; log
+      // and continue rather than blocking startup on a historical data issue.
+      logger.warn('[DB] Could not create unique tx_hash index (existing duplicates?)', { error: e?.message });
+    });
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS gift_card_requests (

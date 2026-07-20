@@ -121,20 +121,31 @@ async function processIncomingTransaction(tx: any): Promise<void> {
     }
 }
 
-async function creditUserDeposit(
+export async function creditUserDeposit(
     userId: string, cryptoTxId: string, txHash: string, 
     amount: number, fromAddress: string, blockTimestamp: number
 ): Promise<void> {
     const amountCents = Math.round(amount * 100);
 
-    await transaction(async (client) => {
-        await client.query(
+    try {
+        await transaction(async (client) => {
+        // Atomically claim the pending deposit. Only the run that flips the row
+        // out of 'pending' proceeds to credit the wallet; a concurrent monitor
+        // pass (or a second server instance) that loses the race gets rowCount
+        // 0 and aborts before any credit, preventing a double-credit. The bare
+        // tx_hash SELECT above is only a fast-path dedup and is not race-safe on
+        // its own (pending rows carry a NULL tx_hash and there is no lock).
+        const claim = await client.query(
             `UPDATE crypto_transactions 
              SET status = 'completed', tx_hash = $1, amount = $2, 
                  from_address = $3, confirmations = $4, confirmed_at = NOW(), updated_at = NOW()
-             WHERE id = $5`,
+             WHERE id = $5 AND status = 'pending'`,
             [txHash, amount, fromAddress, REQUIRED_CONFIRMATIONS, cryptoTxId]
         );
+
+        if (claim.rowCount === 0) {
+            throw new Error('DEPOSIT_ALREADY_CREDITED');
+        }
 
         await client.query(
             `INSERT INTO wallets (user_id, currency, balance_cents, usdt_balance_cents)
@@ -156,7 +167,16 @@ async function creditUserDeposit(
             ) VALUES ($1, $2, 'USDT', $3, 1.0, $4, $5)`,
             [userId, cryptoTxId, amountCents, amountCents, `USDT TRC-20 deposit from ${fromAddress.substring(0, 10)}...`]
         );
-    });
+        });
+    } catch (err: any) {
+        if (err?.message === 'DEPOSIT_ALREADY_CREDITED') {
+            // Benign: another monitor pass already claimed and credited this
+            // deposit. Nothing to do and nothing was charged twice.
+            logger.info('[DepositMonitor] Deposit already credited, skipping', { cryptoTxId, txHash });
+            return;
+        }
+        throw err;
+    }
 
     logger.info('[DepositMonitor] User credited for deposit', { userId, amount, txHash });
 }
