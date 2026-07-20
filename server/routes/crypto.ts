@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { AppError, asyncHandler } from '../middleware/errorHandler';
-import { authenticate, AuthenticatedRequest } from '../middleware/auth';
+import { authenticate, requireSuperAdmin, AuthenticatedRequest } from '../middleware/auth';
 import {
     createDepositIntent,
     getDepositStatus,
@@ -93,8 +93,12 @@ router.get('/tx/:txHash',
     })
 );
 
+// Platform hot-wallet on-chain balance. ADMIN-ONLY: this is the shared treasury
+// deposit address, not a per-user balance, so exposing it to normal users leaks
+// operational treasury size and aids targeting.
 router.get('/wallet/balance',
     authenticate,
+    requireSuperAdmin,
     asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
         const balance = await getWalletBalance();
         if (!balance) {
