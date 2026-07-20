@@ -75,10 +75,16 @@ router.post('/p2p/transfer',
         VALUES ($1, 'transfer_in', 'SUCCESS', $2, $3, $4, $5)
       `, [recipientUser.id, amountCents, currency, `P2P from ${req.user!.email}`, outgoingTx.rows[0].id]);
 
-      await client.query(`
+      // Guarded debit: only succeeds if the sender still has enough available
+      // balance. Prevents concurrent transfers from overdrawing the wallet.
+      const debit = await client.query(`
         UPDATE wallets SET balance_cents = balance_cents - $1, updated_at = NOW()
-        WHERE user_id = $2 AND currency = $3
+        WHERE user_id = $2 AND currency = $3 AND balance_cents - reserved_cents >= $1
       `, [amountCents, req.user!.id, currency]);
+
+      if (debit.rowCount === 0) {
+        throw new AppError('Insufficient balance', 400, 'INSUFFICIENT_BALANCE');
+      }
 
       await client.query(`
         INSERT INTO wallets (user_id, currency, balance_cents)
@@ -225,9 +231,14 @@ router.post('/payment-links/:code/pay',
         VALUES ($1, 'transfer_in', 'SUCCESS', $2, $3, 'Payment link received', $4)
       `, [link.user_id, amountCents, link.currency, outgoingTx.rows[0].id]);
 
-      await client.query(`
-        UPDATE wallets SET balance_cents = balance_cents - $1 WHERE user_id = $2 AND currency = $3
+      // Guarded debit prevents concurrent payments from overdrawing the wallet.
+      const debit = await client.query(`
+        UPDATE wallets SET balance_cents = balance_cents - $1 WHERE user_id = $2 AND currency = $3 AND balance_cents - COALESCE(reserved_cents, 0) >= $1
       `, [amountCents, req.user!.id, link.currency]);
+
+      if (debit.rowCount === 0) {
+        throw new AppError('Insufficient balance', 400, 'INSUFFICIENT_BALANCE');
+      }
 
       await client.query(`
         INSERT INTO wallets (user_id, currency, balance_cents)
@@ -322,9 +333,14 @@ router.post('/qr/:code/pay',
         VALUES ($1, 'transfer_in', 'SUCCESS', $2, $3, 'QR payment received', $4)
       `, [qrIntent.user_id, amountCents, qrIntent.currency, outgoingTx.rows[0].id]);
 
-      await client.query(`
-        UPDATE wallets SET balance_cents = balance_cents - $1 WHERE user_id = $2 AND currency = $3
+      // Guarded debit prevents concurrent payments from overdrawing the wallet.
+      const debit = await client.query(`
+        UPDATE wallets SET balance_cents = balance_cents - $1 WHERE user_id = $2 AND currency = $3 AND balance_cents - COALESCE(reserved_cents, 0) >= $1
       `, [amountCents, req.user!.id, qrIntent.currency]);
+
+      if (debit.rowCount === 0) {
+        throw new AppError('Insufficient balance', 400, 'INSUFFICIENT_BALANCE');
+      }
 
       await client.query(`
         INSERT INTO wallets (user_id, currency, balance_cents)
@@ -332,7 +348,12 @@ router.post('/qr/:code/pay',
         ON CONFLICT (user_id, currency) DO UPDATE SET balance_cents = wallets.balance_cents + $3
       `, [qrIntent.user_id, qrIntent.currency, amountCents]);
 
-      await client.query(`UPDATE qr_payment_intents SET status = 'completed' WHERE id = $1`, [qrIntent.id]);
+      // Atomically consume the QR intent; if another concurrent payment already
+      // completed it, abort so the payer is not charged twice.
+      const consume = await client.query(`UPDATE qr_payment_intents SET status = 'completed' WHERE id = $1 AND status = 'pending'`, [qrIntent.id]);
+      if (consume.rowCount === 0) {
+        throw new AppError('QR code already used', 400, 'QR_USED');
+      }
 
       return outgoingTx.rows[0].id;
     });
@@ -499,6 +520,15 @@ router.post('/splits/:id/pay',
     }
 
     await transaction(async (client) => {
+      // Atomically claim this participant row so concurrent calls cannot both pay.
+      const claim = await client.query(`
+        UPDATE split_participants SET status = 'paid', paid_at = NOW()
+        WHERE id = $1 AND status != 'paid'
+      `, [participant.id]);
+      if (claim.rowCount === 0) {
+        throw new AppError('Already paid', 400, 'ALREADY_PAID');
+      }
+
       await client.query(`
         INSERT INTO transactions (user_id, type, status, amount_cents, currency, description)
         VALUES ($1, 'transfer_out', 'SUCCESS', $2, $3, 'Split bill payment')
@@ -509,17 +539,19 @@ router.post('/splits/:id/pay',
         VALUES ($1, 'transfer_in', 'SUCCESS', $2, $3, 'Split bill received')
       `, [participant.creator_id, participant.amount_cents, participant.currency]);
 
-      await client.query(`
-        UPDATE wallets SET balance_cents = balance_cents - $1 WHERE user_id = $2 AND currency = $3
+      // Guarded debit prevents concurrent payments from overdrawing the wallet.
+      const debit = await client.query(`
+        UPDATE wallets SET balance_cents = balance_cents - $1 WHERE user_id = $2 AND currency = $3 AND balance_cents >= $1
       `, [participant.amount_cents, req.user!.id, participant.currency]);
+      if (debit.rowCount === 0) {
+        throw new AppError('Insufficient balance', 400, 'INSUFFICIENT_BALANCE');
+      }
 
       await client.query(`
         INSERT INTO wallets (user_id, currency, balance_cents)
         VALUES ($1, $2, $3)
         ON CONFLICT (user_id, currency) DO UPDATE SET balance_cents = wallets.balance_cents + $3
       `, [participant.creator_id, participant.currency, participant.amount_cents]);
-
-      await client.query(`UPDATE split_participants SET status = 'paid', paid_at = NOW() WHERE id = $1`, [participant.id]);
     });
 
     res.json({ success: true, message: 'Split payment successful' });
