@@ -11,6 +11,16 @@ import { v4 as uuidv4 } from 'uuid';
 const router = Router();
 router.use(authenticate);
 
+// SECURITY: The Fluz provider is a SINGLE shared platform account (one API key /
+// user id / business account). Every call here operates on that one account, NOT
+// on a per-user provider account. Endpoints that read/mutate money, card PANs, or
+// redeemable codes are therefore gated behind requireSuperAdmin so a normal user
+// cannot enumerate/reveal/spend on the shared account. User-facing card and gift
+// card flows live in routes/cards.ts and routes/giftCards.ts, which enforce
+// per-user ownership (virtual_cards.user_id / gift_card_requests.user_id).
+// Only low-sensitivity catalog/reference reads (offers, merchants, categories,
+// business lookup, quotes, addresses, referral info) remain open to any user.
+
 router.get('/status', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const configured = fluzApi.isConfigured();
   if (!configured) {
@@ -28,7 +38,7 @@ router.get('/status', asyncHandler(async (req: AuthenticatedRequest, res: Respon
   });
 }));
 
-router.get('/wallet', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+router.get('/wallet', requireSuperAdmin, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   if (!fluzApi.isConfigured()) {
     throw new AppError('Card service not configured', 503, 'PROVIDER_NOT_CONFIGURED');
   }
@@ -37,7 +47,7 @@ router.get('/wallet', asyncHandler(async (req: AuthenticatedRequest, res: Respon
   res.json({ success: true, data: { wallet } });
 }));
 
-router.get('/balance', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+router.get('/balance', requireSuperAdmin, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   if (!fluzApi.isConfigured()) {
     throw new AppError('Card service not configured', 503, 'PROVIDER_NOT_CONFIGURED');
   }
@@ -51,7 +61,7 @@ router.get('/balance', asyncHandler(async (req: AuthenticatedRequest, res: Respo
   });
 }));
 
-router.get('/virtual-cards', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+router.get('/virtual-cards', requireSuperAdmin, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   if (!fluzApi.isConfigured()) {
     throw new AppError('Card service not configured', 503, 'PROVIDER_NOT_CONFIGURED');
   }
@@ -78,6 +88,7 @@ router.get('/virtual-cards', asyncHandler(async (req: AuthenticatedRequest, res:
 }));
 
 router.post('/virtual-cards',
+  requireSuperAdmin,
   sensitiveOpLimiter,
   body('spendLimit').isFloat({ min: 1 }).withMessage('Spend limit must be at least $1'),
   body('spendLimitDuration').isIn(['DAILY', 'WEEKLY', 'MONTHLY', 'ANNUAL', 'LIFETIME']).withMessage('Invalid spend limit duration'),
@@ -141,7 +152,7 @@ router.post('/virtual-cards',
 );
 
 // Get virtual card transactions (must be before /virtual-cards/:id to avoid route conflict)
-router.get('/virtual-cards/transactions', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+router.get('/virtual-cards/transactions', requireSuperAdmin, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   if (!fluzApi.isConfigured()) {
     throw new AppError('Card service not configured', 503, 'PROVIDER_NOT_CONFIGURED');
   }
@@ -161,6 +172,7 @@ router.get('/virtual-cards/transactions', asyncHandler(async (req: Authenticated
 }));
 
 router.get('/virtual-cards/:id',
+  requireSuperAdmin,
   param('id').isUUID().withMessage('Invalid card ID'),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const errors = validationResult(req);
@@ -196,6 +208,7 @@ router.get('/virtual-cards/:id',
 );
 
 router.get('/virtual-cards/:id/reveal',
+  requireSuperAdmin,
   param('id').isUUID().withMessage('Invalid card ID'),
   sensitiveOpLimiter,
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -232,6 +245,7 @@ router.get('/virtual-cards/:id/reveal',
 );
 
 router.post('/virtual-cards/:id/lock',
+  requireSuperAdmin,
   param('id').isUUID().withMessage('Invalid card ID'),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const errors = validationResult(req);
@@ -258,6 +272,7 @@ router.post('/virtual-cards/:id/lock',
 );
 
 router.post('/virtual-cards/:id/unlock',
+  requireSuperAdmin,
   param('id').isUUID().withMessage('Invalid card ID'),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const errors = validationResult(req);
@@ -284,6 +299,7 @@ router.post('/virtual-cards/:id/unlock',
 );
 
 router.put('/virtual-cards/:id',
+  requireSuperAdmin,
   param('id').isUUID().withMessage('Invalid card ID'),
   body('spendLimit').optional().isFloat({ min: 0 }),
   body('spendLimitDuration').optional().isIn(['DAILY', 'WEEKLY', 'MONTHLY', 'ANNUAL', 'LIFETIME']),
@@ -320,6 +336,7 @@ router.put('/virtual-cards/:id',
 );
 
 router.post('/deposit',
+  requireSuperAdmin,
   sensitiveOpLimiter,
   body('amount').isFloat({ min: 1 }).withMessage('Deposit amount must be at least $1'),
   body('bankCardId').notEmpty().withMessage('Bank card ID is required'),
@@ -380,7 +397,11 @@ router.get('/merchants', asyncHandler(async (req: AuthenticatedRequest, res: Res
 }));
 
 // Get user's purchased gift cards (Fluz API)
-router.get('/gift-cards', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+// NOTE: Fluz is a single shared platform account, so this lists platform-owned
+// gift cards with no per-user ownership. Restricted to admins to prevent one
+// user from viewing/burning gift card codes purchased for others. User-facing
+// gift cards flow through the /api/gift-cards router (per-user gift_card_requests).
+router.get('/gift-cards', requireSuperAdmin, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   if (!fluzApi.isConfigured()) {
     throw new AppError('Card service not configured', 503, 'PROVIDER_NOT_CONFIGURED');
   }
@@ -396,8 +417,11 @@ router.get('/gift-cards', asyncHandler(async (req: AuthenticatedRequest, res: Re
   res.json({ success: true, data: { giftCards } });
 }));
 
-// Reveal gift card code
+// Reveal gift card code (irreversible - burns the code). Admin-only: on a shared
+// Fluz account there is no per-user ownership, so exposing this to any user lets
+// them reveal/burn other users' codes.
 router.post('/gift-cards/:id/reveal',
+  requireSuperAdmin,
   param('id').isUUID().withMessage('Invalid gift card ID'),
   sensitiveOpLimiter,
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -425,6 +449,7 @@ router.post('/gift-cards/:id/reveal',
 );
 
 router.post('/gift-cards/purchase',
+  requireSuperAdmin,
   sensitiveOpLimiter,
   body('offerId').notEmpty().isUUID().withMessage('Invalid offer ID'),
   body('amount').isFloat({ min: 1 }).withMessage('Amount must be at least $1'),
@@ -620,6 +645,7 @@ router.get('/virtual-cards/offers', asyncHandler(async (req: AuthenticatedReques
 
 // Get virtual card balances
 router.post('/virtual-cards/balance',
+  requireSuperAdmin,
   body('cardIds').isArray({ min: 1 }).withMessage('cardIds array required'),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const errors = validationResult(req);
