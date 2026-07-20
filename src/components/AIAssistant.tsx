@@ -136,15 +136,23 @@ export function AIAssistant() {
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let fullContent = '';
+      let buffer = '';
 
       if (reader) {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          
-          const text = decoder.decode(value);
-          const lines = text.split('\n').filter(line => line.startsWith('data: '));
-          
+
+          // Stream-decode so multi-byte UTF-8 chars split across network
+          // chunks aren't corrupted, and buffer partial lines so an SSE
+          // "data:" record spanning two chunks isn't dropped by JSON.parse.
+          buffer += decoder.decode(value, { stream: true });
+          const newlineIdx = buffer.lastIndexOf('\n');
+          if (newlineIdx === -1) continue;
+          const chunk = buffer.slice(0, newlineIdx);
+          buffer = buffer.slice(newlineIdx + 1);
+          const lines = chunk.split('\n').filter(line => line.startsWith('data: '));
+
           for (const line of lines) {
             try {
               const data = JSON.parse(line.replace('data: ', ''));
