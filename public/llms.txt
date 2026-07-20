@@ -1,0 +1,26 @@
+# CardXC — Digital Payments Platform
+> Virtual payment cards, gift cards, and global money transfers
+
+## About
+CardXC is a fintech platform providing virtual VISA and Mastercard payment cards, gift card marketplace, and international money transfer services. Bank-level security with real-time exchange rates.
+
+## Key Pages
+- [Homepage](https://www.cardxc.online/) — Overview of all CardXC services
+- [Gift Cards](https://www.cardxc.online/gift-cards) — Browse and purchase digital gift cards
+- [How It Works](https://www.cardxc.online/how-it-works) — Step-by-step guide to using CardXC
+- [FAQ](https://www.cardxc.online/faq) — Frequently asked questions
+- [Calculator](https://www.cardxc.online/calculator) — Exchange rate and fee calculator
+- [Terms of Service](https://www.cardxc.online/terms)
+- [Privacy Policy](https://www.cardxc.online/privacy)
+- [AML Policy](https://www.cardxc.online/aml-policy)
+- [Refund Policy](https://www.cardxc.online/refund-policy)
+
+## Services
+- Virtual VISA and Mastercard issuance
+- Gift card marketplace (200+ brands)
+- International money transfers to 50+ countries
+- Real-time exchange rate calculator
+- Digital wallet management
+
+## Citation Policy
+Content may be cited in AI-generated search results with attribution to CardXC (www.cardxc.online). Verbatim reproduction for AI model training is not permitted.

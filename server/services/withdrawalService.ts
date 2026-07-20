@@ -217,7 +217,10 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
         withdrawalId = withdrawalResult.rows[0].id;
     });
 
-    // Step 2: Now that transaction is committed, initiate external payout
+    // Step 2: Now that transaction is committed, initiate external payout.
+    // IMPORTANT: track whether the external payout actually succeeded so that a
+    // later bookkeeping failure never triggers a refund of already-sent crypto.
+    let payoutSucceeded = false;
     try {
         const payoutResult = await sendCryptoToWallet({
             userId: request.userId,
@@ -227,8 +230,16 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
             transactionId: withdrawalId
         });
 
-        if (payoutResult.success) {
-            // Step 3: Update withdrawal status to processing after successful payout
+        if (!payoutResult.success) {
+            throw new Error('Payout failed: ' + (payoutResult.error || 'Unknown error'));
+        }
+
+        // The funds have left our custody. From here on we must NOT refund.
+        payoutSucceeded = true;
+
+        // Step 3: Record the successful payout. If this bookkeeping fails we log
+        // loudly for manual reconciliation but keep the user's balance deducted.
+        try {
             await transaction(async (client) => {
                 await client.query(`
           UPDATE withdrawal_requests 
@@ -248,41 +259,53 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
                     `USDT withdrawal to ${request.walletAddress.substring(0, 10)}...`
                 ]);
             });
-
-            await createAuditLog({
+        } catch (bookkeepingError: any) {
+            logger.error('Crypto withdrawal payout succeeded but bookkeeping failed - MANUAL RECONCILIATION REQUIRED', {
                 userId: request.userId,
-                action: 'CRYPTO_WITHDRAWAL_INITIATED',
-                entityType: 'withdrawal_request',
-                entityId: withdrawalId,
-                newValues: {
-                    amount: request.amount,
-                    network: request.network,
-                    address: request.walletAddress
-                }
-            });
-
-            logger.info('Crypto withdrawal initiated', {
-                userId: request.userId,
-                amount: request.amount,
-                network: request.network,
-                payoutId: payoutResult.payoutId
-            });
-
-            return {
-                success: true,
                 withdrawalId,
                 payoutId: payoutResult.payoutId,
                 txHash: payoutResult.txHash || null,
-                message: 'USDT transfer initiated',
-                estimatedTime: payoutResult.estimatedCompletionTime || '1-10 minutes',
-                status: payoutResult.status
-            };
-        } else {
-            throw new Error('Payout failed: ' + (payoutResult.error || 'Unknown error'));
+                error: bookkeepingError?.message
+            });
         }
 
+        await createAuditLog({
+            userId: request.userId,
+            action: 'CRYPTO_WITHDRAWAL_INITIATED',
+            entityType: 'withdrawal_request',
+            entityId: withdrawalId,
+            newValues: {
+                amount: request.amount,
+                network: request.network,
+                address: request.walletAddress
+            }
+        });
+
+        logger.info('Crypto withdrawal initiated', {
+            userId: request.userId,
+            amount: request.amount,
+            network: request.network,
+            payoutId: payoutResult.payoutId
+        });
+
+        return {
+            success: true,
+            withdrawalId,
+            payoutId: payoutResult.payoutId,
+            txHash: payoutResult.txHash || null,
+            message: 'USDT transfer initiated',
+            estimatedTime: payoutResult.estimatedCompletionTime || '1-10 minutes',
+            status: payoutResult.status
+        };
+
     } catch (error: any) {
-        // Step 4: Refund if payout fails
+        // Only refund when the external payout never went out. If the payout
+        // already succeeded, a thrown error here must not restore the balance.
+        if (payoutSucceeded) {
+            throw error;
+        }
+
+        // Step 4: Refund because the payout failed before funds left custody.
         await transaction(async (client) => {
             await client.query(`
         UPDATE wallets 
