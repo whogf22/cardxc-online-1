@@ -458,11 +458,19 @@ router.post('/withdrawals/:withdrawalId/approve',
     }
 
     await transaction(async (client) => {
-      await client.query(`
+      // Atomically claim the withdrawal so two concurrent admin actions (or an
+      // approve racing a reject) cannot both move money. The out-of-transaction
+      // status check above is only a fast-fail; this WHERE status = 'pending'
+      // is the real guard.
+      const claim = await client.query(`
         UPDATE withdrawal_requests 
         SET status = 'approved', admin_notes = $1, approved_by = $2, updated_at = NOW()
-        WHERE id = $3
+        WHERE id = $3 AND status = 'pending'
       `, [notes, req.user!.id, withdrawalId]);
+
+      if (claim.rowCount === 0) {
+        throw new AppError('Withdrawal already processed', 400, 'ALREADY_PROCESSED');
+      }
 
       await client.query(`
         UPDATE wallets
@@ -508,11 +516,17 @@ router.post('/withdrawals/:withdrawalId/reject',
     }
 
     await transaction(async (client) => {
-      await client.query(`
+      // Atomically claim the withdrawal so a concurrent approve/reject cannot
+      // both release the reserve (which would corrupt reserved_cents).
+      const claim = await client.query(`
         UPDATE withdrawal_requests 
         SET status = 'rejected', admin_notes = $1, approved_by = $2, updated_at = NOW()
-        WHERE id = $3
+        WHERE id = $3 AND status = 'pending'
       `, [reason, req.user!.id, withdrawalId]);
+
+      if (claim.rowCount === 0) {
+        throw new AppError('Withdrawal already processed', 400, 'ALREADY_PROCESSED');
+      }
 
       await client.query(`
         UPDATE wallets SET reserved_cents = reserved_cents - $1, updated_at = NOW()
