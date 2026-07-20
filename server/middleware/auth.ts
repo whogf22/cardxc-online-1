@@ -38,7 +38,15 @@ export async function authenticate(req: AuthenticatedRequest, res: Response, nex
     if (!session) {
       throw new AppError('Session expired or invalid', 401, 'SESSION_INVALID');
     }
-    
+
+    // Defense in depth: the JWT carries both userId and sessionId (coupled at
+    // creation in createSession). Reject any token whose userId claim does not
+    // match the session's owner so a session id can never be paired with a
+    // different user identity.
+    if (session.user_id !== decoded.userId) {
+      throw new AppError('Session expired or invalid', 401, 'SESSION_INVALID');
+    }
+
     if (session.account_status !== 'active') {
       throw new AppError('Account is not active', 403, 'ACCOUNT_INACTIVE');
     }
@@ -46,7 +54,7 @@ export async function authenticate(req: AuthenticatedRequest, res: Response, nex
     await queryOne('UPDATE sessions SET last_used_at = NOW() WHERE id = $1', [decoded.sessionId]);
     
     req.user = {
-      id: decoded.userId,
+      id: session.user_id,
       email: session.email,
       role: session.role as 'USER' | 'SUPER_ADMIN',
       sessionId: decoded.sessionId,
