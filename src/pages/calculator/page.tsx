@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchExchangeRates, getConversionRate, getCurrencyInfo, getRawRates } from '../../lib/exchangeRateService';
 import SEOHead from '../../components/SEOHead';
@@ -17,7 +17,7 @@ interface CurrencyDisplay {
   name: string;
   flag: string;
   rate: number;
-  change: number;
+  change: number | null;
 }
 
 export default function CalculatorPage() {
@@ -32,6 +32,8 @@ export default function CalculatorPage() {
   const [currencies, setCurrencies] = useState<CurrencyDisplay[]>([]);
   const [, setRates] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  // Previous rate snapshot, used to compute a real change % between refreshes.
+  const prevRatesRef = useRef<Record<string, number> | null>(null);
 
   useEffect(() => {
     loadRates();
@@ -55,18 +57,28 @@ export default function CalculatorPage() {
       const currencyInfo = getCurrencyInfo();
       
       setRates(rawRates);
-      
-      // Generate random changes for display (in real app, compare with previous rates)
+
+      // Compute the real change vs the previously fetched rates. On the first
+      // load there is no prior snapshot, so change is null (badge is hidden)
+      // rather than showing a fabricated value.
+      const prevRates = prevRatesRef.current;
       const displayCurrencies: CurrencyDisplay[] = currencyInfo
         .filter(c => c.code !== 'USD')
-        .map(c => ({
-          code: c.code,
-          name: c.name,
-          flag: c.flag,
-          rate: rawRates[c.code] || 1,
-          change: (Math.random() - 0.5) * 2, // Random change for demo
-        }));
-      
+        .map(c => {
+          const rate = rawRates[c.code] || 1;
+          const prev = prevRates?.[c.code];
+          const change =
+            prev && prev > 0 ? ((rate - prev) / prev) * 100 : null;
+          return {
+            code: c.code,
+            name: c.name,
+            flag: c.flag,
+            rate,
+            change,
+          };
+        });
+
+      prevRatesRef.current = rawRates;
       setCurrencies(displayCurrencies);
       setLastUpdated(new Date());
       setLoading(false);
@@ -252,13 +264,15 @@ export default function CalculatorPage() {
                       <span className="text-2xl">{currency.flag}</span>
                       <span className="font-semibold text-white">{currency.code}</span>
                     </div>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-                      currency.change >= 0 
-                        ? 'bg-emerald-500/10 text-emerald-400' 
-                        : 'bg-red-500/10 text-red-400'
-                    }`}>
-                      {currency.change >= 0 ? '+' : ''}{currency.change.toFixed(2)}%
-                    </span>
+                    {currency.change !== null && (
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                        currency.change >= 0
+                          ? 'bg-emerald-500/10 text-emerald-400'
+                          : 'bg-red-500/10 text-red-400'
+                      }`}>
+                        {currency.change >= 0 ? '+' : ''}{currency.change.toFixed(2)}%
+                      </span>
+                    )}
                   </div>
                   <div className="text-lg font-bold text-white">
                     {currency.rate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
