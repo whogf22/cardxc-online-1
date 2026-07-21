@@ -9,6 +9,7 @@ import { cloudflare } from "@cloudflare/vite-plugin";
 
 const base = process.env.BASE_PATH || "/";
 const isPreview = process.env.IS_PREVIEW ? true : false;
+const isProduction = process.env.NODE_ENV === 'production';
 
 export default defineConfig({
   define: {
@@ -16,6 +17,11 @@ export default defineConfig({
     __IS_PREVIEW__: JSON.stringify(isPreview),
     __PRODUCTION_MODE__: JSON.stringify(process.env.NODE_ENV === 'production'),
   },
+  // In production, drop console.log/debug/info and debugger statements from the
+  // client bundle. console.error and console.warn are kept for real diagnostics.
+  esbuild: isProduction
+    ? { pure: ['console.log', 'console.debug', 'console.info'], drop: ['debugger'] }
+    : undefined,
   plugins: [react(), AutoImport({
     imports: [
       {
