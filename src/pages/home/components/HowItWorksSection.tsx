@@ -27,7 +27,7 @@ const steps = [
   {
     number: '04',
     title: 'Gift Card Buy',
-    description: 'Buy gift cards from Amazon, Netflix, Spotify and 700+ brands instantly.',
+    description: 'Buy gift cards from Amazon, Netflix, Spotify and many popular brands instantly.',
     icon: 'ri-gift-2-line',
     path: '/giftcards',
     gradient: 'from-violet-500 to-purple-500',
