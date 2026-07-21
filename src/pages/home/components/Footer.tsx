@@ -155,6 +155,10 @@ export default function Footer({ onOpenContact }: FooterProps) {
               <p className="text-xs text-neutral-600 mt-1">
                 CardXC is a digital wallet and payments platform operated by CARDXC LLC.
               </p>
+              <p className="text-xs text-neutral-600 mt-1">
+                All third-party trademarks, logos, and brand names are the property of their
+                respective owners. Their use does not imply any affiliation with or endorsement by them.
+              </p>
             </div>
             <div className="flex items-center gap-5">
               <span className="flex items-center gap-1.5 text-xs text-neutral-500">
