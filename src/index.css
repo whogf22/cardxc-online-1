@@ -1,5 +1,9 @@
 /* CardXC Premium 3D Design System - Version 160.0 */
 
+/* Remix Icon, bundled locally (was a fragile CDN preload in index.html).
+   Ships with the app so all `ri-*` icons render reliably offline / on first paint. */
+@import 'remixicon/fonts/remixicon.css';
+
 @import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,900&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 

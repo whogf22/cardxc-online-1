@@ -86,11 +86,11 @@
          Then add integrity="sha384-…" to each <link>. Hashes must be refreshed
          any time the pinned version changes. Self-hosting is the stronger
          long-term fix for a fintech app. crossorigin="anonymous" is added
-         today so that adding integrity= later does not break loading. -->
-    <link rel="preload" href="https://cdn.jsdelivr.net/npm/remixicon@4.6.0/fonts/remixicon.css" as="style" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link href="https://cdn.jsdelivr.net/npm/remixicon@4.6.0/fonts/remixicon.css" rel="stylesheet" crossorigin="anonymous" /></noscript>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" media="print" crossorigin="anonymous" onload="this.media='all'" />
-    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" /></noscript>
+         today so that adding integrity= later does not break loading.
+
+         Remix Icon is now bundled locally via `remixicon` (imported in
+         src/index.css), so the previous CDN preload/onload hack was removed.
+         Font Awesome CDN was also removed because no `fa-*` icons are used. -->
 
     <!-- Structured Data: Organization -->
     <script type="application/ld+json">
