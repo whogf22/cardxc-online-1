@@ -32,7 +32,7 @@ export function CookieConsentBanner() {
 
   return (
     <div
-      role="dialog"
+      role="region"
       aria-live="polite"
       aria-label="Cookie consent"
       className="fixed bottom-0 left-0 right-0 z-[80] p-3 sm:p-4"
@@ -52,12 +52,14 @@ export function CookieConsentBanner() {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
+              type="button"
               onClick={() => choose('rejected')}
               className="px-4 py-2.5 text-sm font-medium text-neutral-300 bg-white/[0.04] rounded-lg border border-white/[0.1] hover:bg-white/[0.08] transition-colors"
             >
               Reject non-essential
             </button>
             <button
+              type="button"
               onClick={() => choose('accepted')}
               className="px-5 py-2.5 text-sm font-semibold text-black bg-lime-500 rounded-lg hover:bg-lime-400 transition-colors"
             >
