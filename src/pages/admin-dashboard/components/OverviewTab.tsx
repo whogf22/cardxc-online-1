@@ -74,7 +74,7 @@ export default function OverviewTab() {
       label: 'Total Users',
       value: stats.totalUsers.toLocaleString(),
       icon: 'ri-user-line',
-      trend: '+12%',
+      trend: null,
       trendUp: true,
       color: 'blue',
       iconBg: 'bg-blue-500/20',
@@ -84,7 +84,7 @@ export default function OverviewTab() {
       label: 'Net Balance (USD)',
       value: `$${stats.totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       icon: 'ri-funds-line',
-      trend: '+8.3%',
+      trend: null,
       trendUp: true,
       color: 'emerald',
       iconBg: 'bg-emerald-500/20',
@@ -104,7 +104,7 @@ export default function OverviewTab() {
       label: 'Total Transactions',
       value: stats.todayTransactions.toLocaleString(),
       icon: 'ri-exchange-line',
-      trend: '+15%',
+      trend: null,
       trendUp: true,
       color: 'purple',
       iconBg: 'bg-purple-500/20',
@@ -163,10 +163,12 @@ export default function OverviewTab() {
               <div className={`w-12 h-12 ${stat.iconBg} rounded-xl flex items-center justify-center`}>
                 <i className={`${stat.icon} text-2xl ${stat.iconColor}`}></i>
               </div>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${stat.trendUp ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
-                }`}>
-                {stat.trend}
-              </span>
+              {stat.trend && (
+                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${stat.trendUp ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+                  }`}>
+                  {stat.trend}
+                </span>
+              )}
             </div>
             <p className="text-3xl font-bold text-white mb-1">{stat.value}</p>
             <p className="text-sm text-slate-400">{stat.label}</p>
@@ -277,13 +279,6 @@ export default function OverviewTab() {
                     }`}>
                     {stats.activeFraudFlags > 0 ? 'Action Required' : 'Low'}
                   </span>
-                </div>
-              </div>
-
-              <div className="p-4 bg-slate-900/50 rounded-xl border border-slate-700/30">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400 text-sm">Active Sessions</span>
-                  <span className="text-white font-bold">{Math.round(stats.totalUsers * 0.15)}</span>
                 </div>
               </div>
             </div>
