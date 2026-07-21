@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Gift, Users, DollarSign, Copy, Share2, TrendingUp, Award, Check, ArrowLeft } from 'lucide-react';
 import { userApi } from '../../lib/api';
 
@@ -274,8 +274,11 @@ export default function ReferralDashboardPage() {
             </li>
           </ul>
           <p className="mt-6 text-xs text-neutral-500 leading-relaxed">
-            Referral rewards are discretionary and subject to the CardXC referral program terms,
-            including eligibility, verification, and anti-abuse requirements. Reward amounts and
+            Referral rewards are discretionary and subject to the{' '}
+            <Link to="/referral-terms" className="text-lime-400 hover:underline">
+              CardXC referral program terms
+            </Link>
+            , including eligibility, verification, and anti-abuse requirements. Reward amounts and
             availability may change or be withdrawn at any time. Rewards are not guaranteed and do
             not constitute income or investment returns.
           </p>

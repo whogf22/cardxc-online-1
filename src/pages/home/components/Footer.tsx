@@ -11,8 +11,10 @@ const QUICK_LINKS = [
 const LEGAL_LINKS = [
   { label: 'Terms of Service', to: '/terms' },
   { label: 'Privacy Notice', to: '/privacy' },
+  { label: 'Cookie Policy', to: '/cookie-policy' },
   { label: 'Refund Policy', to: '/refund-policy' },
   { label: 'AML Policy', to: '/aml-policy' },
+  { label: 'Referral Terms', to: '/referral-terms' },
 ] as const;
 
 const SOCIAL_LINKS = [
