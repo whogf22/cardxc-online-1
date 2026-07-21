@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { userApi } from '../../lib/api';
 
 type Step = 'amount' | 'review' | 'success';
 
 interface Recipient {
   id: number;
   name: string;
-  cardNumber: string;
+  email: string;
 }
 
 export default function TransferPage() {
@@ -17,25 +18,51 @@ export default function TransferPage() {
   const [selectedContact, setSelectedContact] = useState<Recipient | null>(null);
   const [showAddRecipient, setShowAddRecipient] = useState(false);
   const [recipientName, setRecipientName] = useState('');
-  const [recipientAccount, setRecipientAccount] = useState('');
+  const [recipientEmail, setRecipientEmail] = useState('');
   const [reference, setReference] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const userBalance = 56246.90;
+  const [userBalance, setUserBalance] = useState<number | null>(null);
+  const [balanceError, setBalanceError] = useState(false);
+  const [amountError, setAmountError] = useState('');
+  const [submitError, setSubmitError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await userApi.getWallets();
+        if (cancelled) return;
+        if (result.success && result.data?.wallets) {
+          const usdWallet = result.data.wallets.find((w: any) => w.currency === 'USD');
+          const bal = usdWallet?.balance ??
+            (usdWallet?.balanceCents != null ? usdWallet.balanceCents / 100 : 0);
+          setUserBalance(bal);
+        } else {
+          setUserBalance(0);
+        }
+      } catch {
+        if (!cancelled) { setUserBalance(0); setBalanceError(true); }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const txnId = `TXN ${Math.floor(Math.random() * 90000000) + 10000000}`;
 
   const handleAddRecipient = () => {
-    if (recipientName.trim() && recipientAccount.trim()) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (recipientName.trim() && emailRegex.test(recipientEmail.trim())) {
       const newRecipient: Recipient = {
         id: Date.now(),
         name: recipientName.trim(),
-        cardNumber: `**** ${recipientAccount.slice(-4)}`,
+        email: recipientEmail.trim(),
       };
       setRecipients(prev => [...prev, newRecipient]);
       setSelectedContact(newRecipient);
       setShowAddRecipient(false);
       setRecipientName('');
-      setRecipientAccount('');
+      setRecipientEmail('');
     }
   };
 
@@ -55,7 +82,7 @@ export default function TransferPage() {
     }
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (step === 'amount') {
       if (!selectedContact) {
         setShowAddRecipient(true);
@@ -65,13 +92,41 @@ export default function TransferPage() {
       if (isNaN(parsedAmount) || parsedAmount <= 0) {
         return;
       }
+      if (userBalance !== null && parsedAmount > userBalance) {
+        setAmountError('Amount exceeds your available balance');
+        return;
+      }
+      setAmountError('');
       setStep('review');
     } else if (step === 'review') {
+      if (!selectedContact) return;
+      const parsedAmount = parseFloat(amount);
+      if (isNaN(parsedAmount) || parsedAmount <= 0) {
+        setSubmitError('Please enter a valid amount');
+        return;
+      }
+      if (userBalance !== null && parsedAmount > userBalance) {
+        setSubmitError('Amount exceeds your available balance');
+        return;
+      }
+      setSubmitError('');
       setLoading(true);
-      setTimeout(() => {
-        setLoading(false);
+      try {
+        const result = await userApi.requestPlatformTransfer({
+          amount: parsedAmount,
+          recipientEmail: selectedContact.email,
+          walletType: 'fiat',
+          message: reference.trim() || undefined,
+        });
+        if (!result.success) {
+          throw new Error((result as any).error?.message || 'Transfer failed');
+        }
         setStep('success');
-      }, 2000);
+      } catch (err: any) {
+        setSubmitError(err?.message || 'Transfer failed. Please try again.');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -107,20 +162,20 @@ export default function TransferPage() {
             
             <div>
               <label className="block text-sm font-medium text-neutral-400 mb-2">
-                Account Number
+                Recipient Email
               </label>
               <input
-                type="text"
-                value={recipientAccount}
-                onChange={(e) => setRecipientAccount(e.target.value)}
-                placeholder="Enter account number"
+                type="email"
+                value={recipientEmail}
+                onChange={(e) => setRecipientEmail(e.target.value)}
+                placeholder="friend@example.com"
                 className="input-dark w-full rounded-xl px-4 py-3.5"
               />
             </div>
             
             <button
               onClick={handleAddRecipient}
-              disabled={!recipientName.trim() || !recipientAccount.trim()}
+              disabled={!recipientName.trim() || !recipientEmail.trim()}
               className="w-full py-4 bg-lime-500 hover:bg-lime-400 text-black font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-4"
             >
               Add Recipient
@@ -289,6 +344,11 @@ export default function TransferPage() {
           </div>
 
           <div className="mt-auto">
+            {submitError && (
+              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+                <p className="text-sm text-red-400">{submitError}</p>
+              </div>
+            )}
             <button
               onClick={handleContinue}
               disabled={loading}
@@ -364,7 +424,7 @@ export default function TransferPage() {
               </div>
               <div>
                 <p className="font-medium text-white">{selectedContact.name}</p>
-                <p className="text-sm text-neutral-500">{selectedContact.cardNumber}</p>
+                <p className="text-sm text-neutral-500">{selectedContact.email}</p>
               </div>
             </div>
             <button 
@@ -392,7 +452,14 @@ export default function TransferPage() {
 
         <div className="text-center mb-4">
           <p className="text-5xl font-bold text-lime-400">${amount}</p>
-          <p className="text-neutral-400 mt-2">Your Balance : ${userBalance.toLocaleString()} (Available)</p>
+          <p className="text-neutral-400 mt-2">
+            Your Balance : {userBalance === null
+              ? (balanceError ? 'Unavailable' : 'Loading...')
+              : `$${userBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} (Available)
+          </p>
+          {amountError && (
+            <p className="text-red-400 text-sm mt-2">{amountError}</p>
+          )}
         </div>
 
         <button
