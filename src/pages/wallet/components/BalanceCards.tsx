@@ -61,7 +61,7 @@ export default function BalanceCards({ balances, onDeposit, onWithdraw }: Balanc
                 </div>
               </div>
 
-              {balance.usdtBalance && balance.usdtBalance > 0 && (
+              {typeof balance.usdtBalance === 'number' && balance.usdtBalance > 0 && (
                 <div className="bg-lime-500/10 rounded-xl p-3 sm:p-4 border border-lime-500/20 mb-4 sm:mb-6">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 bg-lime-500 rounded-full flex items-center justify-center">
