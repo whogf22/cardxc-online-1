@@ -48,8 +48,6 @@ export default function TransferPage() {
     return () => { cancelled = true; };
   }, []);
 
-  const txnId = `TXN ${Math.floor(Math.random() * 90000000) + 10000000}`;
-
   const handleAddRecipient = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (recipientName.trim() && emailRegex.test(recipientEmail.trim())) {
@@ -301,10 +299,6 @@ export default function TransferPage() {
           </div>
 
           <div className="bg-dark-card border border-dark-border rounded-2xl p-6 space-y-4 mb-6">
-            <div className="flex justify-between items-center">
-              <span className="text-neutral-500">Transaction ID</span>
-              <span className="font-medium text-white">{txnId}</span>
-            </div>
             <div className="flex justify-between items-center">
               <span className="text-neutral-500">Recipient</span>
               <div className="flex items-center gap-2">
