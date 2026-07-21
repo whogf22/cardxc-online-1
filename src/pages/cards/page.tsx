@@ -335,7 +335,7 @@ export default function CardsPage() {
               <h1 className="text-2xl font-black tracking-tight text-white uppercase">Card Management</h1>
               <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-[0.2em]">Secure Virtual & Prepaid Assets</p>
             </div>
-            <button className="w-12 h-12 flex items-center justify-center rounded-2xl bg-dark-card border border-dark-border hover:border-lime-500/30 transition-all group">
+            <button aria-label="Notifications" className="w-12 h-12 flex items-center justify-center rounded-2xl bg-dark-card border border-dark-border hover:border-lime-500/30 transition-all group">
               <i className="ri-notification-3-line text-2xl text-neutral-400 group-hover:text-lime-400"></i>
             </button>
           </div>

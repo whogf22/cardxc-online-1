@@ -109,7 +109,7 @@ export default function SwapCard() {
               <h2 className="text-2xl font-bold text-slate-900">Swap</h2>
               <p className="text-sm text-slate-500 mt-1">Trade assets instantly</p>
             </div>
-            <button className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors cursor-pointer">
+            <button aria-label="Swap settings" className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors cursor-pointer">
               <i className="ri-settings-3-line text-xl text-slate-600"></i>
             </button>
           </div>
@@ -154,7 +154,7 @@ export default function SwapCard() {
           </div>
 
           <div className="flex justify-center -my-2 relative z-10">
-            <button
+            <button aria-label="Swap direction"
               onClick={handleSwapDirection}
               className={`w-12 h-12 bg-white border-4 border-slate-100 rounded-xl shadow-lg hover:bg-emerald-50 hover:border-emerald-200 flex items-center justify-center transition-all cursor-pointer ${
                 isRotating ? 'rotate-180' : ''

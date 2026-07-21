@@ -85,7 +85,7 @@ export default function WithdrawModal({ currency, availableBalance, onClose, onS
               <h2 className="text-2xl font-bold text-slate-900">Withdraw Funds</h2>
               <p className="text-sm text-slate-600 mt-1">Send money to your bank account</p>
             </div>
-            <button
+            <button aria-label="Close"
               onClick={onClose}
               className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer whitespace-nowrap"
             >

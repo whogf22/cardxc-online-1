@@ -190,7 +190,7 @@ export default function RewardsPage() {
                       {referralCode.code}
                     </p>
                   </div>
-                  <button
+                  <button aria-label="Copy"
                     onClick={handleCopyCode}
                     className="p-3 bg-lime-500/20 hover:bg-lime-500/30 text-lime-400 rounded-xl transition-colors"
                   >

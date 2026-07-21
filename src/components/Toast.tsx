@@ -65,7 +65,7 @@ export function Toast({ type, message, onClose, duration = 4000 }: ToastProps) {
             {message}
           </p>
         </div>
-        <button
+        <button aria-label="Close"
           onClick={onClose}
           className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
         >

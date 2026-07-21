@@ -209,7 +209,7 @@ export default function AdminDashboardLayout({
                     {adminUser?.full_name?.charAt(0).toUpperCase() || 'A'}
                   </div>
 
-                  <button
+                  <button aria-label="Log out"
                     onClick={onSignOut}
                     className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition-all duration-200 cursor-pointer group"
                     title="Sign Out"

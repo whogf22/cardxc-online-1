@@ -120,7 +120,7 @@ export default function TransactionHistory({ transactions, currencyRates }: Tran
               </div>
 
               {/* Action Button */}
-              <button className="w-8 h-8 flex items-center justify-center hover:bg-dark-elevated rounded-lg transition-colors cursor-pointer">
+              <button aria-label="Transaction options" className="w-8 h-8 flex items-center justify-center hover:bg-dark-elevated rounded-lg transition-colors cursor-pointer">
                 <i className="ri-more-2-fill text-neutral-400"></i>
               </button>
             </div>

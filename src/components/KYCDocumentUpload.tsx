@@ -198,7 +198,7 @@ export function KYCDocumentUpload({ onComplete, onClose }: KYCDocumentUploadProp
           <p className="text-sm text-gray-400">Upload documents to verify your identity</p>
         </div>
         {onClose && (
-          <button
+          <button aria-label="Close"
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors"
           >

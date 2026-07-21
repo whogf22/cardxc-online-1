@@ -38,7 +38,7 @@ export default function TopUpModal({ isOpen, onClose, card, onTopUp }: TopUpModa
       <div className="dark-card w-full max-w-md p-6 animate-slide-up">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">Top Up Card</h2>
-          <button
+          <button aria-label="Close"
             onClick={onClose}
             className="w-10 h-10 flex items-center justify-center rounded-xl bg-dark-elevated hover:bg-dark-hover transition-colors"
           >

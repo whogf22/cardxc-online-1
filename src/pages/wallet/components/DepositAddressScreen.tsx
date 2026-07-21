@@ -266,7 +266,7 @@ export default function DepositAddressScreen({ asset, networks, onBack }: Deposi
   return (
     <div className="space-y-6">
       <div className="flex items-center space-x-3">
-        <button
+        <button aria-label="Go back"
           onClick={onBack}
           className="w-10 h-10 rounded-full hover:bg-white/[0.06] flex items-center justify-center transition-colors cursor-pointer"
         >

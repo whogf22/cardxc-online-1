@@ -199,7 +199,7 @@ export default function CryptoDepositModal({ initialAsset, onClose }: CryptoDepo
                 {selectedAsset ? `Receive ${selectedAsset} to your wallet` : 'Select an asset to deposit'}
               </p>
             </div>
-            <button
+            <button aria-label="Close"
               onClick={onClose}
               className="w-10 h-10 rounded-full hover:bg-white/[0.06] flex items-center justify-center transition-colors cursor-pointer"
             >

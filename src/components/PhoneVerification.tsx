@@ -153,7 +153,7 @@ export default function PhoneVerification({
                 <p className="text-emerald-100 text-sm">Secure your account with SMS</p>
               </div>
             </div>
-            <button
+            <button aria-label="Close"
               onClick={onClose}
               className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
             >

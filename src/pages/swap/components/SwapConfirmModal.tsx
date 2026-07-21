@@ -55,7 +55,7 @@ export default function SwapConfirmModal({
               {step === 'success' && 'Swap Complete'}
             </h2>
             {step === 'confirm' && (
-              <button
+              <button aria-label="Close"
                 onClick={onClose}
                 className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
               >

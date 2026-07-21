@@ -393,7 +393,7 @@ export default function AddressBook({ isModal = false, onClose, onSelectAddress,
               <h2 className="text-2xl font-bold text-white">Address Book</h2>
               <p className="text-sm text-neutral-400 mt-1">Select an address or add a new one</p>
             </div>
-            <button
+            <button aria-label="Close"
               onClick={onClose}
               className="w-10 h-10 rounded-full hover:bg-dark-elevated flex items-center justify-center transition-colors cursor-pointer"
             >

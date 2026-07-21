@@ -78,7 +78,7 @@ export default function AlertConfigModal({ onClose }: AlertConfigModalProps) {
               <p className="text-sm text-slate-400">Configure system alerts and notifications</p>
             </div>
           </div>
-          <button
+          <button aria-label="Close"
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
           >

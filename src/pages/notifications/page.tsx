@@ -29,7 +29,7 @@ export default function NotificationsPage() {
             <i className="ri-arrow-left-s-line text-xl text-neutral-300"></i>
           </button>
           <h1 className="text-lg font-semibold text-white">Notifications</h1>
-          <button 
+          <button aria-label="Mark all as read" 
             onClick={markAllAsRead}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-dark-elevated transition-colors"
           >

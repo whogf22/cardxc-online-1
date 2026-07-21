@@ -55,7 +55,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
         {/* Header */}
         <div className="sticky top-0 bg-dark-card border-b border-dark-border px-6 py-4 flex items-center justify-between">
           <h2 className="text-xl font-bold text-white">Create New User</h2>
-          <button
+          <button aria-label="Close"
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center text-neutral-400 hover:text-white hover:bg-dark-elevated rounded-lg transition-colors"
           >

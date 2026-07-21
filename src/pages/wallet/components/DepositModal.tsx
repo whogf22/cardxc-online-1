@@ -364,7 +364,7 @@ export default function DepositModal({ currency, onClose, onSuccess, onOpenCrypt
               </div>
             </div>
             {step !== 'processing' && (
-              <button
+              <button aria-label="Close"
                 onClick={handleClose}
                 className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors cursor-pointer"
               >

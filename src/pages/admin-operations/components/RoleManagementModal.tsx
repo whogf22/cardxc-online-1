@@ -64,7 +64,7 @@ export default function RoleManagementModal({ isOpen, user, onClose, onSuccess }
             <h2 className="text-lg font-bold text-lime-400">Role Management</h2>
             <p className="text-sm text-lime-400/90">Change user role and permissions</p>
           </div>
-          <button
+          <button aria-label="Close"
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center text-lime-400 hover:text-white hover:bg-lime-500/20 rounded-lg transition-colors"
           >

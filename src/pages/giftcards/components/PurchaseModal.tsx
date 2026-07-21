@@ -97,7 +97,7 @@ export default function PurchaseModal({ isOpen, onClose, card }: PurchaseModalPr
               <p className="text-xs text-neutral-400">Gift Card</p>
             </div>
           </div>
-          <button
+          <button aria-label="Close"
             onClick={handleClose}
             className="w-8 h-8 flex items-center justify-center rounded-full bg-dark-elevated hover:bg-dark-hover transition-colors"
           >

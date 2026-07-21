@@ -103,7 +103,7 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
               </p>
               <p className="text-xs text-neutral-500 truncate">{user?.email}</p>
             </div>
-            <button
+            <button aria-label="Log out"
               onClick={signOut}
               className="p-2 text-neutral-400 hover:text-red-400 transition-colors"
               title="Sign out"

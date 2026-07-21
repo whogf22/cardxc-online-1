@@ -71,7 +71,7 @@ export default function PlatformTransferModal({
             <h2 className="text-xl font-bold text-white">Send to Spender</h2>
             <p className="text-sm text-neutral-400 mt-0.5">Send funds using email</p>
           </div>
-          <button
+          <button aria-label="Close"
             onClick={onClose}
             className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-neutral-400 hover:text-white transition-colors"
           >

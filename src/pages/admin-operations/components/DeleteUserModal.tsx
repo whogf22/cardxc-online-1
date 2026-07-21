@@ -55,7 +55,7 @@ export default function DeleteUserModal({ isOpen, user, onClose, onSuccess }: De
             <h2 className="text-lg font-bold text-red-400">Delete User</h2>
             <p className="text-sm text-red-300/90">This action cannot be undone</p>
           </div>
-          <button
+          <button aria-label="Close"
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500/20 rounded-lg transition-colors"
           >

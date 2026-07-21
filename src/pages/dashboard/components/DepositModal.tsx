@@ -226,7 +226,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess, userId: _user
               )}
             </div>
           </div>
-          <button
+          <button aria-label="Close"
             onClick={step === 'stripe-checkout' ? handleCancelCheckout : handleClose}
             className="w-10 h-10 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer shrink-0"
             disabled={isProcessing}

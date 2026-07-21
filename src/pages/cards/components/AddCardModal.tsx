@@ -327,7 +327,7 @@ export default function AddCardModal({ isOpen, onClose, onAdd, editingCard, onEd
               {isEditing ? 'Update your card details' : 'Spend your debit/credit card by adding details below'}
             </p>
           </div>
-          <button
+          <button aria-label="Close"
             onClick={onClose}
             className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors flex-shrink-0"
           >

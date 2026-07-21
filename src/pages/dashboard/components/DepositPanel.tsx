@@ -234,7 +234,7 @@ export default function DepositPanel({ isOpen, onClose, onSuccess, onOpenCryptoD
               {step === 'error' && 'Payment Failed'}
             </h2>
           </div>
-          <button
+          <button aria-label="Close"
             onClick={handleClose}
             className="w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
           >

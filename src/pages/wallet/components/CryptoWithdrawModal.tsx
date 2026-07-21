@@ -268,7 +268,7 @@ export default function CryptoWithdrawModal({ initialAsset, cryptoBalances, onCl
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               {(step === 'form' || step === 'confirm') && (
-                <button
+                <button aria-label="Go back"
                   onClick={handleBack}
                   className="w-10 h-10 rounded-full hover:bg-white/[0.06] flex items-center justify-center transition-colors cursor-pointer"
                 >
@@ -285,7 +285,7 @@ export default function CryptoWithdrawModal({ initialAsset, cryptoBalances, onCl
                 </p>
               </div>
             </div>
-            <button
+            <button aria-label="Close"
               onClick={onClose}
               className="w-10 h-10 rounded-full hover:bg-white/[0.06] flex items-center justify-center transition-colors cursor-pointer"
               disabled={loading}

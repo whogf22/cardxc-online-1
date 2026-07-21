@@ -449,7 +449,7 @@ export default function DepositForUserTab() {
               <i className="ri-history-line text-blue-400"></i>
               Recent Adjustments
             </h3>
-            <button
+            <button aria-label="Refresh"
               onClick={loadAdjustments}
               className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors cursor-pointer"
             >

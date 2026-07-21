@@ -124,7 +124,7 @@ export default function WithdrawModal({ isOpen, onClose, onSuccess, userId: _use
             <h2 className="text-2xl font-bold text-slate-900">Request Withdrawal</h2>
             <p className="text-sm text-slate-600 mt-1">Submit request for admin approval</p>
           </div>
-          <button
+          <button aria-label="Close"
             onClick={handleClose}
             className="w-10 h-10 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
             disabled={isProcessing}
