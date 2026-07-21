@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CreditCard, Plus, Trash2, Download, AlertCircle, CheckCircle, Loader } from 'lucide-react';
 import { adminApi } from '../../../lib/api';
+import { useToastContext } from '../../../contexts/ToastContext';
 
 interface BulkCardInput {
   spendLimit: number;
@@ -9,6 +10,7 @@ interface BulkCardInput {
 }
 
 export default function BulkCardCreatorTab() {
+  const toast = useToastContext();
   const [cards, setCards] = useState<BulkCardInput[]>([{
     spendLimit: 50,
     spendLimitDuration: 'MONTHLY',
@@ -48,13 +50,13 @@ export default function BulkCardCreatorTab() {
         data: response
       });
 
-      alert(`Successfully created ${response.data?.total ?? cards.length} virtual cards!`);
+      toast.success(`Successfully created ${response.data?.total ?? cards.length} virtual cards!`);
     } catch (error: any) {
       setResult({
         success: false,
         error: error.response?.data?.error || 'Failed to create cards'
       });
-      alert('Failed to create cards: ' + (error.response?.data?.error || error.message));
+      toast.error('Failed to create cards: ' + (error.response?.data?.error || error.message));
     } finally {
       setLoading(false);
     }

@@ -5,7 +5,16 @@ import { useToastContext } from '../../contexts/ToastContext';
 import SpendingLimitsModal from './components/SpendingLimitsModal';
 import TopUpModal from './components/TopUpModal';
 import AddCardModal, { type PrepaidCardData } from './components/AddCardModal';
+import { ConfirmationModal } from '../../components/ConfirmationModal';
 import type { VirtualCard, CardTransaction } from '../../types/card';
+
+interface ConfirmState {
+  title: string;
+  message: string;
+  confirmText: string;
+  icon: string;
+  onConfirm: () => void | Promise<void>;
+}
 
 type TabType = 'cards' | 'history';
 
@@ -29,6 +38,7 @@ export default function CardsPage() {
   const [showAddCardModal, setShowAddCardModal] = useState(false);
   const [showLimitsModal, setShowLimitsModal] = useState(false);
   const [showTopUpModal, setShowTopUpModal] = useState(false);
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
   const [editingCard, setEditingCard] = useState<PrepaidCardData | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('cards');
   const [searchQuery, setSearchQuery] = useState('');
@@ -159,10 +169,17 @@ export default function CardsPage() {
   };
 
   const handleDeletePrepaidCard = (cardId: string) => {
-    if (!window.confirm('Are you sure you want to remove this card? This cannot be undone.')) return;
-    setPrepaidCards(prev => prev.filter(c => c.id !== cardId));
-    setSelectedPrepaidCard(prev => prev?.id === cardId ? null : prev);
-    toast.success('Card removed');
+    setConfirmState({
+      title: 'Remove card?',
+      message: 'Are you sure you want to remove this card? This cannot be undone.',
+      confirmText: 'Remove card',
+      icon: 'ri-delete-bin-line',
+      onConfirm: () => {
+        setPrepaidCards(prev => prev.filter(c => c.id !== cardId));
+        setSelectedPrepaidCard(prev => prev?.id === cardId ? null : prev);
+        toast.success('Card removed');
+      },
+    });
   };
 
   const handleFreezeToggle = async () => {
@@ -183,15 +200,23 @@ export default function CardsPage() {
 
   const handleDeleteCard = async () => {
     if (!selectedCard) return;
-    if (!confirm('Are you sure you want to cancel this card? This action cannot be undone.')) return;
-    try {
-      await cardService.deleteCard(selectedCard.id);
-      toast.success('Card cancelled successfully!');
-      setSelectedCard(null);
-      loadCards();
-    } catch (error: any) {
-      toast.error(error.message || 'Deletion failed');
-    }
+    const card = selectedCard;
+    setConfirmState({
+      title: 'Cancel card?',
+      message: 'Are you sure you want to cancel this card? This action cannot be undone.',
+      confirmText: 'Cancel card',
+      icon: 'ri-bank-card-line',
+      onConfirm: async () => {
+        try {
+          await cardService.deleteCard(card.id);
+          toast.success('Card cancelled successfully!');
+          setSelectedCard(null);
+          loadCards();
+        } catch (error: any) {
+          toast.error(error.message || 'Deletion failed');
+        }
+      },
+    });
   };
 
   const handleUpdateLimits = async (limits: { daily_limit: number; monthly_limit: number; per_transaction_limit: number }) => {
@@ -686,6 +711,16 @@ export default function CardsPage() {
       />
       <SpendingLimitsModal isOpen={showLimitsModal} onClose={() => setShowLimitsModal(false)} card={selectedCard} onSave={handleUpdateLimits} />
       <TopUpModal isOpen={showTopUpModal} onClose={() => setShowTopUpModal(false)} card={selectedCard} onTopUp={handleTopUp} />
+      <ConfirmationModal
+        isOpen={confirmState !== null}
+        onClose={() => setConfirmState(null)}
+        onConfirm={() => confirmState?.onConfirm()}
+        title={confirmState?.title ?? ''}
+        message={confirmState?.message ?? ''}
+        confirmText={confirmState?.confirmText ?? 'Confirm'}
+        variant="danger"
+        icon={confirmState?.icon ?? 'ri-error-warning-line'}
+      />
     </div>
   );
 }

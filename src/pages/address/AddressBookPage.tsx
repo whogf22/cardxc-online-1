@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { MapPin, Plus, Edit2, Trash2, Check, Home } from 'lucide-react';
 import { userApi } from '../../lib/api';
+import { useToastContext } from '../../contexts/ToastContext';
 
 interface FluzAddress {
   addressId: string;
@@ -13,6 +14,7 @@ interface FluzAddress {
 }
 
 export default function AddressBookPage() {
+  const toast = useToastContext();
   const [addresses, setAddresses] = useState<FluzAddress[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -55,9 +57,10 @@ export default function AddressBookPage() {
         isDefault: false
       });
       loadAddresses();
+      toast.success('Address saved');
     } catch (error) {
       console.error('Failed to save address:', error);
-      alert('Failed to save address');
+      toast.error('Failed to save address');
     }
   };
 

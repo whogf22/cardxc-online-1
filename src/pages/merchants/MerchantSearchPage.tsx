@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Search, Grid, List, TrendingUp, Tag, ExternalLink } from 'lucide-react';
+import { Search, Grid, List, TrendingUp, Tag, ExternalLink, X } from 'lucide-react';
 import { userApi } from '../../lib/api';
+import { useToastContext } from '../../contexts/ToastContext';
+
+interface FluzQuote {
+  originalPrice: number | string;
+  discountedPrice: number | string;
+  cashbackAmount: number | string;
+  validUntil: string;
+  merchantName?: string;
+}
 
 interface FluzMerchant {
   merchantId: string;
@@ -25,6 +34,9 @@ export default function MerchantSearchPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [quote, setQuote] = useState<FluzQuote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState<string | null>(null);
+  const toast = useToastContext();
 
   useEffect(() => {
     loadCategories();
@@ -67,12 +79,17 @@ export default function MerchantSearchPage() {
 
   const getQuote = async (merchantId: string) => {
     try {
+      setQuoteLoading(merchantId);
       const response = await userApi.getFluzQuote(merchantId, 50);
-      const quote = response.data?.quote;
-      if (!quote) throw new Error('No quote returned');
-      alert(`Quote for $50:\nOriginal: $${quote.originalPrice}\nDiscounted: $${quote.discountedPrice}\nCashback: $${quote.cashbackAmount}\nValid until: ${new Date(quote.validUntil).toLocaleString()}`);
+      const q = response.data?.quote;
+      if (!q) throw new Error('No quote returned');
+      const merchantName = merchants.find(m => m.merchantId === merchantId)?.name;
+      setQuote({ ...q, merchantName });
     } catch (error) {
       console.error('Failed to get quote:', error);
+      toast.error('Failed to get quote. Please try again.');
+    } finally {
+      setQuoteLoading(null);
     }
   };
 
@@ -215,9 +232,10 @@ export default function MerchantSearchPage() {
 
                   <button
                     onClick={() => getQuote(merchant.merchantId)}
-                    className="w-full px-4 py-2 bg-lime-500 hover:bg-lime-600 text-white rounded-lg transition-all font-semibold flex items-center justify-center gap-2"
+                    disabled={quoteLoading === merchant.merchantId}
+                    className="w-full px-4 py-2 bg-lime-500 hover:bg-lime-600 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg transition-all font-semibold flex items-center justify-center gap-2"
                   >
-                    Get Quote
+                    {quoteLoading === merchant.merchantId ? 'Getting Quote...' : 'Get Quote'}
                     <ExternalLink className="w-4 h-4" />
                   </button>
                 </div>
@@ -272,9 +290,10 @@ export default function MerchantSearchPage() {
 
                 <button
                   onClick={() => getQuote(merchant.merchantId)}
-                  className="px-6 py-3 bg-lime-500 hover:bg-lime-600 text-white rounded-lg transition-all font-semibold whitespace-nowrap flex items-center gap-2"
+                  disabled={quoteLoading === merchant.merchantId}
+                  className="px-6 py-3 bg-lime-500 hover:bg-lime-600 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg transition-all font-semibold whitespace-nowrap flex items-center gap-2"
                 >
-                  Get Quote
+                  {quoteLoading === merchant.merchantId ? 'Getting Quote...' : 'Get Quote'}
                   <ExternalLink className="w-4 h-4" />
                 </button>
               </div>
@@ -282,6 +301,60 @@ export default function MerchantSearchPage() {
           </div>
         )}
       </div>
+
+      {quote && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setQuote(null)}
+        >
+          <div
+            className="bg-dark-card border border-dark-border rounded-2xl shadow-2xl max-w-sm w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-white">Quote for $50</h3>
+                {quote.merchantName && (
+                  <p className="text-sm text-neutral-400">{quote.merchantName}</p>
+                )}
+              </div>
+              <button
+                onClick={() => setQuote(null)}
+                className="text-neutral-400 hover:text-white transition-colors"
+                aria-label="Close quote"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-neutral-400">Original</span>
+                <span className="text-white font-semibold">${quote.originalPrice}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-neutral-400">Discounted</span>
+                <span className="text-lime-400 font-semibold">${quote.discountedPrice}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-neutral-400">Cashback</span>
+                <span className="text-lime-400 font-semibold">${quote.cashbackAmount}</span>
+              </div>
+              <div className="flex items-center justify-between pt-3 border-t border-dark-border">
+                <span className="text-neutral-400">Valid until</span>
+                <span className="text-white text-sm">{new Date(quote.validUntil).toLocaleString()}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setQuote(null)}
+              className="w-full mt-6 px-4 py-2.5 bg-lime-500 hover:bg-lime-600 text-white rounded-lg font-semibold transition-all"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
