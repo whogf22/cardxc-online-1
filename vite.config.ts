@@ -9,13 +9,17 @@ import { cloudflare } from "@cloudflare/vite-plugin";
 
 const base = process.env.BASE_PATH || "/";
 const isPreview = process.env.IS_PREVIEW ? true : false;
-const isProduction = process.env.NODE_ENV === 'production';
 
-export default defineConfig({
+export default defineConfig(({ command, mode }) => {
+  // `vite build` runs with command==='build' and mode==='production' by default.
+  // Gate on these (not process.env.NODE_ENV, which vite does not reliably set at
+  // config-eval time) so the console-strip actually applies to prod builds.
+  const isProduction = command === 'build' && mode === 'production';
+  return {
   define: {
     __BASE_PATH__: JSON.stringify(base),
     __IS_PREVIEW__: JSON.stringify(isPreview),
-    __PRODUCTION_MODE__: JSON.stringify(process.env.NODE_ENV === 'production'),
+    __PRODUCTION_MODE__: JSON.stringify(isProduction),
   },
   // In production, drop console.log/debug/info and debugger statements from the
   // client bundle. console.error and console.warn are kept for real diagnostics.
@@ -112,4 +116,5 @@ export default defineConfig({
       credentials: true,
     },
   },
+  };
 });
