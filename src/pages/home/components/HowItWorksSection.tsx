@@ -5,7 +5,7 @@ const steps = [
   {
     number: '01',
     title: 'Create Account',
-    description: 'Sign up in 2 minutes with just your email. No paperwork required.',
+    description: 'Sign up in minutes with your email. Identity verification may be required to unlock full features.',
     icon: 'ri-user-add-line',
     gradient: 'from-lime-500 to-emerald-500',
   },

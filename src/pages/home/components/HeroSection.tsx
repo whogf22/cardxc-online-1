@@ -68,7 +68,7 @@ export default function HeroSection() {
 
             <div className="flex items-center justify-center gap-8 pt-2 animate-fade-in-up" style={{ animationDelay: '0.35s' }}>
               {[
-                { value: '100%', label: 'Secure' },
+                { value: 'Encrypted', label: 'Secure' },
                 { value: '24/7', label: 'Support' },
                 { value: 'Instant', label: 'Transfers' }
               ].map((stat, i) => (

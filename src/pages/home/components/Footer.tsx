@@ -159,11 +159,11 @@ export default function Footer({ onOpenContact }: FooterProps) {
             <div className="flex items-center gap-5">
               <span className="flex items-center gap-1.5 text-xs text-neutral-500">
                 <i className="ri-shield-check-line text-emerald-500" aria-hidden />
-                256-bit SSL
+                TLS/SSL Encrypted
               </span>
               <span className="flex items-center gap-1.5 text-xs text-neutral-500">
                 <i className="ri-lock-2-line text-lime-400" aria-hidden />
-                PCI Compliant
+                PCI DSS Processing
               </span>
             </div>
           </div>

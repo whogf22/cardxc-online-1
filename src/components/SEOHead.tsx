@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 const DEFAULT_TITLE = 'CardXC — Send Money Worldwide & Buy Gift Cards';
-const DEFAULT_DESCRIPTION = 'CardXC is the premium fintech platform for virtual payment cards. Bank-level security, instant global payments, real-time rates, and 24/7 support. Manage your digital spending with VISA and Mastercard.';
+const DEFAULT_DESCRIPTION = 'CardXC is a fintech platform for virtual payment cards. Bank-grade security, fast global payments, real-time rates, and 24/7 support. Manage your digital spending with VISA and Mastercard.';
 
 interface SEOHeadProps {
   title: string;

@@ -23,6 +23,12 @@ export default function TestimonialsSection() {
     return () => observer.disconnect();
   }, []);
 
+  // Do not render fabricated social proof. Until genuine, consented testimonials
+  // exist, this section renders nothing (see src/mocks/testimonials.ts).
+  if (testimonials.length === 0) {
+    return null;
+  }
+
   return (
     <section id="testimonials" className="relative py-24 bg-dark-bg" ref={sectionRef}>
       <div className="max-w-7xl mx-auto px-6">
