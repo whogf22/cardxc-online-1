@@ -55,7 +55,7 @@ export function initBackgroundJobs() {
 /**
  * Cleanup expired sessions, tokens, and stale data
  */
-async function cleanupExpiredData() {
+export async function cleanupExpiredData() {
   try {
     const sessionsResult = await query(`
       UPDATE sessions SET is_active = FALSE 
@@ -92,14 +92,22 @@ async function cleanupExpiredData() {
       DELETE FROM password_reset_tokens WHERE expires_at < NOW()
     `);
 
-    // Cleanup expired email verification tokens if table exists (optional feature)
-    try {
+    // Cleanup expired email verification tokens (optional feature: the table
+    // may not exist in every environment). Probe for it first with to_regclass,
+    // which returns NULL for a missing relation instead of raising an error, so
+    // absence is a benign no-op rather than a startup warning. Any real error
+    // from the DELETE (permissions, connectivity, etc.) is intentionally NOT
+    // caught here so it surfaces via the outer cleanup error handler.
+    const emailTokenTable = await queryOne<{ regclass: string | null }>(`
+      SELECT to_regclass('public.email_verification_tokens') AS regclass
+    `);
+    if (emailTokenTable?.regclass) {
       await query(`
         DELETE FROM email_verification_tokens 
         WHERE expires_at < NOW() AND verified_at IS NULL
       `);
-    } catch {
-      // Table may not exist; ignore
+    } else {
+      logger.debug('[Cleanup] Skipping email_verification_tokens cleanup (table not present)');
     }
 
     // Mark expired payment links
