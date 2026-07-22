@@ -426,6 +426,12 @@ export async function initializeDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    // Prevents the cashback cron (processCashbackRewards) from double-awarding
+    // a transaction if it ever runs as multiple instances / overlapping ticks.
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_reward_ledger_transaction_unique
+      ON reward_ledger(transaction_id) WHERE transaction_id IS NOT NULL
+    `);
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS referral_codes (

@@ -656,11 +656,19 @@ router.post('/adjustments/:adjustmentId/approve',
     }
 
     await transaction(async (client) => {
-      await client.query(`
-        UPDATE admin_adjustments 
+      // Atomically claim the adjustment so two concurrent approve calls (or an
+      // approve racing a reject) cannot both credit/debit the wallet. The
+      // out-of-transaction status check above is only a fast-fail; this
+      // WHERE status = 'PENDING' is the real guard.
+      const claim = await client.query(`
+        UPDATE admin_adjustments
         SET status = 'APPROVED', approved_by = $1, updated_at = NOW()
-        WHERE id = $2
+        WHERE id = $2 AND status = 'PENDING'
       `, [req.user!.id, adjustmentId]);
+
+      if (claim.rowCount === 0) {
+        throw new AppError('Adjustment already processed', 400, 'ALREADY_PROCESSED');
+      }
 
       const balanceChange = adjustment.type === 'credit' ? adjustment.amount_cents : -adjustment.amount_cents;
 
@@ -697,11 +705,20 @@ router.post('/adjustments/:adjustmentId/reject',
     const { adjustmentId } = req.params;
     const { reason } = req.body;
 
-    await query(`
-      UPDATE admin_adjustments 
-      SET status = 'REJECTED', approved_by = $1, updated_at = NOW()
-      WHERE id = $2 AND status = 'PENDING'
-    `, [req.user!.id, adjustmentId]);
+    // Atomically claim the adjustment so a concurrent approve/reject cannot
+    // both process the same row. `query()` only returns rows, not rowCount,
+    // so the claim runs through a transaction client to see the real count.
+    await transaction(async (client) => {
+      const claim = await client.query(`
+        UPDATE admin_adjustments
+        SET status = 'REJECTED', approved_by = $1, updated_at = NOW()
+        WHERE id = $2 AND status = 'PENDING'
+      `, [req.user!.id, adjustmentId]);
+
+      if (claim.rowCount === 0) {
+        throw new AppError('Adjustment already processed', 400, 'ALREADY_PROCESSED');
+      }
+    });
 
     await createAuditLog({
       userId: req.user!.id,
@@ -905,6 +922,9 @@ router.post('/card-deposit/confirm',
 
     const { paymentIntentId, userId, reason } = req.body;
 
+    // Fast-fail pre-check. The real guard against a double-credit from two
+    // concurrent confirm calls is the unique idempotency_key constraint on
+    // the INSERT below (idx_transactions_idempotency_unique).
     const existingTx = await queryOne<any>(
       `SELECT id FROM transactions WHERE reference = $1 AND type = 'card_deposit'`,
       [paymentIntentId]
@@ -952,19 +972,29 @@ router.post('/card-deposit/confirm',
 
     const amountCents = paymentIntent.amount_received;
 
-    await transaction(async (client) => {
-      await client.query(`
-        INSERT INTO wallets (user_id, currency, balance_cents)
-        VALUES ($1, 'USD', $2)
-        ON CONFLICT (user_id, currency) 
-        DO UPDATE SET balance_cents = wallets.balance_cents + $2, updated_at = NOW()
-      `, [userId, amountCents]);
+    try {
+      await transaction(async (client) => {
+        // idempotency_key is uniquely constrained (idx_transactions_idempotency_unique).
+        // If two concurrent confirm calls race past the pre-check above, only one
+        // insert succeeds and the wallet credit below rolls back with it.
+        await client.query(`
+          INSERT INTO transactions (user_id, idempotency_key, type, status, amount_cents, currency, reference, description)
+          VALUES ($1, $2, 'card_deposit', 'SUCCESS', $3, 'USD', $4, $5)
+        `, [userId, `admin_card_deposit_${paymentIntentId}`, amountCents, paymentIntentId, `Admin card deposit: ${reason}`]);
 
-      await client.query(`
-        INSERT INTO transactions (user_id, type, status, amount_cents, currency, reference, description)
-        VALUES ($1, 'card_deposit', 'SUCCESS', $2, 'USD', $3, $4)
-      `, [userId, amountCents, paymentIntentId, `Admin card deposit: ${reason}`]);
-    });
+        await client.query(`
+          INSERT INTO wallets (user_id, currency, balance_cents)
+          VALUES ($1, 'USD', $2)
+          ON CONFLICT (user_id, currency)
+          DO UPDATE SET balance_cents = wallets.balance_cents + $2, updated_at = NOW()
+        `, [userId, amountCents]);
+      });
+    } catch (error: any) {
+      if (error?.code === '23505') {
+        throw new AppError('This payment has already been processed', 400, 'ALREADY_PROCESSED');
+      }
+      throw error;
+    }
 
     await createAuditLog({
       userId: req.user!.id,

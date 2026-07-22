@@ -92,12 +92,18 @@ export const sensitiveOpLimiter = createRateLimiter({
   code: 'RATE_LIMIT_EXCEEDED',
 });
 
-// Stricter rate limiter for financial operations
+// Stricter rate limiter for financial operations. Keyed by authenticated user
+// (not IP) - every route using this runs after `authenticate`, and an IP-based
+// key is trivially bypassed by rotating IPs while replaying the same session.
 export const financialOpLimiter = createRateLimiter({
   windowMs: 60 * 1000,
   max: 5, // Very strict for financial operations
   message: 'Too many financial operations. Please wait.',
   code: 'RATE_LIMIT_EXCEEDED',
+  keyGenerator: (req: any) => {
+    const userId = req.user?.id;
+    return userId ? `user:${userId}` : ipKeyGenerator(req, req.res);
+  },
 });
 
 // Rate limiter for password reset

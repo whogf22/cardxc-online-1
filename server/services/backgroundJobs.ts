@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { pool, query, queryOne } from '../db/pool';
+import { pool, query } from '../db/pool';
 import { logger } from '../middleware/logger';
 import { checkForNewDeposits } from './tronDepositMonitor';
 
@@ -341,23 +341,23 @@ async function processCashbackRewards() {
       const cashbackAmount = Math.floor(txn.amount_cents * cashbackRate);
 
       if (cashbackAmount > 0) {
-        const existing = await queryOne<{ id: string }>(
-          `SELECT id FROM reward_ledger WHERE transaction_id = $1 LIMIT 1`,
-          [txn.id]
-        );
-        if (existing) continue;
-
         const client = await pool.connect();
         try {
           await client.query('BEGIN');
 
-          await client.query(`
+          // ON CONFLICT DO NOTHING is the real guard against double-awarding a
+          // transaction (idx_reward_ledger_transaction_unique); a plain
+          // check-then-insert here would race if this job ever runs concurrently.
+          const inserted = await client.query(`
             INSERT INTO reward_ledger (user_id, transaction_id, cashback_cents, description, status)
             VALUES ($1, $2, $3, $4, 'pending')
+            ON CONFLICT (transaction_id) DO NOTHING
           `, [txn.user_id, txn.id, cashbackAmount, `Cashback on purchase ${txn.id}`]);
 
           await client.query('COMMIT');
-          logger.info(`[Cashback] Awarded ${cashbackAmount} cents to user ${txn.user_id}`);
+          if (inserted.rowCount && inserted.rowCount > 0) {
+            logger.info(`[Cashback] Awarded ${cashbackAmount} cents to user ${txn.user_id}`);
+          }
         } catch (err) {
           await client.query('ROLLBACK');
           logger.error(`[Cashback] Error processing transaction ${txn.id}:`, err);
