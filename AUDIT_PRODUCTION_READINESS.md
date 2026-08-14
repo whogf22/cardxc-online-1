@@ -8,7 +8,7 @@
 
 ## 1. Executive summary
 
-The codebase has already been through a substantial security-hardening pass (see `AUDIT_*.md` / `FIXES_*.md`, dated 2026-04-17, and subsequent commits). I **verified** those gates are actually in place (Section 3), then closed the two remaining **money-safety** gaps I found in the settlement and value-out paths, with tests.
+The codebase has already been through a substantial security-hardening pass (see `AUDIT_*.md` / `FIXES_*.md`, dated 2026-04-17, and subsequent commits). I **verified** those gates are actually in place (Section 3), then closed three **money-safety** gaps I found — in the settlement path, the value-out eligibility path, and the crypto-withdrawal fail-closed path — each with tests.
 
 Baseline and post-change checks are fully green:
 
@@ -16,7 +16,7 @@ Baseline and post-change checks are fully green:
 |---|---|
 | `type-check` (app) | ✅ pass |
 | `type-check:server` | ✅ pass |
-| `test` (vitest) | ✅ **87 passed** (was 72; +15 new) |
+| `test` (vitest) | ✅ **88 passed** (was 72; +16 new) |
 | `lint` | ✅ pass (0 warnings, `eslint src`) |
 | `build` (vite) | ✅ pass |
 
@@ -52,9 +52,15 @@ The withdrawal endpoints (`/api/withdraw/bank`, `/crypto`, `/platform`) previous
 - Fails closed on any lookup failure / missing user.
 - Ordered **after** `financialOpLimiter` in the route chain so a rate-limited flood is rejected before it incurs the eligibility DB lookup.
 
-### 2.3 Tests added (+15)
+### 2.3 Crypto withdrawal — fail closed when no automated payout provider (money-safety)
+**Files:** `server/services/cryptoProviderService.ts`, `server/services/withdrawalService.ts`
+
+Diagnosed with the `diagnosing-bugs` skill (loop-first). In the **default** config (`CRYPTO_PROVIDER='manual'`, or `trongrid` without a hot-wallet key), a crypto withdrawal debited the user's USDT and created a `withdrawal_requests` row with status `'processing'` — a state the admin approve/reject endpoints (which require `'pending'`) can neither complete nor reverse, **stranding the funds**. Added `isAutomatedCryptoPayoutConfigured()` and gated `processCryptoWithdrawal` to reject **503 before any debit** when no automated provider is available. Corrected the misleading `createManualPayoutRequest` comment. See H3.
+
+### 2.4 Tests added (+16)
 - `server/routes/__tests__/cardCheckoutStripeWebhook.test.ts` — unpaid `completed` does **not** credit; paid `completed` credits; `async_payment_succeeded` credits; `async_payment_failed` marks FAILED without crediting; duplicate delivery (`23505`) does not double-credit; credit uses the stored order amount, never the webhook-supplied `amount_total`.
 - `server/middleware/__tests__/financialEligibility.test.ts` — pass/deny matrix across email, KYC (opt-in), active/inactive/NULL account status, missing user, thrown lookup (fail closed), unauthenticated request, and env toggles.
+- `server/services/__tests__/withdrawalService.test.ts` — crypto withdrawal fails closed **without debiting** when no automated payout provider is configured.
 
 ---
 
@@ -85,7 +91,7 @@ Confirmed present and effective in the current tree:
   - **Build/dev only (lower urgency):** `vite` (high) is declared in `dependencies` (so `--omit=dev` still flags it) but is used only by `build`/`dev`/`preview` scripts — never loaded by the running server.
   Fix requires dependency bumps + regression testing (Socket.IO/Stripe smoke) — deliberately **not** auto-applied here to avoid breaking those paths. See Section 8.
 - **H2. No sanctions/AML screening** in any money-in/out path. The new eligibility gate provides the KYC hook, but list-screening (OFAC/PEP), velocity/limit rules, and travel-rule handling are absent.
-- **H3. Crypto payout "manual" mode records nothing.** `cryptoProviderService.createManualPayoutRequest()` returns `success/pending` and its comment claims it persists to `pending_crypto_payouts`, but there is **no insert** (the `withdrawal_requests` row is the only durable record). Reconciliation relies on that single row; the dedicated queue implied by the code does not exist.
+- **H3. Crypto "manual" mode stranded funds — FIXED this pass.** Diagnosed via the `diagnosing-bugs` loop. Root mechanism: `processCryptoWithdrawal` debits the USDT balance and creates a `withdrawal_requests` row with status **`'processing'`**, but the admin approve/reject endpoints require status **`'pending'`** (`admin.ts:456,514`) and the default admin list only shows `pending`. In the **default** config (`CRYPTO_PROVIDER='manual'`, or `trongrid` without a hot-wallet key), the payout resolves to `createManualPayoutRequest()` — which sends nothing and persists nothing (its comment referenced a `pending_crypto_payouts` table that does not exist). Net effect: the balance was debited into a `'processing'` state no admin action could complete or reverse — **stranded funds**. Fix: added `isAutomatedCryptoPayoutConfigured()` and gated `processCryptoWithdrawal` to **fail closed (503) before any debit** when no automated provider is configured. Regression test added. (Deeper architectural note in Section 8: crypto payouts reuse the fiat reserve/approve flow with incompatible semantics.)
 
 ### Medium
 - **M1. Card-checkout KYC gate defaults off** (`REQUIRE_KYC_FOR_CARD_CHECKOUT`); acceptable for deposits, but should be on before real-money launch.
@@ -101,14 +107,14 @@ Confirmed present and effective in the current tree:
 ## 5. Tests / results
 
 ```text
-vitest run  → 14 files, 87 tests passed
+vitest run  → 14 files, 88 tests passed
 tsc app     → clean
 tsc server  → clean
 eslint src  → clean (max-warnings 0)
 vite build  → success
 ```
 
-New coverage targets the two highest-risk money paths changed here (deposit settlement, value-out eligibility). Existing money-path regression tests (crypto double-spend, payments overdraw, Fluz webhook idempotency/authz) continue to pass.
+New coverage targets the three highest-risk money paths changed here (deposit settlement, value-out eligibility, crypto-withdrawal fail-closed). Existing money-path regression tests (crypto double-spend, payments overdraw, Fluz webhook idempotency/authz) continue to pass.
 
 ---
 
@@ -117,10 +123,13 @@ New coverage targets the two highest-risk money paths changed here (deposit sett
 | File | Change |
 |---|---|
 | `server/routes/cardCheckout.ts` | Extracted `creditStripeCheckoutSession()`; gate credit on `payment_status === 'paid'`; handle async payment succeeded/failed. |
-| `server/routes/withdrawal.ts` | Apply `requireFinancialEligibility` to bank/crypto/platform routes. |
+| `server/routes/withdrawal.ts` | Apply `requireFinancialEligibility` (after the rate limiter) to bank/crypto/platform routes. |
 | `server/middleware/financialEligibility.ts` | **New** — fail-closed value-out eligibility gate (email default-on, KYC opt-in). |
+| `server/services/cryptoProviderService.ts` | Added `isAutomatedCryptoPayoutConfigured()`; corrected the misleading manual-payout comment. |
+| `server/services/withdrawalService.ts` | Gate `processCryptoWithdrawal` to fail closed (503) before any debit when no automated payout provider is configured. |
 | `server/routes/__tests__/cardCheckoutStripeWebhook.test.ts` | **New** — Stripe settlement-gate tests. |
 | `server/middleware/__tests__/financialEligibility.test.ts` | **New** — eligibility-gate tests. |
+| `server/services/__tests__/withdrawalService.test.ts` | Added crypto-withdrawal fail-closed (no-debit) regression test. |
 | `AUDIT_PRODUCTION_READINESS.md` | **New** — this report. |
 
 ---
@@ -131,7 +140,7 @@ New coverage targets the two highest-risk money paths changed here (deposit sett
 2. **Obtain and record provider/licensing authorization**; supply real (not placeholder) keys and set all webhook secrets (`STRIPE_WEBHOOK_SECRET`, `FLUZ_WEBHOOK_SECRET`) (C2).
 3. **Add sanctions/AML screening + limits/velocity** to money-in/out (H2).
 4. **Resolve dependency CVEs** (H1).
-5. **Implement the crypto manual-payout persistence/reconciliation queue** or remove the misleading path (H3).
+5. **(H3 mitigated by fail-closed gate this pass.)** To *offer* manual crypto payouts rather than disable them, build a real manual-processing flow (see Section 8) — do not simply re-open the stranding path.
 
 ---
 
@@ -142,6 +151,7 @@ New coverage targets the two highest-risk money paths changed here (deposit sett
 - Back the rate-limit/IP-block stores with Redis (interfaces already exist).
 - Migrate CSP to nonce-based (drop `'unsafe-inline'`) and 2FA to `otplib`.
 - Add reconciliation jobs that assert Σ ledger entries == wallet balances and alert on drift.
+- **Crypto payout architecture (post-mortem from H3):** crypto withdrawals reuse the fiat `withdrawal_requests` + `pending`-gated admin approve/reject flow, but with incompatible semantics (immediate debit, no reserve, `'processing'` status). This mismatch is what stranded funds. If manual crypto payouts are wanted, give them a dedicated status lifecycle and admin actions (or a real `pending_crypto_payouts` queue) rather than overloading the fiat flow — a candidate for the `improve-codebase-architecture` skill.
 
 ---
 

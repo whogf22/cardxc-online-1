@@ -10,7 +10,7 @@ import { query, queryOne, transaction } from '../db/pool';
 import { AppError } from '../middleware/errorHandler';
 import { logger } from '../middleware/logger';
 import { createAuditLog } from './auditService';
-import { sendCryptoToWallet } from './cryptoProviderService';
+import { sendCryptoToWallet, isAutomatedCryptoPayoutConfigured } from './cryptoProviderService';
 
 export type WithdrawalType = 'bank' | 'crypto' | 'platform';
 export type WalletType = 'fiat' | 'usdt';
@@ -174,6 +174,16 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
     // Minimum amount check
     if (request.amount < 10) {
         throw new AppError('Minimum crypto withdrawal is 10 USDT', 400);
+    }
+
+    // Fail closed: without an automated payout provider (manual mode, or
+    // trongrid with no hot-wallet key), the send would resolve to a manual
+    // 'pending' payout. That debits the balance and creates a 'processing'
+    // withdrawal_request the admin approve/reject flow cannot action, stranding
+    // the funds. Reject up front — before any balance is touched — rather than
+    // debit into that dead end.
+    if (!isAutomatedCryptoPayoutConfigured()) {
+        throw new AppError('Crypto withdrawals are not available right now.', 503, 'CRYPTO_PAYOUTS_UNAVAILABLE');
     }
 
     let withdrawalId: string = '';
