@@ -64,18 +64,30 @@ afterEach(() => {
   mockConstructWebhookEvent.mockReset();
 });
 
-function primeOrderLookup() {
+let capturedTxQueries: Array<{ sql: string; params?: unknown[] }> = [];
+
+function primeOrderLookup(opts: { orderAmountCents?: number; throwOnTx?: unknown } = {}) {
+  const { orderAmountCents = 100000, throwOnTx } = opts;
+  capturedTxQueries = [];
   mockQueryOne.mockImplementation(async (sql: string) => {
     if (sql.includes('SELECT * FROM card_orders')) {
-      return { id: 'order-1', user_id: 'user-1', target_user_id: null, amount_cents: 100000, currency: 'USD', status: 'PENDING' };
+      return { id: 'order-1', user_id: 'user-1', target_user_id: null, amount_cents: orderAmountCents, currency: 'USD', status: 'PENDING' };
     }
     return null;
   });
   mockTransaction.mockImplementation(async (fn: (client: { query: (a: string, b?: unknown[]) => Promise<{ rows: { id: string }[] }> }) => Promise<void>) => {
-    const client = { query: vi.fn().mockResolvedValueOnce({ rows: [{ id: 'tx-1' }] }).mockResolvedValue({ rows: [] }) };
+    const client = {
+      query: vi.fn(async (sql: string, params?: unknown[]) => {
+        capturedTxQueries.push({ sql, params });
+        if (throwOnTx) throw throwOnTx;
+        if (sql.includes('INSERT INTO transactions')) return { rows: [{ id: 'tx-1' }] };
+        return { rows: [] };
+      }),
+    };
     await fn(client);
   });
-  mockQuery.mockResolvedValue({ rows: [], rowCount: 1 });
+  // pool.query() returns result.rows (an array), not the pg result object.
+  mockQuery.mockResolvedValue([]);
 }
 
 function post() {
@@ -147,5 +159,42 @@ describe('stripe checkout webhook credit gate', () => {
     expect(res.status).toBe(200);
     expect(mockTransaction).not.toHaveBeenCalled();
     expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining("status = 'FAILED'"), expect.any(Array));
+  });
+
+  it('does not credit twice on a duplicate delivery (unique_violation 23505)', async () => {
+    // A concurrent second delivery loses the race on the unique idempotency key.
+    const dupErr = Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' });
+    primeOrderLookup({ throwOnTx: dupErr });
+    mockConstructWebhookEvent.mockReturnValue({
+      id: 'evt_5',
+      type: 'checkout.session.completed',
+      data: { object: { id: 'cs_dup', payment_status: 'paid', metadata: { orderId: 'order-1' } } },
+    });
+
+    const res = await post();
+
+    // Treated as already-processed: 200, no completion audit, no rethrow.
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ received: true });
+    expect(mockCreateAuditLog).not.toHaveBeenCalled();
+  });
+
+  it('credits the stored order amount, never the webhook-supplied amount', async () => {
+    primeOrderLookup({ orderAmountCents: 100000 });
+    mockConstructWebhookEvent.mockReturnValue({
+      id: 'evt_6',
+      type: 'checkout.session.completed',
+      // Attacker-inflated session total must be ignored.
+      data: { object: { id: 'cs_amt', payment_status: 'paid', amount_total: 999999, metadata: { orderId: 'order-1' } } },
+    });
+
+    const res = await post();
+
+    expect(res.status).toBe(200);
+    const txInsert = capturedTxQueries.find((q) => q.sql.includes('INSERT INTO transactions'));
+    expect(txInsert).toBeTruthy();
+    // amount_cents is the 3rd positional param and must equal the stored order.
+    expect(txInsert!.params).toContain(100000);
+    expect(txInsert!.params).not.toContain(999999);
   });
 });

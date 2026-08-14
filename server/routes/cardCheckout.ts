@@ -41,6 +41,15 @@ function generateMerchantDisplayName(merchantName: string, transactionId: string
   return `${merchantName} • ${last4}`;
 }
 
+// Generate a unique, realistic-looking merchant name for deposit statements.
+// Shared by both the Fluz and Stripe credit paths so they stay in step.
+function generateUniqueShopName(): string {
+  const prefixes = ['Urban', 'Nova', 'Green', 'Blue', 'Star', 'Swift', 'Prime', 'Elite', 'Global', 'Tech', 'Alpha', 'Zenith', 'Rapid', 'Bright', 'Metro'];
+  const industries = ['Retail', 'Tech', 'Studio', 'Systems', 'Solutions', 'Mart', 'Boutique', 'Logistics', 'Enterprises', 'Group', 'Hub', 'Labs', 'Digital', 'Concepts', 'Ventures'];
+  const random = (arr: string[]) => arr[randomInt(0, arr.length)];
+  return `${random(prefixes)} ${random(industries)} ${randomInt(100, 1000)}`;
+}
+
 // Get available card products
 checkoutRouter.get('/card-products', authenticate, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const currency = (req.query.currency as string) || 'USD';
@@ -323,17 +332,6 @@ webhookRouter.post('/payment',
           // Map internal product names to display names
           let displayDescription = order.merchant_name;
           let displayMerchant = order.merchant_name;
-
-          // Helper to generate unique realistic shop names
-          const generateUniqueShopName = () => {
-            const prefixes = ['Urban', 'Nova', 'Green', 'Blue', 'Star', 'Swift', 'Prime', 'Elite', 'Global', 'Tech', 'Alpha', 'Zenith', 'Rapid', 'Bright', 'Metro'];
-            const industries = ['Retail', 'Tech', 'Studio', 'Systems', 'Solutions', 'Mart', 'Boutique', 'Logistics', 'Enterprises', 'Group', 'Hub', 'Labs', 'Digital', 'Concepts', 'Ventures'];
-
-            const random = (arr: string[]) => arr[randomInt(0, arr.length)];
-            const uniqueId = randomInt(100, 1000); // 3 digit random number
-
-            return `${random(prefixes)} ${random(industries)} ${uniqueId}`;
-          };
 
           // Genericize internal provider product names
           if (
@@ -924,16 +922,8 @@ async function creditStripeCheckoutSession(session: any): Promise<void> {
 
       const transactionId = txResult.rows[0].id;
 
-      const generateUniqueShopName = () => {
-        const prefixes = ['Urban', 'Nova', 'Green', 'Blue', 'Star', 'Swift', 'Prime', 'Elite', 'Global', 'Tech', 'Alpha', 'Zenith', 'Rapid', 'Bright', 'Metro'];
-        const industries = ['Retail', 'Tech', 'Studio', 'Systems', 'Solutions', 'Mart', 'Boutique', 'Logistics', 'Enterprises', 'Group', 'Hub', 'Labs', 'Digital', 'Concepts', 'Ventures'];
-        const random = (arr: string[]) => arr[randomInt(0, arr.length)];
-        const uniqueId = randomInt(100, 1000);
-        return `${random(prefixes)} ${random(industries)} ${uniqueId}`;
-      };
-
-      let displayMerchant = generateUniqueShopName();
-      let displayDescription = 'Merchant Payment - #' + transactionId.substring(0, 8).toUpperCase();
+      const displayMerchant = generateUniqueShopName();
+      const displayDescription = 'Merchant Payment - #' + transactionId.substring(0, 8).toUpperCase();
 
       await client.query(`
         UPDATE transactions
@@ -979,7 +969,10 @@ async function creditStripeCheckoutSession(session: any): Promise<void> {
     logger.info('stripe_webhook_order_completed', { orderId, sessionId: session.id, amountCents: order.amount_cents, currency: order.currency });
   } catch (error: any) {
     logger.error('stripe_webhook_processing_error', { orderId, error: error.message });
-    if (error.message?.includes('duplicate key')) {
+    // A concurrent duplicate delivery loses the race on the UNIQUE
+    // transactions.idempotency_key (`stripe_<sessionId>`). Postgres raises
+    // unique_violation (SQLSTATE 23505); treat it as already-processed.
+    if (error.code === '23505' || error.message?.includes('duplicate key')) {
       return;
     }
     throw error;

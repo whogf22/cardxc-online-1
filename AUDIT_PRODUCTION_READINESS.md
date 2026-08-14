@@ -16,11 +16,16 @@ Baseline and post-change checks are fully green:
 |---|---|
 | `type-check` (app) | ✅ pass |
 | `type-check:server` | ✅ pass |
-| `test` (vitest) | ✅ **82 passed** (was 72; +10 new) |
-| `lint` | ✅ pass (0 warnings) |
+| `test` (vitest) | ✅ **87 passed** (was 72; +15 new) |
+| `lint` | ✅ pass (0 warnings, `eslint src`) |
 | `build` (vite) | ✅ pass |
 
-**Final verdict: NO-GO for real-money production** in the current repository state, driven by factors outside code that cannot be satisfied from the repo (secret rotation, provider/licensing approvals, sanctions/AML screening, dependency CVEs). The application is **LIMITED-GO for a sandbox / test-key posture**, because financial endpoints correctly fail closed when providers/config are absent. Conditions to reach GO are in Section 8.
+**Final verdict: NO-GO for real-money production** in the current repository state. The blockers fall into two classes:
+
+- **External / operational — not satisfiable from source code:** secret rotation, provider/licensing approvals, and operational config. These gate GO regardless of code quality.
+- **Repository-remediable — owned by engineering:** sanctions/AML screening (must be implemented in code) and dependency CVEs (dependency bumps + regression testing). Ownership and conditions are in Sections 7–8.
+
+The application is **LIMITED-GO for a sandbox / test-key posture**, because financial endpoints correctly fail closed when providers/config are absent. Conditions to reach GO are in Section 8.
 
 ---
 
@@ -41,14 +46,15 @@ Previously the `/stripe` webhook credited the wallet on `checkout.session.comple
 
 The withdrawal endpoints (`/api/withdraw/bank`, `/crypto`, `/platform`) previously required only `authenticate` + rate limiting — **no identity/eligibility gate on money leaving the platform**. Added `requireFinancialEligibility`, applied to all three routes:
 
-- Re-checks `account_status === 'active'` (defense in depth).
+- Re-checks `account_status === 'active'` (defense in depth). A missing/NULL status is rejected, never defaulted to active (fail closed).
 - **Email verification required by default** (`REQUIRE_EMAIL_VERIFIED_FOR_WITHDRAWAL`, default on) — mirrors the existing card-checkout deposit posture.
 - **KYC opt-in** (`REQUIRE_KYC_FOR_WITHDRAWAL`, default off) — mirrors `REQUIRE_KYC_FOR_CARD_CHECKOUT` so operators configure one consistent identity posture.
 - Fails closed on any lookup failure / missing user.
+- Ordered **after** `financialOpLimiter` in the route chain so a rate-limited flood is rejected before it incurs the eligibility DB lookup.
 
-### 2.3 Tests added (+10)
-- `server/routes/__tests__/cardCheckoutStripeWebhook.test.ts` — unpaid `completed` does **not** credit; paid `completed` credits; `async_payment_succeeded` credits; `async_payment_failed` marks FAILED without crediting.
-- `server/middleware/__tests__/financialEligibility.test.ts` — pass/deny matrix across email, KYC (opt-in), account status, missing user, and env toggles.
+### 2.3 Tests added (+15)
+- `server/routes/__tests__/cardCheckoutStripeWebhook.test.ts` — unpaid `completed` does **not** credit; paid `completed` credits; `async_payment_succeeded` credits; `async_payment_failed` marks FAILED without crediting; duplicate delivery (`23505`) does not double-credit; credit uses the stored order amount, never the webhook-supplied `amount_total`.
+- `server/middleware/__tests__/financialEligibility.test.ts` — pass/deny matrix across email, KYC (opt-in), active/inactive/NULL account status, missing user, thrown lookup (fail closed), unauthenticated request, and env toggles.
 
 ---
 
@@ -74,7 +80,10 @@ Confirmed present and effective in the current tree:
 - **C2. No verifiable production authorization** for card issuing / banking / money movement (licensing, provider approvals). Per constraints, real-money functionality must stay disabled. **Blocker.**
 
 ### High
-- **H1. Dependency CVEs.** `npm audit` (prod): `websocket-driver` (critical), `ws` (high, via `socket.io`/`ethers`/`jsdom`), `vite` (high, dev-server). Runtime Socket.IO path is affected. Fix requires dependency bumps + regression testing — deliberately **not** auto-applied to avoid breaking Socket.IO/Stripe. See Section 8.
+- **H1. Dependency CVEs.** Command: `npm audit --omit=dev --audit-level=high` against `package-lock.json` (lockfileVersion 3). Distinguish by **runtime reachability**, since the production start path is `tsx server/index.ts` (Express + Socket.IO) and does **not** load Vite:
+  - **Runtime-reachable (fix first):** `websocket-driver` (critical) and `ws` (high) are pulled in by `socket.io`/`socket.io-adapter` (also `ethers`, `jsdom`) and are on the live WebSocket path.
+  - **Build/dev only (lower urgency):** `vite` (high) is declared in `dependencies` (so `--omit=dev` still flags it) but is used only by `build`/`dev`/`preview` scripts — never loaded by the running server.
+  Fix requires dependency bumps + regression testing (Socket.IO/Stripe smoke) — deliberately **not** auto-applied here to avoid breaking those paths. See Section 8.
 - **H2. No sanctions/AML screening** in any money-in/out path. The new eligibility gate provides the KYC hook, but list-screening (OFAC/PEP), velocity/limit rules, and travel-rule handling are absent.
 - **H3. Crypto payout "manual" mode records nothing.** `cryptoProviderService.createManualPayoutRequest()` returns `success/pending` and its comment claims it persists to `pending_crypto_payouts`, but there is **no insert** (the `withdrawal_requests` row is the only durable record). Reconciliation relies on that single row; the dedicated queue implied by the code does not exist.
 
@@ -91,8 +100,8 @@ Confirmed present and effective in the current tree:
 
 ## 5. Tests / results
 
-```
-vitest run  → 14 files, 82 tests passed
+```text
+vitest run  → 14 files, 87 tests passed
 tsc app     → clean
 tsc server  → clean
 eslint src  → clean (max-warnings 0)

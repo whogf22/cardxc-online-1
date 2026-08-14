@@ -50,7 +50,10 @@ export async function requireFinancialEligibility(
       throw new AppError('User not found', 404, 'USER_NOT_FOUND');
     }
 
-    if ((user.account_status || 'active') !== 'active') {
+    // Fail closed: a missing/unknown status is NOT treated as active. The
+    // account_status CHECK constraint permits NULL, so an incomplete row must
+    // never pass a value-out control by defaulting to 'active'.
+    if (user.account_status !== 'active') {
       throw new AppError('Account is not active', 403, 'ACCOUNT_INACTIVE');
     }
 

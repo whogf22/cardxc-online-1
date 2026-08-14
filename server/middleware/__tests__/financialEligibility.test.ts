@@ -68,4 +68,25 @@ describe('requireFinancialEligibility', () => {
     const next = await run({ email_verified: false, kyc_status: 'not_started', account_status: 'active' });
     expect(next).toHaveBeenCalledWith();
   });
+
+  it('rejects when account_status is NULL (fail closed, not defaulted to active)', async () => {
+    const next = await run({ email_verified: true, kyc_status: 'approved', account_status: null });
+    expect(next.mock.calls[0][0].code).toBe('ACCOUNT_INACTIVE');
+  });
+
+  it('rejects (does not allow) when the user lookup throws — fail closed', async () => {
+    mockQueryOne.mockRejectedValueOnce(new Error('db down'));
+    const req = { user: { id: 'u1' } } as any;
+    const next = vi.fn();
+    await requireFinancialEligibility(req, {} as any, next);
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(next.mock.calls[0][0]).toBeInstanceOf(Error);
+  });
+
+  it('rejects an unauthenticated request without hitting the database', async () => {
+    const next = vi.fn();
+    await requireFinancialEligibility({} as any, {} as any, next);
+    expect(next.mock.calls[0][0].code).toBe('UNAUTHORIZED');
+    expect(mockQueryOne).not.toHaveBeenCalled();
+  });
 });
