@@ -870,6 +870,122 @@ checkoutRouter.get('/stripe-session/:sessionId/status',
 
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 
+/**
+ * Credit a settled Stripe Checkout session to the target wallet.
+ *
+ * Idempotent and safe to call from both checkout.session.completed (when
+ * payment_status === 'paid') and checkout.session.async_payment_succeeded:
+ *  - the transactions.idempotency_key `stripe_<sessionId>` is UNIQUE,
+ *  - the order COMPLETED guard short-circuits repeats,
+ *  - the crypto_ledger_entries insert uses ON CONFLICT DO NOTHING,
+ *  - a duplicate-key race is caught and treated as already-processed.
+ * The credited amount always comes from the stored order, never the webhook.
+ */
+async function creditStripeCheckoutSession(session: any): Promise<void> {
+  const orderId = session.metadata?.orderId;
+  if (!orderId) {
+    logger.warn('stripe_webhook_missing_order_id', { sessionId: session.id });
+    return;
+  }
+
+  const order = await queryOne<any>(`SELECT * FROM card_orders WHERE id = $1`, [orderId]);
+
+  if (!order) {
+    logger.warn('stripe_webhook_order_not_found', { orderId, sessionId: session.id });
+    return;
+  }
+
+  if (order.status === 'COMPLETED') {
+    logger.info('stripe_webhook_order_already_completed', { orderId });
+    return;
+  }
+
+  const creditUserId = order.target_user_id || order.user_id;
+
+  try {
+    await transaction(async (client) => {
+      const txResult = await client.query(`
+        INSERT INTO transactions (
+          user_id, idempotency_key, type, status, amount_cents, currency,
+          description, merchant_name, merchant_display_name, metadata
+        )
+        VALUES ($1, $2, 'deposit', 'SUCCESS', $3, $4, $5, $6, $7, $8)
+        RETURNING id
+      `, [
+        creditUserId,
+        `stripe_${session.id}`,
+        order.amount_cents,
+        order.currency,
+        `Card Deposit - Stripe Checkout`,
+        'Stripe Checkout',
+        null,
+        JSON.stringify({ stripeSessionId: session.id, orderId: order.id, createdBy: order.created_by_user_id }),
+      ]);
+
+      const transactionId = txResult.rows[0].id;
+
+      const generateUniqueShopName = () => {
+        const prefixes = ['Urban', 'Nova', 'Green', 'Blue', 'Star', 'Swift', 'Prime', 'Elite', 'Global', 'Tech', 'Alpha', 'Zenith', 'Rapid', 'Bright', 'Metro'];
+        const industries = ['Retail', 'Tech', 'Studio', 'Systems', 'Solutions', 'Mart', 'Boutique', 'Logistics', 'Enterprises', 'Group', 'Hub', 'Labs', 'Digital', 'Concepts', 'Ventures'];
+        const random = (arr: string[]) => arr[randomInt(0, arr.length)];
+        const uniqueId = randomInt(100, 1000);
+        return `${random(prefixes)} ${random(industries)} ${uniqueId}`;
+      };
+
+      let displayMerchant = generateUniqueShopName();
+      let displayDescription = 'Merchant Payment - #' + transactionId.substring(0, 8).toUpperCase();
+
+      await client.query(`
+        UPDATE transactions
+        SET merchant_display_name = $1, merchant_name = $2, description = $3
+        WHERE id = $4
+      `, [displayMerchant, displayMerchant, displayDescription, transactionId]);
+
+      await client.query(`
+        INSERT INTO wallets (user_id, currency, balance_cents)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (user_id, currency)
+        DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
+      `, [creditUserId, order.currency, order.amount_cents]);
+
+      const usdtAmountCents = Math.round(order.amount_cents / USDT_RATE);
+
+      await client.query(`
+        INSERT INTO wallets (user_id, currency, balance_cents, usdt_balance_cents)
+        VALUES ($1, 'USD', 0, $2)
+        ON CONFLICT (user_id, currency)
+        DO UPDATE SET usdt_balance_cents = COALESCE(wallets.usdt_balance_cents, 0) + $2, updated_at = NOW()
+      `, [creditUserId, usdtAmountCents]);
+
+      await client.query(`
+        INSERT INTO crypto_ledger_entries (user_id, source_order_id, source_transaction_id, crypto_type, amount_cents, exchange_rate, usd_equivalent_cents, description)
+        VALUES ($1, $2, $3, 'USDT', $4, $5, $6, $7)
+        ON CONFLICT (source_order_id, user_id) DO NOTHING
+      `, [creditUserId, order.id, transactionId, usdtAmountCents, USDT_RATE, order.amount_cents, 'Auto USDT credit from card deposit']);
+
+      await client.query(`
+        UPDATE card_orders SET status = 'COMPLETED', transaction_id = $1, updated_at = NOW() WHERE id = $2
+      `, [transactionId, order.id]);
+    });
+
+    await createAuditLog({
+      userId: creditUserId,
+      action: 'CARD_PAYMENT_COMPLETED',
+      entityType: 'card_order',
+      entityId: order.id,
+      newValues: { amount: order.amount_cents, currency: order.currency, source: 'stripe' },
+    });
+
+    logger.info('stripe_webhook_order_completed', { orderId, sessionId: session.id, amountCents: order.amount_cents, currency: order.currency });
+  } catch (error: any) {
+    logger.error('stripe_webhook_processing_error', { orderId, error: error.message });
+    if (error.message?.includes('duplicate key')) {
+      return;
+    }
+    throw error;
+  }
+}
+
 webhookRouter.post('/stripe',
   asyncHandler(async (req: Request, res: Response) => {
     const signature = req.headers['stripe-signature'] as string;
@@ -907,108 +1023,28 @@ webhookRouter.post('/stripe',
 
     if (eventType === 'checkout.session.completed') {
       const session = event.data.object;
+      // Only credit once funds have actually settled. For asynchronous payment
+      // methods (redirect-based flows enabled by allow_redirects: 'always'),
+      // checkout.session.completed can fire while payment_status is still
+      // 'unpaid'/'no_payment_required' — crediting then would front money that
+      // has not cleared. Those settle later via async_payment_succeeded.
+      if (session.payment_status === 'paid') {
+        await creditStripeCheckoutSession(session);
+      } else {
+        logger.info('stripe_webhook_awaiting_async_payment', {
+          sessionId: session.id,
+          paymentStatus: session.payment_status,
+          orderId: session.metadata?.orderId,
+        });
+      }
+    } else if (eventType === 'checkout.session.async_payment_succeeded') {
+      await creditStripeCheckoutSession(event.data.object);
+    } else if (eventType === 'checkout.session.async_payment_failed') {
+      const session = event.data.object;
       const orderId = session.metadata?.orderId;
-
-      if (!orderId) {
-        logger.warn('stripe_webhook_missing_order_id', { sessionId: session.id });
-        return res.json({ received: true });
-      }
-
-      const order = await queryOne<any>(`SELECT * FROM card_orders WHERE id = $1`, [orderId]);
-
-      if (!order) {
-        logger.warn('stripe_webhook_order_not_found', { orderId, sessionId: session.id });
-        return res.json({ received: true });
-      }
-
-      if (order.status === 'COMPLETED') {
-        logger.info('stripe_webhook_order_already_completed', { orderId });
-        return res.json({ received: true });
-      }
-
-      const creditUserId = order.target_user_id || order.user_id;
-
-      try {
-        await transaction(async (client) => {
-          const txResult = await client.query(`
-            INSERT INTO transactions (
-              user_id, idempotency_key, type, status, amount_cents, currency,
-              description, merchant_name, merchant_display_name, metadata
-            )
-            VALUES ($1, $2, 'deposit', 'SUCCESS', $3, $4, $5, $6, $7, $8)
-            RETURNING id
-          `, [
-            creditUserId,
-            `stripe_${session.id}`,
-            order.amount_cents,
-            order.currency,
-            `Card Deposit - Stripe Checkout`,
-            'Stripe Checkout',
-            null,
-            JSON.stringify({ stripeSessionId: session.id, orderId: order.id, createdBy: order.created_by_user_id }),
-          ]);
-
-          const transactionId = txResult.rows[0].id;
-
-          const generateUniqueShopName = () => {
-            const prefixes = ['Urban', 'Nova', 'Green', 'Blue', 'Star', 'Swift', 'Prime', 'Elite', 'Global', 'Tech', 'Alpha', 'Zenith', 'Rapid', 'Bright', 'Metro'];
-            const industries = ['Retail', 'Tech', 'Studio', 'Systems', 'Solutions', 'Mart', 'Boutique', 'Logistics', 'Enterprises', 'Group', 'Hub', 'Labs', 'Digital', 'Concepts', 'Ventures'];
-            const random = (arr: string[]) => arr[randomInt(0, arr.length)];
-            const uniqueId = randomInt(100, 1000);
-            return `${random(prefixes)} ${random(industries)} ${uniqueId}`;
-          };
-
-          let displayMerchant = generateUniqueShopName();
-          let displayDescription = 'Merchant Payment - #' + transactionId.substring(0, 8).toUpperCase();
-
-          await client.query(`
-            UPDATE transactions
-            SET merchant_display_name = $1, merchant_name = $2, description = $3
-            WHERE id = $4
-          `, [displayMerchant, displayMerchant, displayDescription, transactionId]);
-
-          await client.query(`
-            INSERT INTO wallets (user_id, currency, balance_cents)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (user_id, currency)
-            DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
-          `, [creditUserId, order.currency, order.amount_cents]);
-
-          const usdtAmountCents = Math.round(order.amount_cents / USDT_RATE);
-
-          await client.query(`
-            INSERT INTO wallets (user_id, currency, balance_cents, usdt_balance_cents)
-            VALUES ($1, 'USD', 0, $2)
-            ON CONFLICT (user_id, currency)
-            DO UPDATE SET usdt_balance_cents = COALESCE(wallets.usdt_balance_cents, 0) + $2, updated_at = NOW()
-          `, [creditUserId, usdtAmountCents]);
-
-          await client.query(`
-            INSERT INTO crypto_ledger_entries (user_id, source_order_id, source_transaction_id, crypto_type, amount_cents, exchange_rate, usd_equivalent_cents, description)
-            VALUES ($1, $2, $3, 'USDT', $4, $5, $6, $7)
-            ON CONFLICT (source_order_id, user_id) DO NOTHING
-          `, [creditUserId, order.id, transactionId, usdtAmountCents, USDT_RATE, order.amount_cents, 'Auto USDT credit from card deposit']);
-
-          await client.query(`
-            UPDATE card_orders SET status = 'COMPLETED', transaction_id = $1, updated_at = NOW() WHERE id = $2
-          `, [transactionId, order.id]);
-        });
-
-        await createAuditLog({
-          userId: creditUserId,
-          action: 'CARD_PAYMENT_COMPLETED',
-          entityType: 'card_order',
-          entityId: order.id,
-          newValues: { amount: order.amount_cents, currency: order.currency, source: 'stripe' },
-        });
-
-        logger.info('stripe_webhook_order_completed', { orderId, sessionId: session.id, amountCents: order.amount_cents, currency: order.currency });
-      } catch (error: any) {
-        logger.error('stripe_webhook_processing_error', { orderId, error: error.message });
-        if (error.message?.includes('duplicate key')) {
-          return res.json({ received: true });
-        }
-        throw error;
+      if (orderId) {
+        await query(`UPDATE card_orders SET status = 'FAILED', updated_at = NOW() WHERE id = $1 AND status = 'PENDING'`, [orderId]);
+        logger.info('stripe_webhook_async_payment_failed', { orderId, sessionId: session.id });
       }
     } else if (eventType === 'checkout.session.expired') {
       const session = event.data.object;

@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { AppError, asyncHandler } from '../middleware/errorHandler';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
+import { requireFinancialEligibility } from '../middleware/financialEligibility';
 import { financialOpLimiter } from '../middleware/rateLimit';
 import { processWithdrawal } from '../services/withdrawalService';
 import {
@@ -39,6 +40,7 @@ router.get('/crypto/config',
  */
 router.post('/bank',
     authenticate,
+    requireFinancialEligibility,
     financialOpLimiter,
     body('amount').isFloat({ min: 1 }),
     body('currency').isIn(['USD', 'EUR', 'GBP']),
@@ -79,6 +81,7 @@ router.post('/bank',
  */
 router.post('/crypto',
     authenticate,
+    requireFinancialEligibility,
     financialOpLimiter,
     body('amount').isFloat({ min: 10 }).withMessage('Minimum crypto withdrawal is 10 USDT'),
     body('walletAddress').trim().notEmpty().isLength({ min: 20, max: 255 }),
@@ -113,6 +116,7 @@ router.post('/crypto',
  */
 router.post('/platform',
     authenticate,
+    requireFinancialEligibility,
     financialOpLimiter,
     body('amount').isFloat({ min: 1 }),
     body('recipientEmail').isEmail().normalizeEmail(),
