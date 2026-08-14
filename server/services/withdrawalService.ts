@@ -182,7 +182,7 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
     // withdrawal_request the admin approve/reject flow cannot action, stranding
     // the funds. Reject up front — before any balance is touched — rather than
     // debit into that dead end.
-    if (!isAutomatedCryptoPayoutConfigured()) {
+    if (!isAutomatedCryptoPayoutConfigured(request.network)) {
         throw new AppError('Crypto withdrawals are not available right now.', 503, 'CRYPTO_PAYOUTS_UNAVAILABLE');
     }
 

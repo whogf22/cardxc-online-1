@@ -328,7 +328,7 @@ export function isCryptoProviderConfigured(): boolean {
  * complete nor reverse, stranding the funds. Money-out endpoints must fail
  * closed on this predicate instead of debiting into that dead end.
  */
-export function isAutomatedCryptoPayoutConfigured(): boolean {
+export function isAutomatedCryptoPayoutConfigured(network?: string): boolean {
     switch (CRYPTO_PROVIDER) {
         case 'binance_pay':
             return !!BINANCE_API_KEY && !!BINANCE_SECRET_KEY;
@@ -337,7 +337,10 @@ export function isAutomatedCryptoPayoutConfigured(): boolean {
         case 'circle':
             return !!CIRCLE_API_KEY;
         case 'trongrid':
-            return !!TRON_HOT_WALLET_PRIVATE_KEY;
+            // TronGrid dispatches ONLY TRC20 (see sendCryptoToWallet routing);
+            // every other network falls back to the stranding manual path, so
+            // TronGrid is not "automated" for those. Require TRC20 + a key.
+            return !!TRON_HOT_WALLET_PRIVATE_KEY && network === 'TRC20';
         case 'manual':
         default:
             return false;

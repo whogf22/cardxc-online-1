@@ -7,7 +7,7 @@
 > ⚠️ This runbook is executed **by you on machines that have access** (the VPS,
 > and a machine with Cloudflare/GitHub credentials). The Claude session that
 > wrote this has **no VPS/production access** and cannot run any of it.
-
+>
 > ⚠️ **Never** commit real secrets. All commands below reference env var
 > *names* only. Production `.env` files stay on the box and are never
 > overwritten by a deploy.
@@ -31,31 +31,40 @@ box. A deploy that pulls GitHub over it will **erase it**. Capture it first.
 On the **VPS**, in the app directory:
 
 ```bash
+git fetch origin
 git status                 # uncommitted changes = drift
 git stash list             # stashed drift
-git log --oneline -5       # is the VPS ahead of / behind origin?
-git fetch origin
-git status -sb             # shows ahead/behind vs tracked branch
+
+# Compare HEAD DIRECTLY against origin/main — do not rely on the tracked
+# upstream, which may point at another branch and hide committed hot-patches.
+git rev-list --left-right --count origin/main...HEAD   # "<behind> <ahead>"
+git log --oneline origin/main..HEAD                    # commits ONLY on the VPS
 ```
 
-If `git status` shows changes:
+Any commits listed by that last command exist only on the box — capture them
+before deploying anything.
+
+If `git status` shows uncommitted changes **or** the VPS has commits not on
+`origin/main`:
 
 ```bash
-# Preserve them on a dedicated branch and push — do not discard.
+# GUARD: never stage secrets. Confirm .env is ignored FIRST; abort if not.
+git check-ignore -q .env .env.local || { echo "ABORT: .env is not gitignored"; exit 1; }
+
 git checkout -b vps-drift-$(date +%Y%m%d)
 git add -A
+git diff --cached --name-only          # REVIEW staged files — no .env / secrets
 git commit -m "chore: capture live VPS drift before deploy"
 git push -u origin vps-drift-$(date +%Y%m%d)
 ```
 
 Then open a PR from that branch and reconcile it with `main`/PR #9 **before**
-deploying. If `git status` is clean and the VPS is at or behind `origin/main`,
-there is no drift — proceed.
+deploying. If `git status` is clean and `origin/main..HEAD` is empty, there is
+no drift — proceed.
 
-> Files that are *supposed* to differ on the VPS (e.g. `.env`, `.env.local`,
-> `uploads/`) should already be in `.gitignore`. Confirm with
-> `git check-ignore .env` → it should print `.env`. If it does not, **stop** and
-> fix `.gitignore` before committing anything, so secrets never get pushed.
+> Files that are *supposed* to differ on the VPS (`.env`, `.env.local`,
+> `uploads/`) must be gitignored. The `git check-ignore` guard above aborts the
+> capture if `.env` is not ignored, so secrets can never be staged or pushed.
 
 ---
 
@@ -69,16 +78,11 @@ git diff --stat origin/main...origin/claude/developer-roadmap-content-3yxyev
 git log --oneline origin/main..origin/claude/developer-roadmap-content-3yxyev
 ```
 
-Expected (this deploy):
-
-```text
-b951e5c chore(tools): add mattpocock diagnosing-bugs skill
-caa5edb fix(withdraw): fail closed on crypto withdrawal when no automated payout provider
-402916a fix(review): address CodeRabbit findings on eligibility gate + stripe credit
-4d09f53 fix(payments): gate deposit credit on settlement + fail-closed value-out eligibility
-```
-
-All four are safety/correctness fixes; none enable real-money features.
+This deploy is PR #9: settlement-gated deposit credit, fail-closed value-out
+eligibility, and network-aware fail-closed crypto withdrawal — all
+safety/correctness fixes, plus the audit report and this runbook. **None enable
+real-money features.** Review the actual `git log` output above against that
+description before shipping; investigate anything unexpected.
 
 ---
 
@@ -88,12 +92,18 @@ Data preservation is not automatic just because the schema is idempotent — tak
 a real backup first.
 
 ```bash
-# On a host with DB access. Use the SAME DATABASE_URL the app uses.
-pg_dump "$DATABASE_URL" --no-owner --format=custom \
-  -f "cardxc-$(date +%Y%m%d-%H%M%S).dump"
+# Write backups to a dir OUTSIDE the repo, owner-only (umask 077 + explicit 600).
+BACKUP_DIR="$HOME/cardxc-backups"; mkdir -p "$BACKUP_DIR"; chmod 700 "$BACKUP_DIR"
+umask 077
+ts=$(date +%Y%m%d-%H%M%S)
 
-# Snapshot the production env too (kept OUTSIDE git).
-cp .env ".env.backup-$(date +%Y%m%d-%H%M%S)"
+# On a host with DB access. Use the SAME DATABASE_URL the app uses.
+pg_dump "$DATABASE_URL" --no-owner --format=custom -f "$BACKUP_DIR/cardxc-$ts.dump"
+chmod 600 "$BACKUP_DIR/cardxc-$ts.dump"
+
+# Snapshot the production env too (kept OUTSIDE git, owner-only).
+cp .env "$BACKUP_DIR/.env.backup-$ts"
+chmod 600 "$BACKUP_DIR/.env.backup-$ts"
 ```
 
 There is also `npm run db:backup` (`scripts/backup-user-db.js`) — use it if it
@@ -124,28 +134,51 @@ deploy:
 | `REQUIRE_KYC_FOR_WITHDRAWAL` | `true` for launch | Turn on once KYC/AML screening is live. |
 | `REQUIRE_KYC_FOR_CARD_CHECKOUT` | `true` for launch | Same, for deposits. |
 
-Quick check on the VPS (names only, never print values to shared logs):
+Check the **actual environment of the running backend**, not just your shell —
+a var can be `unset` in your shell yet `sk_live_…` in the service. Read the
+process-manager env (never print secret values):
 
 ```bash
+# Capture the backend process env into a NUL-delimited buffer. Use YOUR manager:
+#   systemd: sudo tr '\0' '\n' < /proc/$(systemctl show -p MainPID --value cardxc-backend)/environ
+#   pm2:     pm2 env <id>            # then read the vars below
+#   docker:  docker exec <ctr> env
+# Example for systemd — classify without revealing values:
+PID=$(systemctl show -p MainPID --value cardxc-backend 2>/dev/null)
+getenv() { sudo tr '\0' '\n' < /proc/"$PID"/environ 2>/dev/null | sed -n "s/^$1=//p"; }
+
 for v in CRYPTO_PROVIDER TRON_HOT_WALLET_PRIVATE_KEY STRIPE_ISSUING_CARDHOLDER_ID; do
-  if [ -n "${!v}" ]; then echo "$v = SET (review!)"; else echo "$v = unset (safe)"; fi
+  val=$(getenv "$v"); [ -n "$val" ] && echo "$v = SET (review!)" || echo "$v = unset (safe)"
 done
+
+sk=$(getenv STRIPE_SECRET_KEY)
+case "$sk" in
+  sk_live_*) echo "STRIPE_SECRET_KEY = LIVE (block real-money launch unless approved)";;
+  sk_test_*) echo "STRIPE_SECRET_KEY = test (safe)";;
+  "")        echo "STRIPE_SECRET_KEY = unset";;
+  *)         echo "STRIPE_SECRET_KEY = set (unrecognized prefix — review)";;
+esac
 ```
 
 ---
 
 ## 5. Pre-deploy verification (must be green)
 
-On a checkout of the exact commit you will deploy:
+Run against the **exact commit that will be deployed**, and record it so you can
+confirm the deployed SHA matches what you validated:
 
 ```bash
+DEPLOY_SHA=$(git rev-parse HEAD); echo "Validating $DEPLOY_SHA"
 npm ci
 npm run type-check:all      # app + server TypeScript
-npm test                    # vitest — expect 88 passing
+npm test                    # vitest — expect 93 passing
 npm run build               # vite production build
 ```
 
-Do not proceed if any of these fail.
+Do not proceed if any of these fail. After merging/pulling `origin/main` for the
+deploy (Section 6), confirm `git rev-parse HEAD` on the deploy checkout **equals
+`$DEPLOY_SHA`**. If a merge commit or later push changed it, **re-run all four
+checks on the final deployed commit** before restarting the service.
 
 ---
 
@@ -187,13 +220,17 @@ The app runs its idempotent schema init on boot; existing data is preserved.
 
 ```bash
 node scripts/validate-production.js https://cardxc.online
-# Expect: OK /api/health, /api/health/detailed (database: connected),
-#         /api/health/ready (ready), /api/health/live (live)
+# The validator asserts the response PAYLOAD, not just HTTP 200: it fails if
+# status != "healthy", database != "healthy", ready != true, or live != true
+# (health/detailed can return 200 while "degraded" with the DB down).
 ```
 
-Then smoke-check by hand: sign in, load wallet/cards, and confirm a crypto
-withdrawal attempt returns **503 "Crypto withdrawals are not available right
-now."** (proves the fail-closed gate is live and no funds can be stranded).
+Then smoke-check the fail-closed gate by hand. Use an **authenticated test
+account that already satisfies the eligibility gates** (active, email-verified;
+KYC if `REQUIRE_KYC_FOR_WITHDRAWAL=true`) and request **≥ 10 USDT** — amounts
+below the 10 USDT minimum return 400 before the provider gate is reached.
+Expect **503 "Crypto withdrawals are not available right now."** while no
+automated crypto provider is configured (proves funds cannot be stranded).
 
 ---
 

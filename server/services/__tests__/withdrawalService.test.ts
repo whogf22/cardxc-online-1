@@ -171,7 +171,27 @@ describe('processCryptoWithdrawal double-spend protection', () => {
 
     await expect(processWithdrawal(baseReq)).rejects.toThrow(/not available|unavailable|not configured/i);
 
+    // The gate is consulted with the request network before any debit.
+    expect(mockAutomatedConfigured).toHaveBeenCalledWith('TRC20');
     // No external payout attempted and, crucially, no balance deducted.
+    expect(mockSendCryptoToWallet).not.toHaveBeenCalled();
+    const debited = executedSql.some((sql) => sql.includes('usdt_balance_cents = usdt_balance_cents - $1'));
+    expect(debited).toBe(false);
+  });
+
+  it('fails closed for a non-TRC20 TronGrid network WITHOUT debiting', async () => {
+    // TronGrid dispatches only TRC20; an ERC20 request would otherwise fall to
+    // the stranding manual path. The network-aware gate must reject it first.
+    const executedSql: string[] = [];
+    installTransaction(executedSql);
+    // Simulate the network-aware predicate returning false for ERC20.
+    mockAutomatedConfigured.mockReturnValue(false);
+
+    await expect(
+      processWithdrawal({ ...baseReq, network: 'ERC20' }),
+    ).rejects.toThrow(/not available|unavailable|not configured/i);
+
+    expect(mockAutomatedConfigured).toHaveBeenCalledWith('ERC20');
     expect(mockSendCryptoToWallet).not.toHaveBeenCalled();
     const debited = executedSql.some((sql) => sql.includes('usdt_balance_cents = usdt_balance_cents - $1'));
     expect(debited).toBe(false);

@@ -35,14 +35,29 @@ async function main() {
   console.log('--- Production validation ---');
   console.log('Base URL:', BASE);
   let failed = 0;
+  // Assert the response PAYLOAD, not just HTTP status: /api/health/detailed
+  // returns HTTP 200 with status "degraded" and database "unhealthy" when the
+  // DB is down, so an ok-only check would falsely pass.
   const health = await fetchJson('/api/health');
-  if (!health.ok) { console.log('FAIL /api/health', health.status); failed++; } else { console.log('OK   /api/health', health.data?.status ?? 'unknown'); }
+  if (!health.ok || health.data?.status !== 'healthy') {
+    console.log('FAIL /api/health', health.status, health.data?.status ?? 'unknown'); failed++;
+  } else { console.log('OK   /api/health', health.data.status); }
+
   const detailed = await fetchJson('/api/health/detailed');
-  if (!detailed.ok) { failed++; } else { const db = detailed.data?.checks?.database; console.log('OK   /api/health/detailed', 'database:', db?.status ?? 'unknown'); }
+  const db = detailed.data?.checks?.database;
+  if (!detailed.ok || db?.status !== 'healthy') {
+    console.log('FAIL /api/health/detailed', detailed.status, 'database:', db?.status ?? 'unknown'); failed++;
+  } else { console.log('OK   /api/health/detailed', 'database:', db.status); }
+
   const ready = await fetchJson('/api/health/ready');
-  if (!ready.ok) { failed++; } else { console.log('OK   /api/health/ready', ready.data?.ready === true ? 'ready' : 'not ready'); }
+  if (!ready.ok || ready.data?.ready !== true) {
+    console.log('FAIL /api/health/ready', ready.status); failed++;
+  } else { console.log('OK   /api/health/ready', 'ready'); }
+
   const live = await fetchJson('/api/health/live');
-  if (!live.ok) { failed++; } else { console.log('OK   /api/health/live', live.data?.live === true ? 'live' : ''); }
+  if (!live.ok || live.data?.live !== true) {
+    console.log('FAIL /api/health/live', live.status); failed++;
+  } else { console.log('OK   /api/health/live', 'live'); }
   console.log('');
   if (failed > 0) { console.log('Validation failed:', failed, 'check(s)'); process.exit(1); }
   console.log('All checks passed. Backend is production-ready.');

@@ -16,7 +16,7 @@ Baseline and post-change checks are fully green:
 |---|---|
 | `type-check` (app) | ✅ pass |
 | `type-check:server` | ✅ pass |
-| `test` (vitest) | ✅ **88 passed** (was 72; +16 new) |
+| `test` (vitest) | ✅ **93 passed** (was 72; +21 new) |
 | `lint` | ✅ pass (0 warnings, `eslint src`) |
 | `build` (vite) | ✅ pass |
 
@@ -55,12 +55,13 @@ The withdrawal endpoints (`/api/withdraw/bank`, `/crypto`, `/platform`) previous
 ### 2.3 Crypto withdrawal — fail closed when no automated payout provider (money-safety)
 **Files:** `server/services/cryptoProviderService.ts`, `server/services/withdrawalService.ts`
 
-Diagnosed with the `diagnosing-bugs` skill (loop-first). In the **default** config (`CRYPTO_PROVIDER='manual'`, or `trongrid` without a hot-wallet key), a crypto withdrawal debited the user's USDT and created a `withdrawal_requests` row with status `'processing'` — a state the admin approve/reject endpoints (which require `'pending'`) can neither complete nor reverse, **stranding the funds**. Added `isAutomatedCryptoPayoutConfigured()` and gated `processCryptoWithdrawal` to reject **503 before any debit** when no automated provider is available. Corrected the misleading `createManualPayoutRequest` comment. See H3.
+Diagnosed with the `diagnosing-bugs` skill (loop-first). In the **default** config (`CRYPTO_PROVIDER='manual'`, or `trongrid` without a hot-wallet key), a crypto withdrawal debited the user's USDT and created a `withdrawal_requests` row with status `'processing'` — a state the admin approve/reject endpoints (which require `'pending'`) can neither complete nor reverse, **stranding the funds**. Added `isAutomatedCryptoPayoutConfigured(network)` and gated `processCryptoWithdrawal` to reject **503 before any debit** when no automated provider is available. The predicate is **network-aware**: TronGrid dispatches only TRC20, so a non-TRC20 request (which would fall to the same stranding manual path) is also rejected up front. Corrected the misleading `createManualPayoutRequest` comment. See H3.
 
-### 2.4 Tests added (+16)
+### 2.4 Tests added (+21)
 - `server/routes/__tests__/cardCheckoutStripeWebhook.test.ts` — unpaid `completed` does **not** credit; paid `completed` credits; `async_payment_succeeded` credits; `async_payment_failed` marks FAILED without crediting; duplicate delivery (`23505`) does not double-credit; credit uses the stored order amount, never the webhook-supplied `amount_total`.
 - `server/middleware/__tests__/financialEligibility.test.ts` — pass/deny matrix across email, KYC (opt-in), active/inactive/NULL account status, missing user, thrown lookup (fail closed), unauthenticated request, and env toggles.
-- `server/services/__tests__/withdrawalService.test.ts` — crypto withdrawal fails closed **without debiting** when no automated payout provider is configured.
+- `server/services/__tests__/withdrawalService.test.ts` — crypto withdrawal fails closed **without debiting** when no automated payout provider is configured, including the non-TRC20-TronGrid case (network passed to the gate).
+- `server/services/__tests__/cryptoProviderService.test.ts` — `isAutomatedCryptoPayoutConfigured` truth table: manual/unknown → false; TronGrid → true only with a key **and** TRC20.
 
 ---
 
@@ -107,14 +108,14 @@ Confirmed present and effective in the current tree:
 ## 5. Tests / results
 
 ```text
-vitest run  → 14 files, 88 tests passed
+vitest run  → 15 files, 93 tests passed
 tsc app     → clean
 tsc server  → clean
 eslint src  → clean (max-warnings 0)
 vite build  → success
 ```
 
-New coverage targets the three highest-risk money paths changed here (deposit settlement, value-out eligibility, crypto-withdrawal fail-closed). Existing money-path regression tests (crypto double-spend, payments overdraw, Fluz webhook idempotency/authz) continue to pass.
+New coverage targets the three highest-risk money paths changed here (deposit settlement, value-out eligibility, crypto-withdrawal fail-closed — including the network-aware TronGrid case). Existing money-path regression tests (crypto double-spend, payments overdraw, Fluz webhook idempotency/authz) continue to pass.
 
 ---
 
@@ -157,6 +158,6 @@ New coverage targets the three highest-risk money paths changed here (deposit se
 
 ## 9. Final production verdict
 
-> **NO-GO for real-money production** until blockers 1–3 (and ideally 4–5) in Section 7 are cleared — these are operational/compliance items that cannot be satisfied from source code.
+> **NO-GO for real-money production** until blockers 1–4 in Section 7 are cleared. Items **1–2 require external/operational action** (secret rotation; provider/licensing authorization) — not satisfiable from source. Items **3–4 require repository remediation** (sanctions/AML screening implemented in code; dependency-CVE bumps) — engineering-owned, not optional. Item **5 (manual-crypto payout architecture) is conditional** — required only before enabling manual crypto payouts, and not required while that path stays disabled/fail-closed.
 >
 > **LIMITED-GO** for a sandbox / test-key deployment: the code fails closed when providers and secrets are absent, auth and webhook integrity are sound, and the deposit-settlement and value-out paths are now gated. This is a safe posture for staging and integration testing, not for handling customer funds.
