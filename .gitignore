@@ -109,3 +109,8 @@ Applications/
 .dev.vars*
 !.dev.vars.example
 !.env.example
+
+# Local agent skills tooling (installed via `npx skills`, not vendored into this repo)
+.agents/
+.claude/skills/
+skills-lock.json

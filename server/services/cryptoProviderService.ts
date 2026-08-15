@@ -243,7 +243,12 @@ async function createManualPayoutRequest(request: CryptoPayoutRequest): Promise<
         network: request.network
     });
 
-    // Store in pending_crypto_payouts table (admin will process)
+    // NOTE: there is no durable record written here — no `pending_crypto_payouts`
+    // table exists. Callers that debit a balance before invoking this path would
+    // strand funds (the resulting withdrawal_request sits in 'processing', which
+    // the admin approve/reject flow cannot action). Money-out callers must gate
+    // on isAutomatedCryptoPayoutConfigured() and fail closed instead of reaching
+    // this manual path. Kept only as a safe fallback that moves no money.
     return {
         success: true,
         payoutId: `manual_${Date.now()}`,
@@ -306,6 +311,37 @@ export function isCryptoProviderConfigured(): boolean {
             return !!TRON_HOT_WALLET_PRIVATE_KEY;
         case 'manual':
             return true; // Manual always available
+        default:
+            return false;
+    }
+}
+
+/**
+ * Whether an AUTOMATED crypto payout can actually be dispatched right now.
+ *
+ * Distinct from isCryptoProviderConfigured(), which reports 'manual' as
+ * available. Manual mode (and 'trongrid' without a hot-wallet key, which falls
+ * back to manual) performs NO on-chain send: sendCryptoToWallet returns
+ * status 'pending'. A withdrawal built on that path debits the user's balance
+ * and leaves a withdrawal_request in 'processing' — a state the admin
+ * approve/reject endpoints (which require status 'pending') can neither
+ * complete nor reverse, stranding the funds. Money-out endpoints must fail
+ * closed on this predicate instead of debiting into that dead end.
+ */
+export function isAutomatedCryptoPayoutConfigured(network?: string): boolean {
+    switch (CRYPTO_PROVIDER) {
+        case 'binance_pay':
+            return !!BINANCE_API_KEY && !!BINANCE_SECRET_KEY;
+        case 'coinbase_commerce':
+            return !!COINBASE_API_KEY;
+        case 'circle':
+            return !!CIRCLE_API_KEY;
+        case 'trongrid':
+            // TronGrid dispatches ONLY TRC20 (see sendCryptoToWallet routing);
+            // every other network falls back to the stranding manual path, so
+            // TronGrid is not "automated" for those. Require TRC20 + a key.
+            return !!TRON_HOT_WALLET_PRIVATE_KEY && network === 'TRC20';
+        case 'manual':
         default:
             return false;
     }

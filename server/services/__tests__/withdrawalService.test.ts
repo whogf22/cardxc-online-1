@@ -14,6 +14,7 @@ const mockTransaction = vi.fn();
 const mockQuery = vi.fn();
 const mockQueryOne = vi.fn();
 const mockSendCryptoToWallet = vi.fn();
+const mockAutomatedConfigured = vi.fn();
 const mockCreateAuditLog = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('../../db/pool', () => ({
@@ -24,6 +25,7 @@ vi.mock('../../db/pool', () => ({
 vi.mock('../auditService', () => ({ createAuditLog: (...args: unknown[]) => mockCreateAuditLog(...args) }));
 vi.mock('../cryptoProviderService', () => ({
   sendCryptoToWallet: (...args: unknown[]) => mockSendCryptoToWallet(...args),
+  isAutomatedCryptoPayoutConfigured: (...args: unknown[]) => mockAutomatedConfigured(...args),
 }));
 vi.mock('../../middleware/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -33,6 +35,9 @@ let processWithdrawal: typeof import('../withdrawalService')['processWithdrawal'
 
 beforeEach(async () => {
   vi.resetModules();
+  // Default: an automated payout provider IS configured, so the existing
+  // money-movement tests exercise the send path. The manual-mode test overrides.
+  mockAutomatedConfigured.mockReturnValue(true);
   ({ processWithdrawal } = await import('../withdrawalService'));
 });
 
@@ -41,6 +46,7 @@ afterEach(() => {
   mockQuery.mockReset();
   mockQueryOne.mockReset();
   mockSendCryptoToWallet.mockReset();
+  mockAutomatedConfigured.mockReset();
   mockCreateAuditLog.mockReset();
 });
 
@@ -152,5 +158,42 @@ describe('processCryptoWithdrawal double-spend protection', () => {
 
     // Payout must never be attempted when balance is insufficient.
     expect(mockSendCryptoToWallet).not.toHaveBeenCalled();
+  });
+
+  it('fails closed WITHOUT debiting when no automated crypto provider is configured', async () => {
+    // Manual mode (the default) has no automated dispatch. A crypto withdrawal
+    // here would debit the balance and leave a withdrawal_request in
+    // 'processing', which the admin approve/reject endpoints (they require
+    // status = 'pending') can neither complete nor reverse — stranding funds.
+    const executedSql: string[] = [];
+    installTransaction(executedSql);
+    mockAutomatedConfigured.mockReturnValue(false);
+
+    await expect(processWithdrawal(baseReq)).rejects.toThrow(/not available|unavailable|not configured/i);
+
+    // The gate is consulted with the request network before any debit.
+    expect(mockAutomatedConfigured).toHaveBeenCalledWith('TRC20');
+    // No external payout attempted and, crucially, no balance deducted.
+    expect(mockSendCryptoToWallet).not.toHaveBeenCalled();
+    const debited = executedSql.some((sql) => sql.includes('usdt_balance_cents = usdt_balance_cents - $1'));
+    expect(debited).toBe(false);
+  });
+
+  it('fails closed for a non-TRC20 TronGrid network WITHOUT debiting', async () => {
+    // TronGrid dispatches only TRC20; an ERC20 request would otherwise fall to
+    // the stranding manual path. The network-aware gate must reject it first.
+    const executedSql: string[] = [];
+    installTransaction(executedSql);
+    // Simulate the network-aware predicate returning false for ERC20.
+    mockAutomatedConfigured.mockReturnValue(false);
+
+    await expect(
+      processWithdrawal({ ...baseReq, network: 'ERC20' }),
+    ).rejects.toThrow(/not available|unavailable|not configured/i);
+
+    expect(mockAutomatedConfigured).toHaveBeenCalledWith('ERC20');
+    expect(mockSendCryptoToWallet).not.toHaveBeenCalled();
+    const debited = executedSql.some((sql) => sql.includes('usdt_balance_cents = usdt_balance_cents - $1'));
+    expect(debited).toBe(false);
   });
 });
