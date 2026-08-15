@@ -20,6 +20,7 @@ import {
   isStripeConfigured,
 } from '../services/stripeService';
 import { logger } from '../middleware/logger';
+import { isStablecoinFulfillmentEnabled } from '../services/fulfillmentPolicy';
 import crypto from 'crypto';
 
 const router = Router();
@@ -303,15 +304,21 @@ router.post(
       );
       newBalance = walletResult.rows[0].balance_cents / 100;
 
-      // Also credit USDT balance
-      const usdtAmountCents = Math.round(order.amount_cents / USDT_RATE);
-      await client.query(
-        `INSERT INTO wallets (user_id, currency, balance_cents, usdt_balance_cents)
-         VALUES ($1, 'USD', 0, $2)
-         ON CONFLICT (user_id, currency)
-         DO UPDATE SET usdt_balance_cents = COALESCE(wallets.usdt_balance_cents, 0) + $2, updated_at = NOW()`,
-        [userId, usdtAmountCents]
-      );
+      // Stablecoin (USDT) fulfillment is fail-closed: a card deposit credits
+      // only the fiat balance unless stablecoin fulfillment is explicitly
+      // enabled via ENABLE_STABLECOIN_FULFILLMENT.
+      if (isStablecoinFulfillmentEnabled()) {
+        const usdtAmountCents = Math.round(order.amount_cents / USDT_RATE);
+        await client.query(
+          `INSERT INTO wallets (user_id, currency, balance_cents, usdt_balance_cents)
+           VALUES ($1, 'USD', 0, $2)
+           ON CONFLICT (user_id, currency)
+           DO UPDATE SET usdt_balance_cents = COALESCE(wallets.usdt_balance_cents, 0) + $2, updated_at = NOW()`,
+          [userId, usdtAmountCents]
+        );
+      } else {
+        logger.info('stablecoin_fulfillment_skipped', { orderId, context: 'deposit_otp' });
+      }
 
       // Update order status
       await client.query(
