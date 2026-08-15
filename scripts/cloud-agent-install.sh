@@ -27,8 +27,6 @@ DATABASE_URL=postgresql://cardxc:cardxc@localhost:5432/cardxc?sslmode=disable
 DATABASE_SSL=false
 SESSION_SECRET=$(openssl rand -hex 32)
 JWT_SECRET=$(openssl rand -hex 32)
-BOOTSTRAP_SUPER_ADMIN_EMAIL=admin@cardxc.local
-BOOTSTRAP_SUPER_ADMIN_PASSWORD=LocalAdmin1!Secure
 EOF
   echo "[install] Created .env with generated local dev secrets."
 else
