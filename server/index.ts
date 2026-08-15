@@ -113,15 +113,29 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      // TODO: migrate remaining inline scripts (primarily the Vite HMR
-      // bootstrap in dev and any third-party embeds) to nonce-based CSP so
-      // 'unsafe-inline' can be dropped. 'unsafe-eval' is removed because no
-      // current script path requires eval().
+      // script-src 'unsafe-eval' is absent (no eval path). 'unsafe-inline' is
+      // RETAINED as a documented blocker: index.html uses inline `onload`
+      // CSS-swap handlers on preload <link> tags (async font/icon loading) and
+      // an enforced <meta> CSP, and inline event-handler attributes are gated by
+      // script-src. Removing it requires either moving those handlers to an
+      // external script or 'unsafe-hashes' + per-handler hashes verified across
+      // browsers (incl. Safari) — a follow-up that needs production-mode browser
+      // verification. (The only inline <script> blocks are non-executable
+      // application/ld+json SEO data, which script-src does not gate.)
       scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.googleapis.com", "https://js.stripe.com"],
+      // style-src 'unsafe-inline' retained: React renders inline style
+      // attributes (style={{…}}); CSP nonces/hashes cannot cover style
+      // *attributes*, so removing this would break rendering.
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
       fontSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.gstatic.com", "https://cdn.fontshare.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "https://api.exchangerate-api.com", "https://api.stripe.com", "https://hooks.stripe.com", "wss://cardxc.online", "wss://www.cardxc.online", "ws://localhost:5000", "ws://localhost:5173"],
+      // Loopback WebSocket origins are only valid in local dev; exclude them from
+      // the production policy to keep connect-src tight.
+      connectSrc: [
+        "'self'", "https://api.exchangerate-api.com", "https://api.stripe.com", "https://hooks.stripe.com",
+        "wss://cardxc.online", "wss://www.cardxc.online",
+        ...(isProduction ? [] : ["ws://localhost:5000", "ws://localhost:5173"]),
+      ],
       workerSrc: ["'self'", "blob:"],
       frameSrc: ["https://js.stripe.com", "https://hooks.stripe.com"],
       objectSrc: ["'none'"],
