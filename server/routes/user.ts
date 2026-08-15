@@ -13,6 +13,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { randomInt } from 'node:crypto';
+import { validateKycFileContent } from '../lib/fileSignature';
 
 // KYC document upload config.
 // Prefer an absolute path from KYC_UPLOAD_DIR; fall back to `<cwd>/uploads/kyc`.
@@ -375,6 +376,22 @@ router.post('/kyc/upload',
       // Delete uploaded file if validation fails
       fs.unlinkSync(req.file.path);
       throw new AppError('Invalid document type. Must be one of: ' + validTypes.join(', '), 400, 'INVALID_TYPE');
+    }
+
+    // Content validation (magic bytes): the declared MIME/extension is
+    // attacker-controlled, so verify the real file signature matches an allowed
+    // type before persisting. Prevents MIME spoofing (e.g. HTML/script with an
+    // image content-type).
+    const fd = fs.openSync(req.file.path, 'r');
+    const head = Buffer.alloc(16);
+    try {
+      fs.readSync(fd, head, 0, 16, 0);
+    } finally {
+      fs.closeSync(fd);
+    }
+    if (!validateKycFileContent(head, req.file.mimetype)) {
+      fs.unlinkSync(req.file.path);
+      throw new AppError('File content does not match an allowed document type (JPEG, PNG, WebP, or PDF).', 400, 'INVALID_FILE_CONTENT');
     }
 
     // Persist only the basename (server-generated filename). The absolute path
