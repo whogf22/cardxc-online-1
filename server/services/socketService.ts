@@ -6,14 +6,53 @@ import jwt from 'jsonwebtoken';
 import { getJwtSecret } from '../lib/jwtSecret';
 
 interface AuthenticatedSocket extends Socket {
-  userId?: number;
+  userId?: string;
   userRole?: string;
 }
 
 let io: SocketIOServer | null = null;
 
 // Track online users: userId -> Set of socketIds
-const onlineUsers = new Map<number, Set<string>>();
+const onlineUsers = new Map<string, Set<string>>();
+
+/**
+ * Authenticate a Socket.IO handshake token. Mirrors the HTTP `authenticate`
+ * middleware: verifies the JWT (HS256) and then revalidates the DB `sessions`
+ * row (active, unexpired, owned by the token's user, account active). Returns
+ * null on any failure so a signed-out/revoked session cannot open or keep a
+ * live socket until the JWT would otherwise expire. Exported for testing.
+ */
+export async function authenticateSocketToken(
+  token: string | undefined,
+): Promise<{ userId: string; role: string } | null> {
+  if (!token) return null;
+
+  let decoded: { userId?: string; sessionId?: string };
+  try {
+    // getJwtSecret() throws if SESSION_SECRET/JWT_SECRET is missing/too short,
+    // so we never accept a socket with an invalid signing key.
+    decoded = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] }) as { userId?: string; sessionId?: string };
+  } catch {
+    return null;
+  }
+
+  if (!decoded.userId || !decoded.sessionId) return null;
+
+  const result = await pool.query(
+    `SELECT s.user_id, u.role, u.account_status
+     FROM sessions s
+     JOIN users u ON s.user_id = u.id
+     WHERE s.id = $1 AND s.is_active = TRUE AND s.expires_at > NOW()`,
+    [decoded.sessionId],
+  );
+
+  const row = result.rows[0];
+  if (!row || row.user_id !== decoded.userId || row.account_status !== 'active') {
+    return null;
+  }
+
+  return { userId: row.user_id, role: row.role };
+}
 
 export function initSocketIO(httpServer: HttpServer): SocketIOServer {
   io = new SocketIOServer(httpServer, {
@@ -34,36 +73,16 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
 
   // Authentication middleware
   io.use(async (socket: AuthenticatedSocket, next) => {
-    try {
-      const token =
-        socket.handshake.auth?.token ||
-        socket.handshake.headers?.authorization?.replace('Bearer ', '');
-
-      if (!token) {
-        return next(new Error('Authentication required'));
-      }
-
-      // getJwtSecret() throws at startup if SESSION_SECRET/JWT_SECRET is
-      // missing or too short, so we never accept a socket connection with an
-      // invalid signing key.
-      const decoded = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] }) as { userId: number; role?: string };
-
-      // Verify user still exists in DB
-      const result = await pool.query(
-        'SELECT id, role FROM users WHERE id = $1 AND is_active = true',
-        [decoded.userId]
-      );
-
-      if (result.rows.length === 0) {
-        return next(new Error('User not found or inactive'));
-      }
-
-      socket.userId = decoded.userId;
-      socket.userRole = result.rows[0].role;
-      next();
-    } catch (err) {
-      next(new Error('Invalid token'));
+    const token =
+      socket.handshake.auth?.token ||
+      socket.handshake.headers?.authorization?.replace('Bearer ', '');
+    const auth = await authenticateSocketToken(token);
+    if (!auth) {
+      return next(new Error('Authentication failed'));
     }
+    socket.userId = auth.userId;
+    socket.userRole = auth.role;
+    next();
   });
 
   io.on('connection', (socket: AuthenticatedSocket) => {
@@ -155,14 +174,14 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
 // ---- Emitter Functions (called from routes/services) ----
 
 /** Emit balance update to a specific user */
-export function emitBalanceUpdate(userId: number, balance: string, currency = 'USD') {
+export function emitBalanceUpdate(userId: string, balance: string, currency = 'USD') {
   if (!io) return;
   io.to(`user:${userId}`).emit('balance:update', { balance, currency });
 }
 
 /** Emit a new transaction notification to a user */
 export function emitTransactionUpdate(
-  userId: number,
+  userId: string,
   transaction: {
     id: number;
     type: string;
@@ -182,7 +201,7 @@ export function emitTransactionUpdate(
 
 /** Emit a notification to a user */
 export function emitNotification(
-  userId: number,
+  userId: string,
   notification: {
     type: string;
     title: string;
@@ -196,7 +215,7 @@ export function emitNotification(
 
 /** Emit card status update to a user */
 export function emitCardUpdate(
-  userId: number,
+  userId: string,
   card: { id: number; status: string; last4?: string }
 ) {
   if (!io) return;
@@ -205,7 +224,7 @@ export function emitCardUpdate(
 
 /** Emit withdrawal status update */
 export function emitWithdrawalUpdate(
-  userId: number,
+  userId: string,
   withdrawal: { id: number; status: string; amount: string }
 ) {
   if (!io) return;
@@ -228,7 +247,7 @@ export function getOnlineUserCount(): number {
 }
 
 /** Check if a specific user is online */
-export function isUserOnline(userId: number): boolean {
+export function isUserOnline(userId: string): boolean {
   return onlineUsers.has(userId) && (onlineUsers.get(userId)?.size ?? 0) > 0;
 }
 
