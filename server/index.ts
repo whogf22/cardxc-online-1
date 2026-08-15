@@ -60,7 +60,7 @@ function validateEnvironment() {
   const missing = required.filter(key => !process.env[key]);
 
   if (missing.length > 0) {
-    console.error(`[FATAL] Missing required environment variables: ${missing.join(', ')}`);
+    logger.error(`[FATAL] Missing required environment variables: ${missing.join(', ')}`);
     process.exit(1);
   }
 
@@ -69,7 +69,7 @@ function validateEnvironment() {
   // validation happens the moment any JWT call site runs. We intentionally
   // do not fall back to warn-only behaviour here.
   if (!process.env.SESSION_SECRET && !process.env.JWT_SECRET) {
-    console.error('[FATAL] SESSION_SECRET (or JWT_SECRET) must be set (min 32 chars)');
+    logger.error('[FATAL] SESSION_SECRET (or JWT_SECRET) must be set (min 32 chars)');
     process.exit(1);
   }
 }

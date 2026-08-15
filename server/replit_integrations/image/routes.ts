@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { Modality } from "@google/genai";
 import { ai } from "./client";
 import { authenticate } from "../../middleware/auth";
+import { logger } from "../../middleware/logger";
 
 export function registerImageRoutes(app: Express): void {
   // Image generation is gated behind authentication — anonymous callers
@@ -36,7 +37,7 @@ export function registerImageRoutes(app: Express): void {
         mimeType,
       });
     } catch (error) {
-      console.error("Error generating image:", error);
+      logger.error("Error generating image:", error);
       res.status(500).json({ error: "Failed to generate image" });
     }
   });

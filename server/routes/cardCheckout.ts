@@ -852,6 +852,17 @@ checkoutRouter.get('/stripe-session/:sessionId/status',
       throw new AppError('Stripe is not configured', 503, 'STRIPE_NOT_CONFIGURED');
     }
 
+    // Stripe session IDs are hard to guess, but nothing else here confirms
+    // the caller owns this checkout - require the session to belong to an
+    // order created by (or for) the requesting user.
+    const order = await queryOne<any>(
+      `SELECT id FROM card_orders WHERE provider_payment_id = $1 AND (user_id = $2 OR created_by_user_id = $2 OR target_user_id = $2)`,
+      [sessionId, req.user!.id]
+    );
+    if (!order) {
+      throw new AppError('Checkout session not found', 404, 'NOT_FOUND');
+    }
+
     try {
       const session = await getCheckoutSession(sessionId);
       res.json({

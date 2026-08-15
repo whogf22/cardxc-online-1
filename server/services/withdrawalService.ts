@@ -326,7 +326,9 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
             error: error.message
         });
 
-        throw new AppError('Crypto withdrawal failed: ' + error.message, 500);
+        // Don't leak the raw exception message to the client - it's logged above
+        // for debugging. AppError.message is returned verbatim in the API response.
+        throw new AppError('Crypto withdrawal failed. Your funds have been refunded.', 500);
     }
 }
 
