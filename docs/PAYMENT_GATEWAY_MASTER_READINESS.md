@@ -32,7 +32,7 @@
 | 22 | AML | **NOT VERIFIED** | No verified AML program in repo — EXTERNAL/COMPLIANCE BLOCKER |
 | 23 | Sanctions | **NOT VERIFIED** | No sanctions-screening implementation verified — EXTERNAL BLOCKER |
 | 24 | PCI scope | **MANUAL CONFIRMATION REQUIRED** | Card data handled by Stripe-hosted UI; PCI certification NOT CLAIMED |
-| 25 | Fraud controls | **PARTIAL** | Rate limits, velocity checks, email verification, KYC; Stripe Radar is provider-native (config NOT VERIFIED) |
+| 25 | Fraud controls | **PARTIAL** | Rate limits, velocity checks, email verification, KYC; Stripe Radar is provider-native (config NOT VERIFIED). Crypto deposits now require solidified finality + tx-success + confirmation threshold; live sockets revalidate the DB session (revocation-aware) |
 | 26 | Refunds (technical) | **PARTIAL / N/A** | No dedicated refund flow verified for card deposits |
 | 27 | Dispute evidence | **PARTIAL** | Orders store user/amount/currency/provider id/timestamps + audit log |
 | 28 | Reconciliation | **PARTIAL** | Webhook logs + transactions + crypto ledger; formal reconciliation NOT VERIFIED |

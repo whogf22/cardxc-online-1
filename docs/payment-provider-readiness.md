@@ -44,9 +44,8 @@
 
 - **Purpose:** Read-only on-chain USDT (TRC20) deposit detection.
 - **Integration files:** `services/tronDepositMonitor.ts`, `routes/crypto.ts`.
-- **Current status:** Read-only chain queries to fixed host; double-credit protection (unique tx_hash + atomic claim).
-- **Gap:** confirmation-count gate not enforced before credit (financial-behavior change — approval required).
-- **Business-model readiness:** tied to crypto licensing (see #3).
+- **Current status:** Read-only chain queries to fixed host; double-credit protection (unique tx_hash + atomic claim). **Deposit crediting now uses SolidityNode (confirmed/irreversible) state and requires `receipt.result === 'SUCCESS'` and ≥ `REQUIRED_CONFIRMATIONS`, with a defensive threshold check inside `creditUserDeposit` (fail-closed).**
+- **Business-model readiness:** tied to crypto licensing (see #3) — unchanged; technical hardening does not confer approval.
 
 ## 5. SMTP / nodemailer (transactional email)
 
