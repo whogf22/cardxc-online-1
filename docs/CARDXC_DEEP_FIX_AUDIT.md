@@ -57,10 +57,20 @@ Severity: P0 = critical financial/security; P1 = serious; P2 = important.
 | DF-8 | P2 | File upload / MIME spoofing | `routes/user.ts` (`/kyc/upload`) | Only declared MIME + size validated | Magic-byte content validation; delete + reject on mismatch | `lib/__tests__/fileSignature.test.ts` | FIXED |
 | DF-9 | P1 | Dependency CVEs | `package-lock.json` | 33 advisories (2 critical/20 high) transitive via `ws`/`ethers`/`socket.io` | Non-forced `npm audit fix` → 5 remaining | full suite green | FIXED (partial) |
 
-### Deferred (documented, not silently ignored)
-- **Remaining 5 npm advisories** require breaking (`--force`) bumps: `esbuild` (dev-server, Windows-only file read — not reachable in Linux prod), `nodemailer` "raw option" (verify `raw` message option is not used with untrusted input), residual transitive `ws`. Not force-bumped this pass (Rule 4/6). Track for a dedicated dependency upgrade.
-- **Crypto deposit confirmation gate** (`tronDepositMonitor`): `REQUIRED_CONFIRMATIONS` stored but not enforced before credit. Financial-behavior change → left for explicit approval; see readiness doc.
-- **CSP `'unsafe-inline'`** in `scriptSrc`/`styleSrc` (`index.ts`): needs nonce/hash migration (larger change).
+### Pre-merge remediation pass (2026-08-15) — the previously deferred items
+
+| ID | Sev | Issue | Fix | Test | Status |
+| --- | --- | --- | --- | --- | --- |
+| PM-1 | P0 | TRON/TRC20 deposit credited without verifying on-chain confirmations (`REQUIRED_CONFIRMATIONS` stored but never checked) | `getConfirmations()` (tx blockNumber vs chain head); credit gated on ≥ required; fail-closed (unknown→0); `recheckPendingDeposits()` matures under-confirmed deposits; atomic claim preserved | `depositConfirmations.test.ts` (+ existing `depositMonitor.test.ts`) | FIXED |
+| PM-2 | P1 | Google OAuth callback issued a session without a 2FA check (2FA bypass) | OAuth path does not create a session for `two_factor_enabled` accounts; redirects to complete standard email/password + authenticator login; audited | `oauth2faGate.test.ts` | FIXED |
+| PM-3 | P1 | Socket.IO handshake never revalidated the DB session (revoked session usable until JWT expiry); queried a non-existent `users.is_active` | `authenticateSocketToken()` mirrors HTTP `authenticate` (verify JWT + require active/unexpired `sessions` row owned by the user, account active) | `socketAuth.test.ts` | FIXED |
+| PM-4 | P2 | CSP `connect-src` allowed loopback `ws://localhost` in production | Loopback ws excluded from the production policy; `script-src`/`style-src` `'unsafe-inline'` analyzed and retained with documented blockers (inline `onload` CSS-swap handlers + enforced `<meta>` CSP; React inline style attributes) | build + browser smoke | PARTIAL (safe narrowing; full `unsafe-inline` removal is a documented follow-up) |
+| PM-5 | P2 | 5 residual npm advisories | Reachability triaged: `esbuild` (dev-server/Windows-only — not prod-reachable), `nodemailer` `raw` option (not used in code), `ws` via `ethers`/`tronweb` (crypto uses HTTPS `fetch`, not `ws`). All require breaking `--force` bumps; none reachable in prod runtime → deferred to a dedicated dependency-upgrade task (Rule 4/6). Non-forced fixes already applied (33→5). | n/a | DEFERRED (documented) |
+
+### Still deferred (documented)
+- **Full CSP `'unsafe-inline'` removal** (script-src/style-src): blocked by inline `onload` CSS-swap handlers in `index.html` + enforced `<meta>` CSP, and by React inline style attributes. Requires moving handlers external or `'unsafe-hashes'` + per-handler hashes with cross-browser (Safari) verification in production mode.
+- **5 npm advisories**: breaking `--force` bumps only; not prod-reachable (see PM-5).
+- **`realtimeService.ts`**: unused/dead code (not wired in `index.ts`); recommend removal in a cleanup PR.
 
 ## 4. Financial integrity status
 Integer minor units throughout; critical mutations wrapped in DB transactions; idempotency keys (`stripe_<session>`, `card_<payment>`, `deposit_otp_<order>`) with a unique index; row locks on withdrawal/swap/gift-buy. After this pass, card/Stripe funds credit **only the fiat wallet** unless stablecoin fulfillment is explicitly enabled.
@@ -70,10 +80,10 @@ JWT HS256 pinned, DB-backed sessions, bcrypt-12, 2FA (speakeasy) verified on pas
 
 ## 6. Quality gates (this branch)
 - `npm run type-check:all` — PASS
-- `npm test` — PASS (100/100)
+- `npm test` — PASS (112/112; +12 pre-merge regression tests)
 - `npm run build` — PASS
 - `npm run lint` — PASS (ESLint scope is `src/` only)
-- `npm audit --omit=dev` — 5 remaining (was 33); see Deferred
+- `npm audit` / `npm audit --omit=dev` — 5 remaining (was 33); all require breaking `--force` bumps and are not prod-reachable (see PM-5)
 
 ## 7. Out of scope (new features — not built)
 Plaid, any new provider/gateway, new products/pages/wallets/flows. If required: **OUT OF SCOPE — NEW FEATURE**.
