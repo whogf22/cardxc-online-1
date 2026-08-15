@@ -774,7 +774,7 @@ router.get('/google/callback', asyncHandler(async (req: Request, res: Response) 
     }
 
     let user = await queryOne<any>(`
-      SELECT id, email, full_name, role, account_status 
+      SELECT id, email, full_name, role, account_status, two_factor_enabled 
       FROM users WHERE email = $1
     `, [email]);
 
@@ -826,6 +826,27 @@ router.get('/google/callback', asyncHandler(async (req: Request, res: Response) 
 
     if (user.account_status !== 'active') {
       return res.redirect('/signin?error_description=' + encodeURIComponent('Your account is not active'));
+    }
+
+    // SECURITY (fail-closed): if the account has 2FA enabled, the OAuth (IdP)
+    // assertion is NOT sufficient on its own — a second factor is still
+    // required. We do NOT establish an authenticated session here; the user must
+    // complete login through the standard email/password + authenticator flow,
+    // which enforces the TOTP check. This prevents an OAuth path from bypassing
+    // 2FA. (Google sign-in alone never satisfies the user's own 2FA.)
+    if (user.two_factor_enabled) {
+      await recordLoginAttempt(email, false, 'TWO_FACTOR_REQUIRED', req);
+      logSecurityEvent('LOGIN_BLOCKED', 'medium', req, {
+        reason: 'OAUTH_2FA_REQUIRED',
+        userId: user.id,
+      });
+      await createAuditLog({
+        userId: user.id,
+        action: 'USER_LOGIN_GOOGLE_2FA_REQUIRED',
+        newValues: { provider: 'google' },
+        ...getClientInfo(req),
+      });
+      return res.redirect('/signin?error_description=' + encodeURIComponent('Two-factor authentication is enabled. Please sign in with your email, password, and authenticator code to continue.') + '&require_2fa=1');
     }
 
     const token = await createSession(user.id, req);
