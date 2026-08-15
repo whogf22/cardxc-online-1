@@ -21,28 +21,48 @@ function getTronGridHeaders(): Record<string, string> {
 }
 
 /**
- * Compute the number of block confirmations for a TRC-20 transaction by
- * comparing the transaction's block height to the current chain head, using the
- * TRON full-node HTTP API (proxied by TronGrid): `gettransactioninfobyid`
- * returns `blockNumber`; `getnowblock` returns the head block number.
+ * Compute confirmations for a TRC-20 transaction from SOLIDIFIED (irreversible)
+ * chain state and verify on-chain execution success, per TRON's deposit-crediting
+ * guidance. Uses the Solidity HTTP API (proxied by TronGrid):
+ *   - `/walletsolidity/gettransactioninfobyid` → returns `blockNumber` and the
+ *     execution `receipt.result`/`result` ONLY once the tx's block is solidified.
+ *   - `/walletsolidity/getnowblock` → the latest solidified head block number.
  *
- * SECURITY (fail-closed): any error, missing block number, or unreachable API
- * yields 0 confirmations, so an on-chain deposit is never credited on
- * incomplete/unknown confirmation data.
+ * A transaction that is not yet solidified is simply absent here (no
+ * `blockNumber`), so it counts as 0 confirmations. We additionally require the
+ * receipt to report SUCCESS so a reverted/failed transfer is never credited.
+ *
+ * SECURITY (fail-closed): any error, missing block number, non-SUCCESS/ambiguous
+ * execution result, or unreachable API yields 0 confirmations — an on-chain
+ * deposit is never credited on incomplete, unconfirmed, or failed data.
+ *
+ * Refs (retrieved 2026-08-15):
+ *  - https://developers.tron.network/reference/solidity-node-http-api-overview
+ *  - https://developers.tron.network/docs/exchangewallet-integrate-with-the-tron-network
+ *    ("Verify success — call /walletsolidity/gettransactioninfobyid and check
+ *     receipt.result == SUCCESS. Skip failed transactions.")
  */
 export async function getConfirmations(txHash: string): Promise<number> {
     try {
-        const infoRes = await fetch(`${TRONGRID_BASE}/wallet/gettransactioninfobyid`, {
+        const infoRes = await fetch(`${TRONGRID_BASE}/walletsolidity/gettransactioninfobyid`, {
             method: 'POST',
             headers: { ...getTronGridHeaders(), 'Content-Type': 'application/json' },
             body: JSON.stringify({ value: txHash }),
         });
         if (!infoRes.ok) return 0;
-        const info = await infoRes.json() as { blockNumber?: number };
+        const info = await infoRes.json() as { blockNumber?: number; result?: string; receipt?: { result?: string } };
+
+        // Absent blockNumber => not yet in a solidified (irreversible) block.
         const txBlock = Number(info?.blockNumber || 0);
         if (!txBlock) return 0;
 
-        const nowRes = await fetch(`${TRONGRID_BASE}/wallet/getnowblock`, {
+        // Execution must have SUCCEEDED on-chain. A TRC-20 transfer is a contract
+        // call, so a successful tx reports receipt.result === 'SUCCESS' (top-level
+        // `result` may also be SUCCESS). Any other or absent value fails closed.
+        const execResult = info?.receipt?.result ?? info?.result;
+        if (execResult !== 'SUCCESS') return 0;
+
+        const nowRes = await fetch(`${TRONGRID_BASE}/walletsolidity/getnowblock`, {
             method: 'POST',
             headers: { ...getTronGridHeaders(), 'Content-Type': 'application/json' },
             body: JSON.stringify({}),
@@ -218,6 +238,16 @@ export async function creditUserDeposit(
     amount: number, fromAddress: string, blockTimestamp: number,
     confirmations: number = REQUIRED_CONFIRMATIONS
 ): Promise<void> {
+    // Defense-in-depth: even though callers gate on confirmations, this function
+    // independently refuses to credit an under-confirmed deposit. A value below
+    // the threshold indicates a caller bug or a race and must never move funds.
+    if (!Number.isFinite(confirmations) || confirmations < REQUIRED_CONFIRMATIONS) {
+        logger.error('[DepositMonitor] Refusing to credit under-confirmed deposit', {
+            cryptoTxId, txHash, confirmations, required: REQUIRED_CONFIRMATIONS,
+        });
+        throw new Error('INSUFFICIENT_CONFIRMATIONS');
+    }
+
     const amountCents = Math.round(amount * 100);
 
     try {
