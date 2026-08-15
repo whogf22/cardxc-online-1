@@ -228,6 +228,16 @@ webhookRouter.post('/payment',
     const eventType = payload.event ?? payload.type ?? 'unknown';
     const paymentId = payload.paymentId ?? payload.id ?? payload.orderId;
 
+    // Fail-closed: a provider webhook secret is REQUIRED. Without it we cannot
+    // authenticate the sender, so processing an unsigned/forged event could
+    // credit arbitrary wallets. Reject before doing any work (mirrors Stripe).
+    if (!PROVIDER_WEBHOOK_SECRET) {
+      logger.error('provider_webhook_no_secret_configured', {
+        message: 'FLUZ_WEBHOOK_SECRET is required; rejecting webhook request',
+      });
+      return res.status(503).json({ success: false, error: 'Webhook secret not configured' });
+    }
+
     // Idempotency: if we already processed this paymentId + event successfully, return 200 without inserting a log (reduce DB churn)
     if (paymentId) {
       const alreadyProcessedEarlier = await queryOne<{ id: string }>(`
@@ -831,6 +841,19 @@ checkoutRouter.get('/stripe-session/:sessionId/status',
 
     if (!isStripeConfigured()) {
       throw new AppError('Stripe is not configured', 503, 'STRIPE_NOT_CONFIGURED');
+    }
+
+    // Ownership check (prevents IDOR): the caller may only read the status of a
+    // checkout session that belongs to one of their own orders. Return 404
+    // (not 403) so we don't reveal whether an arbitrary session id exists.
+    const order = await queryOne<{ user_id: string; target_user_id: string | null; created_by_user_id: string | null }>(
+      `SELECT user_id, target_user_id, created_by_user_id FROM card_orders WHERE provider_payment_id = $1`,
+      [sessionId]
+    );
+    const uid = req.user!.id;
+    const owns = !!order && (order.user_id === uid || order.target_user_id === uid || order.created_by_user_id === uid);
+    if (!owns && req.user!.role !== 'SUPER_ADMIN') {
+      throw new AppError('Checkout session not found', 404, 'NOT_FOUND');
     }
 
     try {
