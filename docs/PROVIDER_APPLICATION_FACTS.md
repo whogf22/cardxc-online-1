@@ -7,8 +7,9 @@
 
 | Field | Value (from current code) |
 | --- | --- |
-| Brand / trading name | CardXC (`cardxc.online`) |
-| Legal entity | **CONFLICT — HUMAN VERIFICATION REQUIRED**: `routes/legal.ts` → "GAMENOVA VAULT LLC (operating as CardXC)"; `src/pages/terms/page.tsx` → "CARDXC LLC" |
+| Brand / trading name | CARDXC (`cardxc.online`) |
+| Legal entity | **CARDXC LLC** (owner-verified 2026-08-15). Consistent across backend legal config, Terms, Privacy, Refund, AML, footer, and email templates. |
+| Trademark | CARDXC is the owner's confirmed brand/trademark. No registration number/jurisdiction/date/class or ® symbol is asserted (no documentary evidence supplied). |
 | Website | https://cardxc.online (live status NOT VERIFIED from this environment) |
 | Support email | support@cardxc.online (referenced in `routes/legal.ts`; deliverability NOT VERIFIED) |
 | Legal/privacy email | legal@cardxc.online / privacy@cardxc.online (referenced) |
@@ -38,7 +39,9 @@ These are materially higher-risk categories for underwriting. Do not down-classi
 
 | Field | Status |
 | --- | --- |
-| Confirmed legal entity name + incorporation jurisdiction | HUMAN VERIFICATION REQUIRED |
+| Legal entity name | VERIFIED: CARDXC LLC |
+| Incorporation jurisdiction | OWNER INPUT REQUIRED |
+| Trademark registration details (number/jurisdiction/date/class) | NOT VERIFIED — documentary evidence required before asserting |
 | Tax identifier (EIN) | OWNER INPUT REQUIRED |
 | Business / operating address | OWNER INPUT REQUIRED |
 | Beneficial owners / control person (name, DOB, ownership %) | OWNER INPUT REQUIRED |

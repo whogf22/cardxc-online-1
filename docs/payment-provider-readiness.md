@@ -14,7 +14,7 @@
 - **Current CardXC flow:** Customer → Stripe Checkout → webhook (verified) → CardXC fiat wallet credit. USDT auto-credit disabled by default.
 - **Business restrictions (verify officially):** wallet/stored-value, crypto/stablecoin on-ramp, money transmission, and prepaid/gift are commonly **restricted or prohibited** for standard Stripe accounts; Issuing and crypto have separate programs/approvals.
 - **Crypto/stablecoin policy:** ORANGE/RED — REQUIRES explicit Stripe review/approval; keep `ENABLE_STABLECOIN_FULFILLMENT=false` until approved.
-- **Does CardXC flow match public description?** PARTIAL — reconcile entity name + wallet/crypto representation.
+- **Does CardXC flow match public description?** PARTIAL — legal entity resolved (CARDXC LLC); still reconcile wallet/crypto representation with the provider's underwriting.
 - **Missing technical items:** live `STRIPE_WEBHOOK_SECRET` in prod; end-to-end test-mode charge verification; crypto confirmation gating if crypto is enabled.
 - **Missing business/docs:** KYB, beneficial owners, bank account — OWNER INPUT REQUIRED.
 - **Technical readiness:** CONDITIONAL. **Business-model readiness:** RESTRICTED REVIEW.
@@ -52,6 +52,10 @@
 
 - **Purpose:** OTP / deposit-success / notification email.
 - **Status:** Config-gated; not a payment provider. Advisory: pending `nodemailer` advisory (raw-option) — verify `raw` not used with untrusted input.
+
+## 6. Plaid — NOT PRESENT
+
+Re-scanned the repository (`plaid`, `link_token`, `PlaidLink`, `usePlaidLink`, `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_ENV`) — **no Plaid implementation exists**. OUT OF SCOPE — NEW FEATURE. **PLAID SANDBOX: NOT TESTABLE** until a separate authorized Plaid sandbox integration task. Sandbox access ≠ production approval.
 
 ## Summary
 

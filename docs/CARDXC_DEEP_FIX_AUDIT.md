@@ -6,6 +6,11 @@
 **Method:** Findings verified against current code (not assumed from prior audits). Gates run: `type-check:all`, `test`, `build`, `lint`, `npm audit`.
 
 > This document describes the **current** system only. Business, licensing, provider-approval, and KYB facts are **not** asserted here — see `PAYMENT_GATEWAY_MASTER_READINESS.md` and `payment-provider-readiness.md`, where they are marked NOT VERIFIED / EXTERNAL BLOCKER / OWNER INPUT REQUIRED.
+>
+> **Legal entity (owner-verified 2026-08-15):** CARDXC LLC. The earlier
+> GAMENOVA VAULT LLC reference in `routes/legal.ts` was a stale backend config
+> value and has been corrected; all customer-facing legal pages already used
+> CARDXC LLC. No Plaid integration exists in the repository.
 
 ## 1. Existing feature inventory (classification)
 
@@ -24,7 +29,7 @@
 | KYC document upload | EXISTS BUT INCOMPLETE → HARDENED | Magic-byte validation added this pass |
 | Health endpoints, audit logging, background jobs | EXISTS AND WORKS | — |
 | Adyen (`VITE_ADYEN_CLIENT_KEY`, `paymentUtils.ts`) | DEAD / UNUSED | Client-only helper, not imported anywhere; no secret exposed |
-| Plaid | DOES NOT EXIST | No Plaid integration in the codebase — OUT OF SCOPE — NEW FEATURE if desired |
+| Plaid | DOES NOT EXIST | Re-scanned (plaid/link_token/PLAID_* etc.) — no implementation. OUT OF SCOPE — NEW FEATURE if desired. PLAID SANDBOX: NOT TESTABLE until a separate authorized Plaid task |
 
 ## 2. Providers discovered (current code)
 

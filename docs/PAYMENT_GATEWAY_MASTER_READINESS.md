@@ -8,12 +8,12 @@
 
 | # | Item | Status | Evidence / note |
 | --- | --- | --- | --- |
-| 1 | Business identity | **FAIL / MANUAL** | Conflicting legal entity: `routes/legal.ts` = "GAMENOVA VAULT LLC (operating as CardXC)" vs `src/pages/terms/page.tsx` = "CARDXC LLC". HUMAN VERIFICATION REQUIRED |
+| 1 | Business identity | **PASS** | Owner-verified legal entity **CARDXC LLC** now consistent across backend legal config, Terms, Privacy, Refund, AML, footer, and email templates. Repo-wide search shows no current CARDXC reference identifying the business as any other entity. |
 | 2 | Entity documents | **MANUAL** | Not present in repo; KYB docs are external — see readiness matrix |
 | 3 | Beneficial owner | **UNKNOWN** | No verified owner records in repo — OWNER INPUT REQUIRED |
 | 4 | Website | **NOT VERIFIED** | Live site fetch timed out; local app has homepage + legal pages |
 | 5 | Product description | **PARTIAL** | Terms describe "digital wallet, virtual card, payment services"; consistency issues (see #6) |
-| 6 | Business-model consistency | **FAIL** | Wallet funding + auto-USDT (now gated), gift cards, virtual cards, crypto payout — must be represented consistently to any provider; entity-name conflict (#1) |
+| 6 | Business-model consistency | **PARTIAL** | Entity identity resolved (#1). Wallet funding + auto-USDT (now gated), gift cards, virtual cards, crypto payout must still be represented consistently to each provider's underwriting — PROVIDER REVIEW REQUIRED |
 | 7 | Pricing | **PASS (technical)** | Amounts server-authoritative; gift-card pricing fixed to server rate |
 | 8 | Currency | **PASS** | Explicit currency (USD/EUR/GBP) validated server-side |
 | 9 | Support | **PARTIAL / MANUAL** | `support@cardxc.online` referenced; deliverability NOT VERIFIED |
@@ -51,7 +51,7 @@
 **NOT READY** for payment-provider underwriting as-is.
 
 - **Technical payment readiness:** CONDITIONAL — the code-level controls (server-authoritative pricing, fail-closed webhooks/fulfillment, idempotency, honest descriptors, KYC-in-prod, IDOR fix) are in place, but crypto confirmation gating, live TLS/website review, and dependency residue remain.
-- **Business/website readiness:** NOT READY — entity-name conflict, unverified website, and compliance claims must be reconciled by a human.
+- **Business/website readiness:** CONDITIONAL — legal entity resolved (CARDXC LLC, consistent); remaining items are live-site/TLS verification and reconciling published security/compliance claims.
 - **Regulatory/provider readiness:** BLOCKED pending EXTERNAL approvals and LEGAL REVIEW (licensing, AML, sanctions, provider underwriting).
 
 These external blockers **cannot be resolved by code** (Rule 53).

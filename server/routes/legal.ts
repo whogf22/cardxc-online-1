@@ -2,7 +2,9 @@ import { Router, Request, Response } from 'express';
 
 const router = Router();
 
-const COMPANY_NAME = 'GAMENOVA VAULT LLC (operating as CardXC)';
+// Owner-verified legal entity for CardXC. Keep consistent with the
+// customer-facing legal pages (Terms/Privacy/Refund/AML) and email footer.
+const COMPANY_NAME = 'CARDXC LLC';
 const COMPANY_EMAIL = process.env.LEGAL_EMAIL || 'legal@cardxc.online';
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@cardxc.online';
 const PRIVACY_EMAIL = process.env.PRIVACY_EMAIL || process.env.LEGAL_EMAIL || 'privacy@cardxc.online';
