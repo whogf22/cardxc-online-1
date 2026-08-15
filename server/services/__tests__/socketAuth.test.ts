@@ -67,3 +67,68 @@ describe('authenticateSocketToken', () => {
     expect(mockPoolQuery).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Live-connection revalidation: a socket must re-check the DB session before
+ * protected actions, so a logout/revocation/role-change takes effect on an
+ * already-open socket (not just at handshake).
+ */
+function fakeSocket(token: string, userId = 'user-1') {
+  return {
+    data: { token },
+    userId,
+    userRole: 'USER',
+    emitted: [] as Array<{ event: string; payload?: unknown }>,
+    disconnected: false,
+    emit(event: string, payload?: unknown) { this.emitted.push({ event, payload }); },
+    disconnect() { this.disconnected = true; },
+  };
+}
+
+describe('revalidateSocketSession (live connection)', () => {
+  it('allows an action while the session is still valid (no disconnect)', async () => {
+    mockPoolQuery.mockResolvedValueOnce({ rows: [{ user_id: 'user-1', role: 'USER', account_status: 'active' }] });
+    const { revalidateSocketSession } = await import('../socketService');
+    const s = fakeSocket(sign({ userId: 'user-1', sessionId: 'sess-1' }));
+    const res = await revalidateSocketSession(s);
+    expect(res).toEqual({ userId: 'user-1', role: 'USER' });
+    expect(s.disconnected).toBe(false);
+  });
+
+  it('denies + disconnects after the session is revoked/logged out', async () => {
+    mockPoolQuery.mockResolvedValueOnce({ rows: [] }); // session no longer active
+    const { revalidateSocketSession } = await import('../socketService');
+    const s = fakeSocket(sign({ userId: 'user-1', sessionId: 'sess-1' }));
+    const res = await revalidateSocketSession(s);
+    expect(res).toBeNull();
+    expect(s.disconnected).toBe(true);
+    expect(s.emitted.some(e => e.event === 'auth:revoked')).toBe(true);
+  });
+
+  it('denies + disconnects when the session now belongs to another user', async () => {
+    mockPoolQuery.mockResolvedValueOnce({ rows: [{ user_id: 'someone-else', role: 'USER', account_status: 'active' }] });
+    const { revalidateSocketSession } = await import('../socketService');
+    const s = fakeSocket(sign({ userId: 'user-1', sessionId: 'sess-1' }));
+    expect(await revalidateSocketSession(s)).toBeNull();
+    expect(s.disconnected).toBe(true);
+  });
+
+  it('refreshes role so a downgraded admin loses admin authorization', async () => {
+    mockPoolQuery.mockResolvedValueOnce({ rows: [{ user_id: 'user-1', role: 'USER', account_status: 'active' }] });
+    const { revalidateSocketSession } = await import('../socketService');
+    const s = fakeSocket(sign({ userId: 'user-1', sessionId: 'sess-1' }));
+    s.userRole = 'SUPER_ADMIN'; // was admin at connect
+    const res = await revalidateSocketSession(s);
+    expect(res?.role).toBe('USER'); // refreshed to current role
+    expect(s.userRole).toBe('USER');
+  });
+
+  it('reflects a currently-active admin as SUPER_ADMIN', async () => {
+    mockPoolQuery.mockResolvedValueOnce({ rows: [{ user_id: 'user-1', role: 'SUPER_ADMIN', account_status: 'active' }] });
+    const { revalidateSocketSession } = await import('../socketService');
+    const s = fakeSocket(sign({ userId: 'user-1', sessionId: 'sess-1' }));
+    const res = await revalidateSocketSession(s);
+    expect(res?.role).toBe('SUPER_ADMIN');
+    expect(s.disconnected).toBe(false);
+  });
+});

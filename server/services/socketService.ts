@@ -54,6 +54,37 @@ export async function authenticateSocketToken(
   return { userId: row.user_id, role: row.role };
 }
 
+/** Minimal socket surface needed to revalidate + revoke a live connection. */
+interface RevalidatableSocket {
+  data?: { token?: string };
+  userId?: string;
+  userRole?: string;
+  emit: (event: string, payload?: unknown) => void;
+  disconnect: (close?: boolean) => void;
+}
+
+/**
+ * Revalidate the DB session for an ALREADY-CONNECTED socket before servicing a
+ * protected event. Handshake-time validation is not enough: a session can be
+ * revoked (logout), expire, or the account be deactivated while the socket
+ * stays open. On failure this notifies the client and force-disconnects the
+ * socket, returning null; on success it refreshes the socket's role (so a
+ * privilege change takes effect immediately) and returns the fresh identity.
+ * Exported for testing.
+ */
+export async function revalidateSocketSession(
+  socket: RevalidatableSocket,
+): Promise<{ userId: string; role: string } | null> {
+  const auth = await authenticateSocketToken(socket.data?.token);
+  if (!auth || auth.userId !== socket.userId) {
+    socket.emit('auth:revoked', { message: 'Session is no longer valid. Please sign in again.' });
+    socket.disconnect(true);
+    return null;
+  }
+  socket.userRole = auth.role;
+  return auth;
+}
+
 export function initSocketIO(httpServer: HttpServer): SocketIOServer {
   io = new SocketIOServer(httpServer, {
     cors: {
@@ -82,6 +113,9 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
     }
     socket.userId = auth.userId;
     socket.userRole = auth.role;
+    // Retain the token so protected events can revalidate the live DB session
+    // (handshake-only validation is insufficient once a session is revoked).
+    socket.data.token = token;
     next();
   });
 
@@ -100,8 +134,8 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
     // Join personal room
     socket.join(`user:${userId}`);
 
-    // Admins join admin room
-    if (userRole === 'admin' || userRole === 'super_admin') {
+    // Admins join admin room. Roles in this system are 'USER' / 'SUPER_ADMIN'.
+    if (userRole === 'SUPER_ADMIN') {
       socket.join('admin');
       // Notify admins of online count
       broadcastAdminStats();
@@ -114,6 +148,7 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
 
     // Client requests current balance
     socket.on('get:balance', async () => {
+      if (!(await revalidateSocketSession(socket))) return;
       try {
         const result = await pool.query(
           'SELECT balance, currency FROM wallets WHERE user_id = $1',
@@ -132,6 +167,7 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
 
     // Client requests recent transactions
     socket.on('get:transactions', async (limit = 10) => {
+      if (!(await revalidateSocketSession(socket))) return;
       try {
         const result = await pool.query(
           `SELECT id, type, amount, currency, status, description, created_at
@@ -145,9 +181,12 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
       }
     });
 
-    // Admin requests live stats
+    // Admin requests live stats — revalidate the live session AND the current
+    // role (a downgraded/revoked admin must not receive admin stats).
     socket.on('get:admin:stats', async () => {
-      if (userRole !== 'admin' && userRole !== 'super_admin') return;
+      const live = await revalidateSocketSession(socket);
+      if (!live) return;
+      if (live.role !== 'SUPER_ADMIN') return;
       await sendAdminStats(socket);
     });
 
