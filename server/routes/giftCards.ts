@@ -6,7 +6,7 @@ import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { sensitiveOpLimiter } from '../middleware/rateLimit';
 import { createAuditLog } from '../services/auditService';
 import { logger } from '../middleware/logger';
-import { fetchAllGiftCardsWithPricing, calculateTransactionProfit } from '../services/giftCardPricingService';
+import { fetchAllGiftCardsWithPricing, calculateTransactionProfit, calculatePricing } from '../services/giftCardPricingService';
 
 const router = Router();
 router.use(authenticate);
@@ -50,12 +50,18 @@ router.post('/requests',
             throw new AppError(errors.array()[0].msg, 400, 'VALIDATION_ERROR');
         }
 
-        const { type, brand, amount, currency = 'USD', rate = 100, paymentMethod = 'fiat', metadata } = req.body;
+        // SECURITY: pricing is server-authoritative. Any client-supplied `rate`
+        // is IGNORED; the applicable rate is derived from server pricing so a
+        // caller cannot set their own price (e.g. rate=1 to pay ~1% of face
+        // value). Buy uses our sell rate; sell uses our buy rate.
+        const { type, brand, amount, currency = 'USD', paymentMethod = 'fiat', metadata } = req.body;
         const amountCents = Math.round(amount * 100);
+        const pricing = calculatePricing(brand, amountCents);
+        const resolvedRate = type === 'buy' ? pricing.ourSellRate : pricing.ourBuyRate;
 
         if (type === 'buy') {
             const requestId = await transaction(async (client) => {
-                const totalCostCents = Math.round(amountCents * (rate / 100));
+                const totalCostCents = Math.round(amountCents * (resolvedRate / 100));
 
                 // Check balance based on payment method
                 if (paymentMethod === 'usdt') {
@@ -78,8 +84,8 @@ router.post('/requests',
                     }
                 }
 
-                // Calculate profit
-                const profitCalc = calculateTransactionProfit('buy', brand, amountCents, rate);
+                // Calculate profit (server-authoritative rate)
+                const profitCalc = calculateTransactionProfit('buy', brand, amountCents, resolvedRate);
 
                 // 2. Insert Request with profit data
                 const requestInsert = await client.query(`
@@ -90,8 +96,8 @@ router.post('/requests',
                     VALUES ($1, $2, $3, $4, $5, $6, 'processing', $7, $8, $9, $10, $11)
                     RETURNING id
                 `, [
-                    req.user!.id, type, brand, amountCents, currency, rate,
-                    profitCalc.costCents, profitCalc.profitCents, rate,
+                    req.user!.id, type, brand, amountCents, currency, resolvedRate,
+                    profitCalc.costCents, profitCalc.profitCents, resolvedRate,
                     profitCalc.profitPercent, metadata ? JSON.stringify(metadata) : null
                 ]);
 
@@ -151,8 +157,8 @@ router.post('/requests',
             return;
         }
 
-        // Handle Sell Requests
-        const profitCalc = calculateTransactionProfit('sell', brand, amountCents, rate);
+        // Handle Sell Requests (server-authoritative rate)
+        const profitCalc = calculateTransactionProfit('sell', brand, amountCents, resolvedRate);
 
         const result = await queryOne<{ id: string }>(`
             INSERT INTO gift_card_requests (
@@ -162,8 +168,8 @@ router.post('/requests',
             VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, $9, $10, $11)
             RETURNING id
         `, [
-            req.user!.id, type, brand, amountCents, currency, rate,
-            profitCalc.costCents, profitCalc.profitCents, rate,
+            req.user!.id, type, brand, amountCents, currency, resolvedRate,
+            profitCalc.costCents, profitCalc.profitCents, resolvedRate,
             profitCalc.profitPercent, metadata ? JSON.stringify(metadata) : null
         ]);
 
