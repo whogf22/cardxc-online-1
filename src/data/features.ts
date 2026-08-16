@@ -30,12 +30,12 @@ export const featuresList: FeatureItem[] = [
     title: 'Elite Security',
     description: 'Bank-grade encryption & 2FA protection',
     gradient: 'from-success-400 to-success-500',
-    fullDescription: 'Your money and data are protected with bank-level security. We use 256-bit SSL encryption, two-factor authentication, and 24/7 fraud monitoring. Every transaction is verified and every session is secure so you can send and manage money with confidence.',
+    fullDescription: 'Your money and data are protected with bank-grade security. We use TLS/SSL encryption, two-factor authentication, and 24/7 fraud monitoring. Every transaction is verified and every session is secured so you can send and manage money with confidence.',
     points: [
-      '256-bit SSL encryption',
+      'TLS/SSL encryption',
       'Two-factor authentication (2FA)',
       '24/7 fraud monitoring',
-      'PCI DSS compliant'
+      'Payments processed by a PCI DSS Level 1 certified provider'
     ]
   },
   {
@@ -86,11 +86,15 @@ export const featuresList: FeatureItem[] = [
     title: 'Vault Systems',
     description: 'Institutional-grade asset protection',
     gradient: 'from-lime-500 to-lime-600',
-    fullDescription: 'Your funds are held with institutional-grade safeguards. We use segregated accounts, cold storage where applicable, and strict internal controls so your money is protected at every step.',
+    // [BUSINESS/LEGAL REVIEW REQUIRED] Confirm that client funds are actually
+    // held in segregated accounts, the custody arrangement (and any cold-storage
+    // use), and the specific regulatory registrations before publishing these as
+    // facts. Wording below avoids absolute safety guarantees.
+    fullDescription: 'We aim to protect customer funds using safeguards such as segregated accounts and strict internal controls, with cold storage used where applicable. No security measure is absolute, but we use industry-standard practices to help keep your money safe.',
     points: [
-      'Segregated client funds',
+      'Segregated client funds where applicable',
       'Strict internal controls',
-      'Regulatory compliance',
+      'Compliance-focused operations',
       'Audit trails for all movements'
     ]
   },

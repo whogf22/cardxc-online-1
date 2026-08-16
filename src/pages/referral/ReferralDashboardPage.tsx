@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Gift, Users, DollarSign, Copy, Share2, TrendingUp, Award, Check, ArrowLeft } from 'lucide-react';
 import { userApi } from '../../lib/api';
 
@@ -55,7 +55,7 @@ export default function ReferralDashboardPage() {
       try {
         await navigator.share({
           title: 'Join CardXC!',
-          text: `Use my referral code ${referralInfo.referralCode} to get amazing cashback on gift cards!`,
+          text: `Use my referral code ${referralInfo.referralCode} to sign up for CardXC. Rewards are subject to the referral program terms.`,
           url: ourReferralUrl
         });
       } catch {
@@ -264,7 +264,7 @@ export default function ReferralDashboardPage() {
               <div className="p-1 bg-lime-500 rounded-full mt-1">
                 <Check className="w-4 h-4 text-white" />
               </div>
-              <span className="text-neutral-300">Unlimited referrals - no cap on earnings</span>
+              <span className="text-neutral-300">Refer as many friends as you like, subject to program terms</span>
             </li>
             <li className="flex items-start gap-3">
               <div className="p-1 bg-lime-500 rounded-full mt-1">
@@ -273,6 +273,15 @@ export default function ReferralDashboardPage() {
               <span className="text-neutral-300">Track all your referrals in real-time</span>
             </li>
           </ul>
+          <p className="mt-6 text-xs text-neutral-500 leading-relaxed">
+            Referral rewards are discretionary and subject to the{' '}
+            <Link to="/referral-terms" className="text-lime-400 hover:underline">
+              CardXC referral program terms
+            </Link>
+            , including eligibility, verification, and anti-abuse requirements. Reward amounts and
+            availability may change or be withdrawn at any time. Rewards are not guaranteed and do
+            not constitute income or investment returns.
+          </p>
         </div>
       </div>
     </div>

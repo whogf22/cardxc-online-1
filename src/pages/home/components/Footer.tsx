@@ -11,8 +11,10 @@ const QUICK_LINKS = [
 const LEGAL_LINKS = [
   { label: 'Terms of Service', to: '/terms' },
   { label: 'Privacy Notice', to: '/privacy' },
+  { label: 'Cookie Policy', to: '/cookie-policy' },
   { label: 'Refund Policy', to: '/refund-policy' },
   { label: 'AML Policy', to: '/aml-policy' },
+  { label: 'Referral Terms', to: '/referral-terms' },
 ] as const;
 
 const SOCIAL_LINKS = [
@@ -155,15 +157,19 @@ export default function Footer({ onOpenContact }: FooterProps) {
               <p className="text-xs text-neutral-600 mt-1">
                 CardXC is a digital wallet and payments platform operated by CARDXC LLC.
               </p>
+              <p className="text-xs text-neutral-600 mt-1">
+                All third-party trademarks, logos, and brand names are the property of their
+                respective owners. Their use does not imply any affiliation with or endorsement by them.
+              </p>
             </div>
             <div className="flex items-center gap-5">
               <span className="flex items-center gap-1.5 text-xs text-neutral-500">
                 <i className="ri-shield-check-line text-emerald-500" aria-hidden />
-                256-bit SSL
+                TLS/SSL Encrypted
               </span>
               <span className="flex items-center gap-1.5 text-xs text-neutral-500">
                 <i className="ri-lock-2-line text-lime-400" aria-hidden />
-                PCI Compliant
+                PCI DSS Processing
               </span>
             </div>
           </div>

@@ -60,10 +60,10 @@ export default function SwapPage() {
                 <i className="ri-shield-check-line text-white"></i>
               </div>
               <div>
-                <p className="text-sm font-semibold text-white mb-1">Secure & Instant</p>
+                <p className="text-sm font-semibold text-white mb-1">Secure & Fast</p>
                 <p className="text-xs text-neutral-400">
-                  When launched, all swaps will be executed instantly at the best available rate. 
-                  Your funds are always secure with our non-custodial swap protocol.
+                  When launched, swaps will be executed promptly at competitive rates.
+                  Your funds are protected with industry-standard security measures.
                 </p>
               </div>
             </div>

@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { resetApiClient } from '../../lib/apiClient';
 import { trackLogin } from '../../lib/analytics';
-import { checkBiometricSupport } from '../../lib/authHelpers';
 import { useAuthContext } from '../../contexts/AuthContext';
 import SEOHead from '../../components/SEOHead';
 
@@ -48,8 +47,6 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [biometricAvailable, setBiometricAvailable] = useState(false);
-  const [biometricMessage, setBiometricMessage] = useState('');
   const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
   const [googleOAuthAvailable, setGoogleOAuthAvailable] = useState(false);
 
@@ -74,11 +71,6 @@ export default function SignInPage() {
       }
     }
     
-    checkBiometricSupport().then(({ available, message }) => {
-      setBiometricAvailable(available);
-      setBiometricMessage(message);
-    });
-
     fetch('/api/auth/google-status')
       .then(res => res.json())
       .then(data => {
@@ -128,15 +120,6 @@ export default function SignInPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleBiometricLogin = async () => {
-    if (!biometricAvailable) {
-      setError(biometricMessage || 'Biometric login is not available on this device');
-      return;
-    }
-    
-    setError('Biometric login requires setup. Please sign in with your password first, then enable biometric login in Settings.');
   };
 
   const handleGoogleLogin = async () => {
@@ -314,19 +297,7 @@ export default function SignInPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={handleBiometricLogin}
-                    className={`flex items-center gap-2 text-sm transition-colors ${
-                      biometricAvailable 
-                        ? 'text-lime-400 hover:text-lime-300 cursor-pointer' 
-                        : 'text-neutral-500 cursor-not-allowed'
-                    }`}
-                  >
-                    <i className="ri-fingerprint-line text-lg"></i>
-                    <span>Biometric</span>
-                  </button>
+                <div className="flex items-center justify-end">
                   <Link
                     to="/forgot-password"
                     className="text-sm font-medium text-lime-400 hover:text-lime-300 transition-colors"

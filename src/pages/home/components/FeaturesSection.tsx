@@ -17,7 +17,7 @@ const features = [
   {
     icon: "ri-bank-card-fill",
     title: "Virtual Cards",
-    description: "Create unlimited virtual cards for secure online shopping",
+    description: "Create virtual cards for secure online shopping",
     details:
       "Generate instant virtual cards for any online purchase. Set spending limits, freeze cards anytime, and enjoy complete control. Perfect for subscriptions, one-time purchases, and secure transactions.",
     gradient: "from-cyan-500 to-blue-500",
@@ -53,10 +53,10 @@ const features = [
   },
   {
     icon: "ri-shield-check-fill",
-    title: "Bank Security",
-    description: "256-bit encryption, 2FA, and 24/7 fraud monitoring",
+    title: "Bank-Grade Security",
+    description: "Encryption, 2FA, and 24/7 fraud monitoring",
     details:
-      "Your money is protected by bank-level security. 256-bit SSL encryption, two-factor authentication, biometric login, and 24/7 fraud monitoring. Your funds are always safe with us.",
+      "Your account is protected with bank-grade security: TLS/SSL encryption, two-factor authentication, and 24/7 fraud monitoring. We use industry-standard measures to help protect your funds.",
     gradient: "from-emerald-500 to-teal-500",
     bgTint: "bg-emerald-500/[0.08]",
     borderTint: "border-emerald-500/20",

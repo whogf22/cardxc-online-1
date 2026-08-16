@@ -42,6 +42,8 @@ const Terms = lazy(() => import('../pages/terms/page'));
 const Privacy = lazy(() => import('../pages/privacy/page'));
 const RefundPolicy = lazy(() => import('../pages/refund-policy/page'));
 const AMLPolicy = lazy(() => import('../pages/aml-policy/page'));
+const CookiePolicy = lazy(() => import('../pages/cookie-policy/page'));
+const ReferralTerms = lazy(() => import('../pages/referral-terms/page'));
 const ResetPassword = lazy(() => import('../pages/reset-password/page'));
 const ForgotPassword = lazy(() => import('../pages/forgot-password/page'));
 const VerifyEmail = lazy(() => import('../pages/verify-email/page'));
@@ -204,6 +206,8 @@ const routes: RouteObject[] = [
   { path: '/privacy', element: <Privacy /> },
   { path: '/refund-policy', element: <RefundPolicy /> },
   { path: '/aml-policy', element: <AMLPolicy /> },
+  { path: '/cookie-policy', element: <CookiePolicy /> },
+  { path: '/referral-terms', element: <ReferralTerms /> },
   { path: '*', element: <NotFound /> },
 ];
 
