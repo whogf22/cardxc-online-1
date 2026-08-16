@@ -1,0 +1,98 @@
+name: Deploy — Cloudflare Workers
+
+on:
+  push:
+    branches: [main]
+  workflow_run:
+    workflows: ["CI — Lint, Test, Build"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why are you manually deploying?"
+        required: false
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Only deploy if CI passed (when triggered by workflow_run)
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    name: Deploy to Cloudflare Workers
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: production
+      url: https://www.cardxc.online
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci --no-audit --no-fund
+
+      - name: Build
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Deploy with Wrangler
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+
+      - name: Purge Cloudflare cache
+        run: |
+          curl -fsSL -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}'
+
+      - name: Health check (production)
+        id: health
+        run: |
+          set -e
+          for i in 1 2 3 4 5; do
+            sleep 6
+            code=$(curl -s -o /dev/null -w "%{http_code}" -A "GitHub-Actions-Healthcheck" https://www.cardxc.online/api/health || echo 000)
+            echo "Attempt $i: HTTP $code"
+            if [ "$code" = "200" ]; then
+              echo "✅ Production healthy"
+              echo "deployed=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          done
+          echo "❌ Health check failed after 5 attempts"
+          exit 1
+
+      - name: Notify n8n on success
+        if: success() && env.N8N_WEBHOOK_URL != ''
+        env:
+          N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}
+        run: |
+          curl -fsSL -X POST "$N8N_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            --data "{\"event\":\"deploy_success\",\"sha\":\"${{ github.sha }}\",\"actor\":\"${{ github.actor }}\",\"url\":\"https://www.cardxc.online\"}"
+
+      - name: Notify n8n on failure
+        if: failure() && env.N8N_WEBHOOK_URL != ''
+        env:
+          N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}
+        run: |
+          curl -fsSL -X POST "$N8N_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            --data "{\"event\":\"deploy_failure\",\"sha\":\"${{ github.sha }}\",\"run_id\":\"${{ github.run_id }}\",\"actor\":\"${{ github.actor }}\"}"
