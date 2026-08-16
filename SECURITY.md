@@ -188,6 +188,30 @@ Required security environment variables:
 - `DATABASE_URL` - Database connection (keep secure)
 - `BOOTSTRAP_SUPER_ADMIN_EMAIL` - Admin email
 - `BOOTSTRAP_SUPER_ADMIN_PASSWORD` - Admin password (min 8 chars)
+- `REPLIT_DOMAINS` - **Required in production.** Comma-separated exact public
+  origins permitted to make credentialed browser requests. Loopback origins and
+  `http://` entries are refused in production, so an unset value yields an empty
+  allowlist and every cross-origin browser call is denied (fail-closed; the
+  server logs a warning at boot).
+
+Required only when running the MCP administrative server (`npm run mcp:http`),
+which refuses to start without them:
+- `MCP_SECRET` - MCP token signing key, 32+ chars. **Must NOT equal
+  `SESSION_SECRET`** — sharing them would let any ordinary end-user `auth_token`
+  authenticate as an MCP client. There is deliberately no fallback to
+  `SESSION_SECRET`. Generate with `openssl rand -hex 32`.
+- `MCP_API_KEY` - MCP client API key, generated separately.
+- `MCP_BIND_HOST` - defaults to `127.0.0.1`. The MCP server is an administrative
+  surface (filesystem read, optional read-only SQL); keep it on loopback.
+- `MCP_ENABLE_RAW_SQL` - defaults to disabled; only ever permits a single
+  read-only `SELECT`/`WITH` statement when explicitly enabled.
+
+Optional spend control:
+- `AI_DAILY_MESSAGE_LIMIT` - AI assistant messages per user per UTC day
+  (default 100). Set to `0` to disable the assistant entirely.
+
+`scripts/ensure-env.sh` generates the MCP values with `openssl rand -hex 32` and
+backfills them into an existing `.env` without overwriting existing values.
 
 ## Reporting Security Issues
 

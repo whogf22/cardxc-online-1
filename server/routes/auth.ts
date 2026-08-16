@@ -9,6 +9,7 @@ import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { authLimiter } from '../middleware/rateLimit';
 import { createAuditLog } from '../services/auditService';
 import { checkLoginVelocity, runFraudChecks } from '../services/fraudService';
+import { isValidFullName, MAX_FULL_NAME_LENGTH } from '../lib/aiPrompt';
 import { generateTwoFactorSecret, verifyAndEnableTwoFactor, verifyTwoFactorToken, disableTwoFactor, isTwoFactorEnabled } from '../services/twoFactorService';
 import { sendWelcomeEmail, sendPasswordResetEmail } from '../services/emailService';
 import { logger } from '../middleware/logger';
@@ -66,7 +67,14 @@ router.post('/signup',
   authLimiter,
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
-  body('fullName').trim().isLength({ min: 2 }).withMessage('Full name is required'),
+  // CSO #4: same bound as the profile-update path — full_name reaches the AI
+  // context block, so it must be length-capped and free of control characters.
+  body('fullName')
+    .trim()
+    .custom(isValidFullName)
+    .withMessage(
+      `Full name must be 2-${MAX_FULL_NAME_LENGTH} characters and contain no line breaks or control characters`,
+    ),
   body('phone').optional().trim(),
   asyncHandler(async (req: Request, res: Response) => {
     const errors = validationResult(req);

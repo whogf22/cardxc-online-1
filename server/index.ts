@@ -9,6 +9,7 @@ import http from 'http';
 import { fileURLToPath } from 'url';
 import swaggerUi from 'swagger-ui-express';
 import { logger, requestLogger } from './middleware/logger';
+import { buildAllowedOrigins, isOriginAllowed } from './lib/corsOrigin';
 import { errorHandler } from './middleware/errorHandler';
 import { apiLimiter } from './middleware/rateLimit';
 import {
@@ -97,16 +98,20 @@ if (!isProduction && process.env.REPL_ID) {
   logger.info('Development mode: using port 3001 for API so Vite can use 5000');
 }
 
-const allowedOrigins = [
-  'http://localhost:5000',
-  'http://localhost:5173',
-  process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : '',
-  ...(process.env.REPLIT_DOMAINS || '')
-    .split(',')
-    .map(d => d.trim())
-    .filter(Boolean)
-    .map(d => (d.startsWith('http') ? d : `https://${d}`)),
-].filter(Boolean);
+// CSO #3: loopback origins are development-only (they used to be unconditional,
+// so production accepted credentialed requests from localhost:5000/5173), and
+// matching is now exact including scheme. See server/lib/corsOrigin.ts.
+const allowedOrigins = buildAllowedOrigins(process.env, isProduction);
+
+// Fail loudly at boot rather than as an opaque per-request CORS error: in
+// production the loopback defaults are gone, so an unset REPLIT_DOMAINS leaves
+// the allowlist empty and every cross-origin browser call is refused.
+if (isProduction && allowedOrigins.length === 0) {
+  logger.warn(
+    '[CORS] Allowlist is EMPTY in production — set REPLIT_DOMAINS to your public origin(s). ' +
+      'All cross-origin browser requests will be refused until this is configured.',
+  );
+}
 
 // Enhanced security headers
 app.use(helmet({
@@ -155,19 +160,20 @@ app.use(helmet({
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Exact-match allowlist only. We intentionally do NOT allow arbitrary
-    // subdomain matches — a compromised subdomain must not silently gain
-    // cross-origin credentials. Add required subdomains explicitly to
-    // REPLIT_DOMAINS / allowedOrigins.
+    // Exact-match allowlist only, scheme included. We intentionally do NOT allow
+    // arbitrary subdomain matches, nor an http:// origin against an https://
+    // entry — a compromised subdomain or a downgraded connection must not
+    // silently gain cross-origin credentials. Add required subdomains
+    // explicitly to REPLIT_DOMAINS.
+    //
+    // A request with no Origin header is not a cross-origin browser request
+    // (curl, server-to-server, same-origin navigation). The cors middleware
+    // emits no Access-Control-Allow-Origin for these, so no credentialed
+    // cross-origin read is granted by allowing them through.
     if (!origin) {
       return callback(null, true);
     }
-    const cleanOrigin = origin.replace(/^https?:\/\//, '');
-    const matched = allowedOrigins.some(allowed => {
-      const cleanAllowed = allowed.replace(/^https?:\/\//, '');
-      return cleanOrigin === cleanAllowed;
-    });
-    callback(null, matched);
+    callback(null, isOriginAllowed(origin, allowedOrigins));
   },
   credentials: true,
 }));

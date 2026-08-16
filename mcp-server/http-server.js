@@ -4,8 +4,8 @@ import { spawn } from "child_process";
 import fs from "fs/promises";
 import path from "path";
 import pg from "pg";
-import jwt from "jsonwebtoken";
 import { GoogleGenAI } from "@google/genai";
+import { resolveMcpSecret, signMcpToken, verifyMcpToken } from "./mcp-auth.js";
 import { Server } from "@modelcontextprotocol/sdk/server";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
@@ -40,12 +40,12 @@ app.use(express.json({ limit: "50mb" }));
 
 // SEC-4 (fail closed, in EVERY environment): no hardcoded fallback signing key.
 // A guessable default would let anyone mint an 8h admin-capable MCP token.
-const JWT_SECRET = process.env.MCP_SECRET || process.env.SESSION_SECRET;
-if (!JWT_SECRET) {
-    throw new Error(
-        "FATAL: MCP_SECRET (or SESSION_SECRET) must be set — the MCP server refuses to start without a signing secret.",
-    );
-}
+//
+// CSO #2: this used to fall back to SESSION_SECRET. That is the key the main app
+// signs end-user auth_token cookies with, so every ordinary user held a
+// signature-valid MCP token. resolveMcpSecret now demands a dedicated
+// MCP_SECRET and rejects one that merely duplicates SESSION_SECRET.
+const JWT_SECRET = resolveMcpSecret(process.env);
 
 // SEC-4: the API key likewise has no default. Without it the server cannot
 // authenticate callers, so it must not start.
@@ -177,7 +177,10 @@ const authenticateToken = (req, res, next) => {
     }
 
     try {
-        req.user = jwt.verify(token, JWT_SECRET);
+        // CSO #2: verifyMcpToken pins HS256 and asserts iss/aud. The previous
+        // unconstrained verification call accepted ANY correctly-signed token,
+        // including an end-user auth_token.
+        req.user = verifyMcpToken(token, JWT_SECRET);
         next();
     } catch (_error) {
         return res.status(403).json({ error: "Invalid or expired token" });
@@ -193,11 +196,7 @@ app.post("/auth/token", (req, res) => {
     }
 
     const sanitizedUsername = (username || "mcp-client").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 50);
-    const token = jwt.sign(
-        { username: sanitizedUsername, role: "ai-assistant", iss: "cardxc-mcp", aud: "cardxc-mcp-client" },
-        JWT_SECRET,
-        { expiresIn: "8h" }
-    );
+    const token = signMcpToken(sanitizedUsername, JWT_SECRET);
 
     res.json({ success: true, token, expiresIn: "8h", message: "Use this token in Authorization header: Bearer <token>" });
 });

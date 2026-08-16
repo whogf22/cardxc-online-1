@@ -27,8 +27,16 @@ describe('SEC-4: no fallback credentials', () => {
     expect(SRC).not.toContain('cardxc-mcp-dev-key');
   });
 
-  it('refuses to start without MCP_SECRET/SESSION_SECRET', () => {
-    expect(SRC).toMatch(/if \(!JWT_SECRET\)\s*\{[\s\S]*?throw new Error\(/);
+  it('refuses to start without MCP_SECRET', () => {
+    // The throw now lives in mcp-auth.js `resolveMcpSecret`, which http-server.js
+    // calls at module scope — so a missing secret still aborts startup. See
+    // mcpAuth.test.ts for the behavioural coverage of that function.
+    expect(SRC).toContain('const JWT_SECRET = resolveMcpSecret(process.env)');
+    const AUTH_SRC = readFileSync(
+      join(__dirname, '..', '..', '..', 'mcp-server', 'mcp-auth.js'),
+      'utf8',
+    );
+    expect(AUTH_SRC).toMatch(/if \(!secret\)\s*\{[\s\S]*?throw new Error\(/);
   });
 
   it('refuses to start without MCP_API_KEY', () => {
