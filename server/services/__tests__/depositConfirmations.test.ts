@@ -100,6 +100,30 @@ describe('getConfirmations (SolidityNode + success)', () => {
     });
   }
 
+  it('RPC transport failure (fetch throws) -> 0 (fail closed)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('ECONNREFUSED'); }));
+    const { getConfirmations } = await import('../tronDepositMonitor');
+    expect(await getConfirmations('0xabc')).toBe(0);
+  });
+
+  it('malformed RPC payload (json() throws) -> 0 (fail closed)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => { throw new SyntaxError('Unexpected token'); } } as any)));
+    const { getConfirmations } = await import('../tronDepositMonitor');
+    expect(await getConfirmations('0xabc')).toBe(0);
+  });
+
+  it('head-block RPC failure (getnowblock non-200) -> 0 even when tx info is valid', async () => {
+    stubSolidity({ blockNumber: 1000, headNumber: 1024, headOk: false });
+    const { getConfirmations } = await import('../tronDepositMonitor');
+    expect(await getConfirmations('0xabc')).toBe(0);
+  });
+
+  it('head block BEHIND the tx block (inconsistent chain view) -> 0', async () => {
+    stubSolidity({ blockNumber: 2000, headNumber: 1000 });
+    const { getConfirmations } = await import('../tronDepositMonitor');
+    expect(await getConfirmations('0xabc')).toBe(0);
+  });
+
   it('uses the SolidityNode endpoints (not FullNode)', async () => {
     const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ blockNumber: 1, receipt: { result: 'SUCCESS' }, block_header: { raw_data: { number: 20 } } }) } as any));
     vi.stubGlobal('fetch', fetchMock);

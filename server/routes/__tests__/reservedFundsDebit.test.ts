@@ -32,6 +32,9 @@ const FIAT_DEBIT_FILES = [
   'server/routes/transactions.ts',
   'server/services/swapService.ts',
   'server/services/withdrawalService.ts',
+  // Background money movement counts too: recurring transfers AND the round-up
+  // savings job both debit user wallets without any request in flight.
+  'server/services/backgroundJobs.ts',
 ];
 
 const USDT_DEBIT_FILES = [
@@ -106,6 +109,26 @@ describe('FIN-3: guarded debits abort when they affect no row', () => {
       expect(/rowCount === 0|rowCount !== 1/.test(src), `No rowCount guard in ${file}`).toBe(true);
     });
   }
+});
+
+describe('FIN-3: documented exceptions (reserve semantics must NOT be applied blindly)', () => {
+  it('admin withdrawal approval debits the RESERVED funds it releases (no reserve subtraction)', () => {
+    // This is the one correct `balance_cents >= $1` guard on a wallet: the
+    // approval spends the very funds its own reserve is holding and releases
+    // that reserve in the same statement. Subtracting reserved_cents here would
+    // make a fully-reserved (and therefore legitimately payable) withdrawal
+    // impossible to settle. It must still check rowCount (FIN-4).
+    const src = read('server/routes/admin.ts').replace(/\s+/g, ' ');
+    expect(src).toContain('reserved_cents = reserved_cents - $1');
+    expect(src).toContain('AND balance_cents >= $1');
+    expect(src).toMatch(/debit\.rowCount !== 1/);
+  });
+
+  it('savings_vaults uses its own balance (no reserve concept on that table)', () => {
+    const src = read('server/routes/savings.ts').replace(/\s+/g, ' ');
+    expect(src).toContain('UPDATE savings_vaults SET balance_cents = balance_cents - $1');
+    expect(src).toContain('WHERE id = $2 AND balance_cents >= $1');
+  });
 });
 
 describe('FIN-3: reserve-aware availability in pre-checks', () => {

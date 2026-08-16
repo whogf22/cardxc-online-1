@@ -299,17 +299,28 @@ async function processRoundups() {
           try {
             await client.query('BEGIN');
 
+            // AVAILABLE funds only: money reserved by a pending withdrawal must
+            // never be swept into a savings vault.
             const walletResult = await client.query(`
-              SELECT id, balance_cents FROM wallets
+              SELECT id, balance_cents - COALESCE(reserved_cents, 0) AS available_cents FROM wallets
               WHERE user_id = $1 AND currency = 'USD'
               FOR UPDATE
             `, [rule.user_id]);
             const wallet = walletResult.rows[0];
 
-            if (wallet && wallet.balance_cents >= roundupAmount) {
-              await client.query(`
-                UPDATE wallets SET balance_cents = balance_cents - $1 WHERE id = $2
+            if (wallet && wallet.available_cents >= roundupAmount) {
+              // Guarded debit: rowCount 0 means the available balance changed
+              // under us, so roll back instead of moving money.
+              const debit = await client.query(`
+                UPDATE wallets SET balance_cents = balance_cents - $1
+                WHERE id = $2 AND balance_cents - COALESCE(reserved_cents, 0) >= $1
               `, [roundupAmount, wallet.id]);
+
+              if (debit.rowCount === 0) {
+                logger.warn(`[Roundup] Guarded debit affected no row for user ${rule.user_id}; skipping`);
+                await client.query('ROLLBACK');
+                continue;
+              }
 
               await client.query(`
                 UPDATE savings_vaults SET balance_cents = balance_cents + $1 WHERE id = $2

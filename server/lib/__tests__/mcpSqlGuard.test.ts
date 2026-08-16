@@ -108,8 +108,23 @@ describe('SEC-4: raw SQL is constrained', () => {
       ['SELECT 1 -- \n; DELETE FROM users'],       // comment-smuggled second stmt
       ['/* hide */ UPDATE wallets SET balance_cents = 0'],
       [''],
+      // CTE (data-modifying WITH) mutation — the classic "starts with WITH so it
+      // must be read-only" bypass. Postgres executes these writes for real.
+      ['WITH x AS (INSERT INTO wallets (user_id) VALUES (1) RETURNING *) SELECT * FROM x'],
+      ['WITH d AS (DELETE FROM users RETURNING *) SELECT * FROM d'],
+      ['WITH u AS (UPDATE wallets SET balance_cents = 0 RETURNING *) SELECT * FROM u'],
+      ['with m as (merge into wallets using x on true when matched then delete) select 1'],
     ])('rejects non-read-only or multi-statement SQL: %s', (q) => {
       expect(() => validate(q)).toThrow();
+    });
+
+    it('a comment containing a write keyword is stripped, leaving a genuinely read-only query', () => {
+      // Correct to ALLOW: the DROP lives inside a comment and never executes.
+      expect(() => validate('SELECT * FROM users /* ; DROP TABLE users */')).not.toThrow();
+    });
+
+    it('keyword matching is case-insensitive (no case-flip bypass)', () => {
+      expect(() => validate('wItH u As (uPdAtE wallets SeT balance_cents = 0 RETURNING *) sElEcT * FROM u')).toThrow();
     });
   });
 });
