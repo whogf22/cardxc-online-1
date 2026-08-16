@@ -154,13 +154,14 @@ async function processRecurringTransfers() {
         await client.query('BEGIN');
 
         const walletResult = await client.query(`
-          SELECT id, balance_cents FROM wallets
+          SELECT id, balance_cents - COALESCE(reserved_cents, 0) AS available_cents FROM wallets
           WHERE user_id = $1 AND currency = $2
           FOR UPDATE
         `, [transfer.user_id, transfer.currency]);
         const wallet = walletResult.rows[0];
 
-        if (!wallet || wallet.balance_cents < transfer.amount_cents) {
+        // AVAILABLE funds only: never spend money reserved by a pending withdrawal.
+        if (!wallet || wallet.available_cents < transfer.amount_cents) {
           logger.warn(`[RecurringTransfer] Insufficient funds for transfer ${transfer.id}`);
           await client.query(`
             UPDATE recurring_transfers SET status = 'paused', updated_at = NOW()
@@ -198,9 +199,17 @@ async function processRecurringTransfers() {
 
         const recipientName = transfer.recipient_name || 'user';
 
-        await client.query(`
-          UPDATE wallets SET balance_cents = balance_cents - $1 WHERE id = $2
+        // Guarded debit against AVAILABLE funds; rowCount 0 aborts the transfer
+        // rather than moving money that is reserved or already spent.
+        const debit = await client.query(`
+          UPDATE wallets SET balance_cents = balance_cents - $1
+          WHERE id = $2 AND balance_cents - COALESCE(reserved_cents, 0) >= $1
         `, [transfer.amount_cents, wallet.id]);
+        if (debit.rowCount === 0) {
+          logger.warn(`[RecurringTransfer] Guarded debit failed (insufficient available funds) for transfer ${transfer.id}`);
+          await client.query('ROLLBACK');
+          continue;
+        }
 
         await client.query(`
           INSERT INTO wallets (user_id, currency, balance_cents)

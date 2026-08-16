@@ -12,6 +12,12 @@ interface AuthenticatedSocket extends Socket {
 
 let io: SocketIOServer | null = null;
 
+/** Room receiving privileged, server-pushed admin broadcasts. */
+const ADMIN_ROOM = 'admin';
+/** How often idle admin sockets are re-authorized (NEW-1). */
+const ADMIN_SWEEP_INTERVAL_MS = 30_000;
+let adminSweepTimer: NodeJS.Timeout | null = null;
+
 // Track online users: userId -> Set of socketIds
 const onlineUsers = new Map<string, Set<string>>();
 
@@ -61,6 +67,7 @@ interface RevalidatableSocket {
   userRole?: string;
   emit: (event: string, payload?: unknown) => void;
   disconnect: (close?: boolean) => void;
+  leave?: (room: string) => void;
 }
 
 /**
@@ -77,12 +84,59 @@ export async function revalidateSocketSession(
 ): Promise<{ userId: string; role: string } | null> {
   const auth = await authenticateSocketToken(socket.data?.token);
   if (!auth || auth.userId !== socket.userId) {
+    // Revoked/expired/deactivated: drop the admin room membership FIRST so no
+    // in-flight broadcast can still reach this socket, then disconnect.
+    socket.leave?.(ADMIN_ROOM);
     socket.emit('auth:revoked', { message: 'Session is no longer valid. Please sign in again.' });
     socket.disconnect(true);
     return null;
   }
   socket.userRole = auth.role;
+  // A live downgrade (SUPER_ADMIN -> USER) must immediately stop server-PUSHED
+  // admin broadcasts, not just gate the pull handlers.
+  if (auth.role !== 'SUPER_ADMIN') {
+    socket.leave?.(ADMIN_ROOM);
+  }
   return auth;
+}
+
+/**
+ * Re-authorize every socket currently in the admin room and evict any that is no
+ * longer an active SUPER_ADMIN.
+ *
+ * Event-time revalidation only covers sockets that emit something. A demoted or
+ * logged-out admin whose client sits idle would otherwise keep receiving pushed
+ * `admin:*` broadcasts (other users' transactions, withdrawals, alerts, platform
+ * aggregates) until it happened to send an event or disconnect. This sweep is
+ * what makes revocation take effect without a reconnect. Exported for testing.
+ */
+export async function sweepAdminRoom(server: {
+  in: (room: string) => { fetchSockets: () => Promise<any[]> };
+}): Promise<number> {
+  let evicted = 0;
+  try {
+    const sockets = await server.in(ADMIN_ROOM).fetchSockets();
+    for (const s of sockets) {
+      try {
+        const auth = await authenticateSocketToken(s.data?.token);
+        if (!auth || auth.userId !== s.userId || auth.role !== 'SUPER_ADMIN') {
+          s.leave(ADMIN_ROOM);
+          evicted += 1;
+          if (!auth || auth.userId !== s.userId) {
+            // Session fully revoked — tear the connection down too.
+            s.emit('auth:revoked', { message: 'Session is no longer valid. Please sign in again.' });
+            s.disconnect(true);
+          }
+          logger.info('[Socket] Evicted socket from admin room', { userId: s.userId, reason: auth ? 'role_downgraded' : 'session_revoked' });
+        }
+      } catch (err) {
+        logger.error('[Socket] admin room sweep error for socket', err);
+      }
+    }
+  } catch (err) {
+    logger.error('[Socket] admin room sweep failed', err);
+  }
+  return evicted;
 }
 
 export function initSocketIO(httpServer: HttpServer): SocketIOServer {
@@ -136,7 +190,7 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
 
     // Admins join admin room. Roles in this system are 'USER' / 'SUPER_ADMIN'.
     if (userRole === 'SUPER_ADMIN') {
-      socket.join('admin');
+      socket.join(ADMIN_ROOM);
       // Notify admins of online count
       broadcastAdminStats();
     }
@@ -206,6 +260,14 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
     });
   });
 
+  // Periodically re-authorize idle admin sockets so a logout/demotion takes
+  // effect without requiring the client to emit anything or reconnect.
+  if (adminSweepTimer) clearInterval(adminSweepTimer);
+  adminSweepTimer = setInterval(() => {
+    if (io) void sweepAdminRoom(io as unknown as { in: (room: string) => { fetchSockets: () => Promise<any[]> } });
+  }, ADMIN_SWEEP_INTERVAL_MS);
+  adminSweepTimer.unref?.();
+
   logger.info('[Socket] Socket.IO initialized');
   return io;
 }
@@ -235,7 +297,7 @@ export function emitTransactionUpdate(
   io.to(`user:${userId}`).emit('transaction:new', transaction);
 
   // Also notify admins
-  io.to('admin').emit('admin:transaction:new', { userId, transaction });
+  io.to(ADMIN_ROOM).emit('admin:transaction:new', { userId, transaction });
 }
 
 /** Emit a notification to a user */
@@ -268,7 +330,7 @@ export function emitWithdrawalUpdate(
 ) {
   if (!io) return;
   io.to(`user:${userId}`).emit('withdrawal:update', withdrawal);
-  io.to('admin').emit('admin:withdrawal:update', { userId, withdrawal });
+  io.to(ADMIN_ROOM).emit('admin:withdrawal:update', { userId, withdrawal });
 }
 
 /** Broadcast to all admins */
@@ -277,7 +339,7 @@ export function emitAdminAlert(
   data: Record<string, unknown>
 ) {
   if (!io) return;
-  io.to('admin').emit('admin:alert', { type, data, timestamp: new Date().toISOString() });
+  io.to(ADMIN_ROOM).emit('admin:alert', { type, data, timestamp: new Date().toISOString() });
 }
 
 /** Get count of online users */
@@ -294,7 +356,7 @@ export function isUserOnline(userId: string): boolean {
 
 function broadcastOnlineCount() {
   if (!io) return;
-  io.to('admin').emit('admin:online_users', { count: onlineUsers.size });
+  io.to(ADMIN_ROOM).emit('admin:online_users', { count: onlineUsers.size });
 }
 
 async function sendAdminStats(socket: AuthenticatedSocket) {
@@ -327,7 +389,7 @@ async function sendAdminStats(socket: AuthenticatedSocket) {
 
 async function broadcastAdminStats() {
   if (!io) return;
-  const adminSockets = await io.in('admin').fetchSockets();
+  const adminSockets = await io.in(ADMIN_ROOM).fetchSockets();
   if (adminSockets.length === 0) return;
 
   try {
@@ -336,7 +398,7 @@ async function broadcastAdminStats() {
       pool.query('SELECT COUNT(*) as count FROM withdrawal_requests WHERE status = \'pending\''),
     ]);
 
-    io.to('admin').emit('admin:stats:quick', {
+    io.to(ADMIN_ROOM).emit('admin:stats:quick', {
       totalUsers: parseInt(usersRes.rows[0].total),
       pendingWithdrawals: parseInt(pendingRes.rows[0].count),
       onlineUsers: onlineUsers.size,

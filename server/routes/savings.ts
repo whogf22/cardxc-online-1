@@ -84,12 +84,13 @@ router.post('/vaults/:id/deposit',
     }
 
     await transaction(async (client) => {
-      // Atomic, guarded debit: only succeeds if the wallet still has enough.
-      // Prevents a TOCTOU race where two concurrent deposits both pass the
-      // pre-check above and overdraw the wallet into a negative balance.
+      // Atomic, guarded debit against AVAILABLE funds
+      // (available = balance_cents - reserved_cents). Prevents a TOCTOU race
+      // where two concurrent deposits both pass the pre-check above, and
+      // prevents spending funds already reserved by a pending withdrawal.
       const debit = await client.query(`
         UPDATE wallets SET balance_cents = balance_cents - $1, updated_at = NOW()
-        WHERE user_id = $2 AND currency = $3 AND balance_cents >= $1
+        WHERE user_id = $2 AND currency = $3 AND balance_cents - COALESCE(reserved_cents, 0) >= $1
       `, [amountCents, req.user!.id, vault.currency]);
 
       if (debit.rowCount === 0) {

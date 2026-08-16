@@ -13,7 +13,11 @@ import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprot
 const PROJECT_ROOT = path.resolve(".");
 const BLOCKED_PATHS = [".env", "node_modules/.cache", ".git/objects"];
 const BLOCKED_COMMANDS = ["rm -rf /", "mkfs", "dd if=", ":(){ :|:& };:", "shutdown", "reboot", "halt", "poweroff", "wget", "chmod", "chown", "pkill", "kill", "printenv"];
-const DANGEROUS_SQL = /^\s*(DROP\s+(DATABASE|SCHEMA)|TRUNCATE\s+ALL|DELETE\s+FROM\s+\w+\s*;?\s*$)/i;
+// SEC-4: raw SQL over the MCP surface is OFF unless explicitly enabled, and when
+// enabled it is restricted to a SINGLE read-only SELECT/WITH statement. A
+// blocklist is not sufficient — anything not provably read-only is rejected.
+const RAW_SQL_ENABLED = process.env.MCP_ENABLE_RAW_SQL === "true";
+const WRITE_SQL = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE|COPY|VACUUM|REINDEX|CALL|DO|SET|MERGE)\b/i;
 
 const app = express();
 app.use(cors({
@@ -34,13 +38,23 @@ app.use(cors({
 }));
 app.use(express.json({ limit: "50mb" }));
 
-if (process.env.NODE_ENV === 'production' && !process.env.MCP_SECRET && !process.env.SESSION_SECRET) {
-    throw new Error("MCP_SECRET or SESSION_SECRET must be set in production");
+// SEC-4 (fail closed, in EVERY environment): no hardcoded fallback signing key.
+// A guessable default would let anyone mint an 8h admin-capable MCP token.
+const JWT_SECRET = process.env.MCP_SECRET || process.env.SESSION_SECRET;
+if (!JWT_SECRET) {
+    throw new Error(
+        "FATAL: MCP_SECRET (or SESSION_SECRET) must be set — the MCP server refuses to start without a signing secret.",
+    );
 }
-if (!process.env.MCP_SECRET && !process.env.SESSION_SECRET) {
-    console.warn("[MCP] Warning: MCP_SECRET not set. Using development fallback.");
+
+// SEC-4: the API key likewise has no default. Without it the server cannot
+// authenticate callers, so it must not start.
+const MCP_API_KEY = process.env.MCP_API_KEY;
+if (!MCP_API_KEY) {
+    throw new Error(
+        "FATAL: MCP_API_KEY must be set — the MCP server refuses to start without a configured API key.",
+    );
 }
-const JWT_SECRET = process.env.MCP_SECRET || process.env.SESSION_SECRET || "dev-mcp-secret-do-not-use-in-production";
 
 let genAI = null;
 try {
@@ -109,9 +123,33 @@ function validateCommand(command) {
     return command;
 }
 
+/**
+ * SEC-4 — allowlist-based SQL guard (fail closed).
+ *
+ * Raw SQL is disabled unless MCP_ENABLE_RAW_SQL=true. When enabled, only a
+ * SINGLE read-only statement (SELECT, or WITH ... SELECT) is permitted: no
+ * multiple statements, no writes, no DDL/DCL, no comment-smuggled payloads.
+ */
 function validateSQL(query) {
-    if (DANGEROUS_SQL.test(query)) {
-        throw new Error("Destructive SQL blocked. Use targeted DELETE with WHERE clause or ask an admin.");
+    if (!RAW_SQL_ENABLED) {
+        throw new Error("Raw SQL execution is disabled. Set MCP_ENABLE_RAW_SQL=true to enable read-only SELECT queries.");
+    }
+    const text = String(query ?? "").trim();
+    if (!text) {
+        throw new Error("Empty SQL query");
+    }
+    // Strip comments so they cannot hide a second statement or a write.
+    const stripped = text.replace(/--[^\n]*/g, " ").replace(/\/\*[\s\S]*?\*\//g, " ").trim();
+    // Reject multiple statements (a trailing single semicolon is tolerated).
+    const withoutTrailing = stripped.replace(/;\s*$/, "");
+    if (withoutTrailing.includes(";")) {
+        throw new Error("Only a single statement is allowed");
+    }
+    if (!/^(SELECT|WITH)\b/i.test(withoutTrailing)) {
+        throw new Error("Only read-only SELECT queries are allowed");
+    }
+    if (WRITE_SQL.test(withoutTrailing)) {
+        throw new Error("Only read-only SELECT queries are allowed (write/DDL keyword detected)");
     }
     return query;
 }
@@ -123,10 +161,7 @@ const authenticateToken = (req, res, next) => {
     }
 
     const apiKeyHeader = (req.headers["x-api-key"] || "").toString().trim();
-    if (process.env.NODE_ENV === 'production' && !process.env.MCP_API_KEY) {
-        return res.status(500).json({ error: "MCP_API_KEY must be set in production" });
-    }
-    const configuredApiKey = (process.env.MCP_API_KEY || "cardxc-mcp-dev-key").toString().trim();
+    const configuredApiKey = MCP_API_KEY.toString().trim();
     if (apiKeyHeader) {
         if (apiKeyHeader !== configuredApiKey) {
             return res.status(401).json({ error: "Invalid API key" });
@@ -151,10 +186,7 @@ const authenticateToken = (req, res, next) => {
 
 app.post("/auth/token", (req, res) => {
     const { apiKey, username } = req.body;
-    if (process.env.NODE_ENV === 'production' && !process.env.MCP_API_KEY) {
-        return res.status(500).json({ error: "MCP_API_KEY must be set in production" });
-    }
-    const expectedKey = process.env.MCP_API_KEY || "cardxc-mcp-dev-key";
+    const expectedKey = MCP_API_KEY;
 
     if (!apiKey || apiKey !== expectedKey) {
         return res.status(401).json({ error: "Invalid API key" });
@@ -965,12 +997,20 @@ function showTab(id){
 });
 
 const PORT = process.env.MCP_PORT || 8080;
+// SEC-4: this is an INTERNAL administrative surface. Bind loopback by default so
+// it is never exposed to the network by accident; a non-loopback bind must be an
+// explicit, deliberate operator decision via MCP_BIND_HOST.
+const BIND_HOST = process.env.MCP_BIND_HOST || "127.0.0.1";
 (async () => {
     await setupMcpStreamableHttp();
-    app.listen(PORT, "0.0.0.0", () => {
-        console.log("MCP HTTP Server running on port " + PORT);
+    app.listen(PORT, BIND_HOST, () => {
+        console.log("MCP HTTP Server running on " + BIND_HOST + ":" + PORT);
         console.log("Features: JWT Auth, API Key Auth, Gemini AI, Database, File Ops, Rate Limiting");
+        console.log("Raw SQL: " + (RAW_SQL_ENABLED ? "ENABLED (read-only SELECT)" : "disabled"));
         console.log("Tools: " + tools.length + " available");
         console.log("Cursor MCP: use URL http://localhost:" + PORT + "/mcp (Streamable HTTP)");
+        if (BIND_HOST !== "127.0.0.1" && BIND_HOST !== "localhost") {
+            console.warn("[MCP] WARNING: bound to " + BIND_HOST + " — this administrative server should not be publicly reachable.");
+        }
     });
 })();

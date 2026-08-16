@@ -58,6 +58,7 @@ beforeEach(() => {
     const client = {
       query: vi.fn(async (sql: string, params?: unknown[]) => {
         clientCalls.push({ sql, params: params ?? [] });
+        if (sql.includes('available_cents')) return { rows: [{ available_cents: 1_000_000 }] };
         if (sql.includes('SELECT balance_cents')) return { rows: [{ balance_cents: 1_000_000 }] };
         if (sql.includes('INSERT INTO gift_card_requests')) return { rows: [{ id: 'req-1' }] };
         return { rows: [], rowCount: 1 };

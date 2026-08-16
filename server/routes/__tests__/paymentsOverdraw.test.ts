@@ -17,7 +17,9 @@ const mockQuery = vi.fn();
 const mockQueryOne = vi.fn();
 const mockTransaction = vi.fn();
 const mockCreateAuditLog = vi.fn().mockResolvedValue(undefined);
-const mockRunFraudChecks = vi.fn().mockResolvedValue({ flags: [] });
+// Healthy risk engine: `passed` must be present — FIN-6 makes the money paths
+// fail closed on anything other than an explicit pass.
+const mockRunFraudChecks = vi.fn().mockResolvedValue({ passed: true, flags: [], score: 0 });
 
 vi.mock('../../db/pool', () => ({
   query: (...args: unknown[]) => mockQuery(...args),
@@ -59,7 +61,7 @@ afterEach(() => {
   mockQueryOne.mockReset();
   mockTransaction.mockReset();
   mockCreateAuditLog.mockReset();
-  mockRunFraudChecks.mockReset().mockResolvedValue({ flags: [] });
+  mockRunFraudChecks.mockReset().mockResolvedValue({ passed: true, flags: [], score: 0 });
 });
 
 describe('POST /api/payments/p2p/transfer guarded debit', () => {

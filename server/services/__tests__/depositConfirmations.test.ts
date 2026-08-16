@@ -71,8 +71,12 @@ function stubSolidity(opts: {
   }));
 }
 
+const USDT_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
+
 function makeTx() {
-  return { transaction_id: '0xdeadbeef', to: DEPOSIT_ADDR, from: 'TSenderAddr', token_info: { decimals: 6 }, value: '5000000', block_timestamp: Date.now() };
+  // token_info.address is required post-FIN-1: a transfer whose contract is not
+  // USDT-TRC20 is rejected before attribution.
+  return { transaction_id: '0xdeadbeef', to: DEPOSIT_ADDR, from: 'TSenderAddr', token_info: { decimals: 6, address: USDT_CONTRACT }, value: '5000000', block_timestamp: Date.now() };
 }
 
 // ── getConfirmations matrix ────────────────────────────────────────────────
@@ -110,13 +114,17 @@ describe('getConfirmations (SolidityNode + success)', () => {
 
 // ── processIncomingTransaction gate ────────────────────────────────────────
 describe('processIncomingTransaction confirmation gate', () => {
+  // Post-FIN-1 the pending intent is resolved by the server-generated
+  // expected_amount (via `query`, returning rows), not by from_address.
   function mockPending() {
     mockQueryOne.mockImplementation(async (sql: string) => {
       if (sql.includes('WHERE tx_hash = $1')) return null;
-      if (sql.includes("status = 'pending' AND tx_hash IS NULL")) return { id: 'dep-1', user_id: 'user-1' };
       return null;
     });
-    mockQuery.mockResolvedValue({ rows: [{ id: 'dep-1' }], rowCount: 1 });
+    mockQuery.mockImplementation(async (sql: string) => {
+      if (sql.includes('expected_amount = $1')) return [{ id: 'dep-1', user_id: 'user-1' }];
+      return [];
+    });
   }
 
   it('does NOT credit under threshold (19) — records progress only', async () => {

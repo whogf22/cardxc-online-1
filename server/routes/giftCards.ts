@@ -63,7 +63,9 @@ router.post('/requests',
             const requestId = await transaction(async (client) => {
                 const totalCostCents = Math.round(amountCents * (resolvedRate / 100));
 
-                // Check balance based on payment method
+                // Check AVAILABLE balance based on payment method. Fiat
+                // availability excludes funds reserved by a pending withdrawal
+                // (available = balance_cents - reserved_cents).
                 if (paymentMethod === 'usdt') {
                     const walletRows = await client.query(
                         'SELECT usdt_balance_cents FROM wallets WHERE user_id = $1 AND currency = $2 FOR UPDATE',
@@ -75,11 +77,11 @@ router.post('/requests',
                     }
                 } else {
                     const walletRows = await client.query(
-                        'SELECT balance_cents FROM wallets WHERE user_id = $1 AND currency = $2 FOR UPDATE',
+                        'SELECT balance_cents - COALESCE(reserved_cents, 0) AS available_cents FROM wallets WHERE user_id = $1 AND currency = $2 FOR UPDATE',
                         [req.user!.id, currency]
                     );
-                    const fiatBalance = walletRows.rows[0]?.balance_cents || 0;
-                    if (fiatBalance < totalCostCents) {
+                    const fiatAvailable = walletRows.rows[0]?.available_cents || 0;
+                    if (fiatAvailable < totalCostCents) {
                         throw new AppError('Insufficient balance to purchase this card.', 400, 'INSUFFICIENT_BALANCE');
                     }
                 }
@@ -103,26 +105,35 @@ router.post('/requests',
 
                 const rId = requestInsert.rows[0].id;
 
-                // 3. Deduct Balance (USDT or Fiat)
+                // 3. Deduct Balance (USDT or Fiat) with an ATOMIC GUARDED debit.
+                //    The WHERE clause re-asserts sufficiency at write time and the
+                //    rowCount check aborts the whole transaction if it fails, so a
+                //    concurrent debit (or reserved funds) can never be overdrawn.
                 if (paymentMethod === 'usdt') {
-                    await client.query(`
+                    const debit = await client.query(`
                         UPDATE wallets SET usdt_balance_cents = usdt_balance_cents - $1, updated_at = NOW()
-                        WHERE user_id = $2 AND currency = 'USD'
+                        WHERE user_id = $2 AND currency = 'USD' AND usdt_balance_cents >= $1
                     `, [totalCostCents, req.user!.id]);
+                    if (debit.rowCount === 0) {
+                        throw new AppError('Insufficient USDT balance. Add funds via Card Checkout first.', 400, 'INSUFFICIENT_USDT_BALANCE');
+                    }
 
                     // Record crypto ledger entry
                     await client.query(`
                         INSERT INTO crypto_ledger_entries (
-                            user_id, source_transaction_id, crypto_type, amount_cents, 
+                            user_id, source_transaction_id, crypto_type, amount_cents,
                             exchange_rate, usd_equivalent_cents, description
                         )
                         VALUES ($1, $2, 'USDT', $3, 1.0, $4, $5)
                     `, [req.user!.id, rId, -totalCostCents, -totalCostCents, `USDT payment for ${brand} gift card`]);
                 } else {
-                    await client.query(`
+                    const debit = await client.query(`
                         UPDATE wallets SET balance_cents = balance_cents - $1, updated_at = NOW()
-                        WHERE user_id = $2 AND currency = $3
+                        WHERE user_id = $2 AND currency = $3 AND balance_cents - COALESCE(reserved_cents, 0) >= $1
                     `, [totalCostCents, req.user!.id, currency]);
+                    if (debit.rowCount === 0) {
+                        throw new AppError('Insufficient balance to purchase this card.', 400, 'INSUFFICIENT_BALANCE');
+                    }
                 }
 
                 // 4. Create internal Transaction record

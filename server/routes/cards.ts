@@ -508,9 +508,11 @@ router.post('/:id/top-up',
     }
 
     await transaction(async (client) => {
-      // Guarded debit prevents concurrent top-ups from overdrawing the wallet.
+      // Guarded debit against AVAILABLE funds (balance - reserved) prevents
+      // concurrent top-ups from overdrawing and blocks spending funds already
+      // reserved by a pending withdrawal.
       const debit = await client.query(`
-        UPDATE wallets SET balance_cents = balance_cents - $1 WHERE user_id = $2 AND currency = $3 AND balance_cents >= $1
+        UPDATE wallets SET balance_cents = balance_cents - $1 WHERE user_id = $2 AND currency = $3 AND balance_cents - COALESCE(reserved_cents, 0) >= $1
       `, [amountCents, req.user!.id, currency]);
 
       if (debit.rowCount === 0) {

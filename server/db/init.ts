@@ -680,6 +680,25 @@ export async function initializeDatabase() {
       logger.warn('[DB] Could not create unique tx_hash index (existing duplicates?)', { error: e?.message });
     });
 
+    // FIN-1 (deposit attribution): incoming deposits to the shared hot wallet are
+    // attributed to a user ONLY by a server-generated, unique `expected_amount`
+    // matched against an active, unexpired pending intent — never by the
+    // client-supplied sender address. `expected_amount` is the exact on-chain
+    // amount (base + a unique per-intent micro discriminator) the user must send.
+    await client.query(`ALTER TABLE crypto_transactions ADD COLUMN IF NOT EXISTS expected_amount NUMERIC(20, 8)`);
+    await client.query(`ALTER TABLE crypto_transactions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP`);
+    // Enforce that no two ACTIVE pending TRC-20 deposit intents share an
+    // expected_amount, so an incoming transfer maps to at most one intent. The
+    // application also fails closed on 0-or-many matches, but this index makes a
+    // colliding intent impossible to create in the first place.
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS uniq_crypto_deposit_expected_amount
+        ON crypto_transactions(expected_amount)
+        WHERE type = 'deposit' AND status = 'pending' AND network = 'TRC20' AND expected_amount IS NOT NULL
+    `).catch((e: any) => {
+      logger.warn('[DB] Could not create unique expected_amount index (existing duplicates?)', { error: e?.message });
+    });
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS gift_card_requests (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

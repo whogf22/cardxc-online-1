@@ -219,6 +219,12 @@ router.post('/withdraw',
       amount: amountCents,
     });
 
+    // Fail closed: a risk engine that did not pass (including the
+    // FRAUD_CHECK_ERROR outage case) must block the withdrawal.
+    if (!fraudCheck.passed) {
+      throw new AppError('Withdrawal temporarily blocked by risk checks. Please try again later.', 429, 'FRAUD_BLOCKED');
+    }
+
     // Check balance based on wallet type
     const wallet = await queryOne<any>(`
       SELECT balance_cents, reserved_cents, usdt_balance_cents FROM wallets WHERE user_id = $1 AND currency = $2
