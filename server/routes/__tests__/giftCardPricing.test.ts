@@ -22,7 +22,10 @@ vi.mock('../../db/pool', () => ({
 vi.mock('../../services/auditService', () => ({ createAuditLog: (...a: unknown[]) => mockCreateAuditLog(...a) }));
 vi.mock('../../services/giftCardPricingService', () => ({
   fetchAllGiftCardsWithPricing: vi.fn(),
-  calculatePricing: () => ({ brand: 'Amazon', ourBuyRate: 80, ourSellRate: 90, costCents: 10000, profitMarginPercent: 8, marketRate: 87 }),
+  // `sellAvailable` is part of the pricing contract now: the route fails closed
+  // when a quote cannot be produced. A viable quote is modelled here so this
+  // test keeps exercising what it is actually about — server-authoritative rate.
+  calculatePricing: () => ({ brand: 'Amazon', ourBuyRate: 80, ourSellRate: 90, sellAvailable: true, costCents: 10000, profitMarginPercent: 8, marketRate: 87 }),
   calculateTransactionProfit: () => ({ costCents: 10000, profitCents: 500, profitPercent: 5 }),
 }));
 vi.mock('../../middleware/auth', () => ({

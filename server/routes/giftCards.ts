@@ -57,7 +57,32 @@ router.post('/requests',
         const { type, brand, amount, currency = 'USD', paymentMethod = 'fiat', metadata } = req.body;
         const amountCents = Math.round(amount * 100);
         const pricing = calculatePricing(brand, amountCents);
-        const resolvedRate = type === 'buy' ? pricing.ourSellRate : pricing.ourBuyRate;
+
+        // FAIL CLOSED. The pricing service refuses to quote when the brand is
+        // not in our catalog or when no price exists that covers our
+        // acquisition cost plus the required margin. Proceeding here would
+        // either sell at a loss or compute a NaN charge from a null rate.
+        if (type === 'buy' && (!pricing.sellAvailable || pricing.ourSellRate === null)) {
+            throw new AppError(
+                'This gift card is not available for purchase right now.',
+                503,
+                'PRICING_UNAVAILABLE',
+            );
+        }
+        if (type === 'sell' && (pricing.ourBuyRate === null || pricing.ourSellRate === null)) {
+            throw new AppError(
+                'This gift card is not available for sale right now.',
+                503,
+                'PRICING_UNAVAILABLE',
+            );
+        }
+
+        const resolvedRate = (type === 'buy' ? pricing.ourSellRate : pricing.ourBuyRate) as number;
+
+        // Business records carry the CANONICAL catalog brand, not the raw caller
+        // string. Pricing is already derived canonically; persisting the raw text
+        // would let records diverge from what was actually priced and fulfilled.
+        const recordBrand = pricing.canonicalBrand ?? brand;
 
         if (type === 'buy') {
             const requestId = await transaction(async (client) => {
@@ -98,7 +123,7 @@ router.post('/requests',
                     VALUES ($1, $2, $3, $4, $5, $6, 'processing', $7, $8, $9, $10, $11)
                     RETURNING id
                 `, [
-                    req.user!.id, type, brand, amountCents, currency, resolvedRate,
+                    req.user!.id, type, recordBrand, amountCents, currency, resolvedRate,
                     profitCalc.costCents, profitCalc.profitCents, resolvedRate,
                     profitCalc.profitPercent, metadata ? JSON.stringify(metadata) : null
                 ]);

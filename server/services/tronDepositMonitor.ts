@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { query, queryOne, transaction } from '../db/pool';
 import { logger } from '../middleware/logger';
+import { baseUnitsToExactDecimal } from '../lib/tokenAmount';
 
 const TRONGRID_BASE = 'https://api.trongrid.io';
 const TRONGRID_API_KEY = process.env.TRONGRID_API_KEY || '';
@@ -184,7 +185,7 @@ async function recheckPendingDeposits(): Promise<void> {
  * 'processing' with NO owner for manual reconciliation. Never credits a wallet.
  */
 async function recordUnattributedDeposit(
-    txHash: string, amount: number, fromAddress: string, matches: number,
+    txHash: string, amount: string | number, fromAddress: string, matches: number,
 ): Promise<void> {
     const unclaimed = await query<{ id: string }>(
         `INSERT INTO crypto_transactions (
@@ -221,7 +222,19 @@ export async function processIncomingTransaction(tx: any): Promise<void> {
     }
 
     const decimals = tokenInfo?.decimals ?? 6;
-    const amount = Number(rawAmount) / Math.pow(10, decimals);
+
+    // EXACT conversion via BigInt. The old `Number(rawAmount) / 10**decimals`
+    // routed the value through a double, so above 2^53 base units the low-order
+    // decimal digits — exactly where the FIN-1 attribution discriminator lives —
+    // were lost and a legitimate deposit failed to match. Fails closed on any
+    // malformed input; there is deliberately NO tolerance in the match below.
+    const amountExact = baseUnitsToExactDecimal(rawAmount as string, decimals);
+    if (amountExact === null) {
+        logger.warn('[DepositMonitor] Ignoring transfer: malformed amount', { txHash });
+        return;
+    }
+    // Numeric form is for logging and cent conversion only — never for matching.
+    const amount = Number(amountExact);
     if (!Number.isFinite(amount) || amount <= 0) return;
 
     // 3. Global dedup: a given tx_hash is only ever handled once (the partial
@@ -243,11 +256,13 @@ export async function processIncomingTransaction(tx: any): Promise<void> {
            AND currency = 'USDT' AND network = 'TRC20'
            AND expected_amount = $1
            AND (expires_at IS NULL OR expires_at > NOW())`,
-        [amount]
+        // Bind the EXACT decimal string: Postgres parses it into NUMERIC without
+        // a float round-trip, so `=` stays a true exact comparison.
+        [amountExact]
     );
 
     if (candidates.length !== 1) {
-        await recordUnattributedDeposit(txHash, amount, fromAddress, candidates.length);
+        await recordUnattributedDeposit(txHash, amountExact, fromAddress, candidates.length);
         return;
     }
 
@@ -261,7 +276,7 @@ export async function processIncomingTransaction(tx: any): Promise<void> {
     if (confirmations >= REQUIRED_CONFIRMATIONS) {
         // 6. Credited amount == the validated on-chain amount (which equals the
         //    intent's expected_amount by construction of the exact-amount match).
-        await creditUserDeposit(intent.user_id, intent.id, txHash, amount, fromAddress, blockTimestamp, confirmations);
+        await creditUserDeposit(intent.user_id, intent.id, txHash, amountExact, fromAddress, blockTimestamp, confirmations);
     } else {
         // Link the on-chain tx to the matched intent and record progress, but DO
         // NOT credit. recheckPendingDeposits credits it once matured. Binding the
@@ -278,7 +293,7 @@ export async function processIncomingTransaction(tx: any): Promise<void> {
 
 export async function creditUserDeposit(
     userId: string, cryptoTxId: string, txHash: string, 
-    amount: number, fromAddress: string, blockTimestamp: number,
+    amount: string | number, fromAddress: string, blockTimestamp: number,
     confirmations: number = REQUIRED_CONFIRMATIONS
 ): Promise<void> {
     // Defense-in-depth: even though callers gate on confirmations, this function
@@ -291,7 +306,7 @@ export async function creditUserDeposit(
         throw new Error('INSUFFICIENT_CONFIRMATIONS');
     }
 
-    const amountCents = Math.round(amount * 100);
+    const amountCents = Math.round(Number(amount) * 100);
 
     try {
         await transaction(async (client) => {

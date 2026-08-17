@@ -238,7 +238,49 @@ webhookRouter.post('/payment',
       return res.status(503).json({ success: false, error: 'Webhook secret not configured' });
     }
 
-    // Idempotency: if we already processed this paymentId + event successfully, return 200 without inserting a log (reduce DB churn)
+    // ---- AUTHENTICATE FIRST -------------------------------------------------
+    // Nothing attacker-controlled is persisted, and no existence oracle is
+    // answered, until the HMAC verifies. Previously the payload was INSERTed
+    // into payment_webhook_logs and the idempotency lookup replied
+    // "Already processed" before any signature check, which let an
+    // unauthenticated caller write into a trusted table and probe whether a
+    // given paymentId had been handled.
+    if (!signature) {
+      // Minimal sanitised metadata only: no payload, no paymentId, no secret.
+      // The message distinguishes missing from invalid, which leaks nothing —
+      // the caller already knows whether it sent a signature header.
+      logger.warn('webhook_rejected_missing_signature');
+      return res.status(401).json({ success: false, error: 'Missing signature' });
+    }
+
+    // Malformed body: an object is required to carry a real event.
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      logger.warn('webhook_rejected_malformed_body');
+      return res.status(400).json({ success: false, error: 'Malformed body' });
+    }
+
+    const expectedSignature = crypto
+      .createHmac('sha256', PROVIDER_WEBHOOK_SECRET)
+      .update(payloadForSignature)
+      .digest('hex');
+    // Constant-time comparison to avoid leaking the expected HMAC via timing.
+    // Length-guard first: timingSafeEqual throws on unequal-length buffers,
+    // and a length mismatch is itself a definitive rejection.
+    const sigBuf = Buffer.from(signature, 'utf8');
+    const expBuf = Buffer.from(expectedSignature, 'utf8');
+    const signatureValid =
+      sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf);
+    if (!signatureValid) {
+      // Same status and body as the missing-signature case: an unauthenticated
+      // caller learns nothing about the payload or about what we already hold.
+      logger.warn('webhook_rejected_invalid_signature');
+      return res.status(401).json({ success: false, error: 'Invalid signature' });
+    }
+    // ---- AUTHENTICATED FROM HERE -------------------------------------------
+
+    // Idempotency (authenticated callers only, so this is no longer an oracle):
+    // if we already processed this paymentId + event successfully, return 200
+    // without inserting a log (reduce DB churn).
     if (paymentId) {
       const alreadyProcessedEarlier = await queryOne<{ id: string }>(`
         SELECT id FROM payment_webhook_logs
@@ -253,6 +295,7 @@ webhookRouter.post('/payment',
       }
     }
 
+    // Only now is the payload trusted enough to persist.
     const logRow = await queryOne<{ id: string }>(`
       INSERT INTO payment_webhook_logs (event_type, payload, signature, processed)
       VALUES ($1, $2, $3, FALSE)
@@ -265,32 +308,7 @@ webhookRouter.post('/payment',
       return res.status(500).json({ success: false, error: 'Failed to record webhook' });
     }
 
-    logger.info('webhook_received', { logId, eventType, paymentId });
-
-    if (PROVIDER_WEBHOOK_SECRET) {
-      if (!signature) {
-        await query(`UPDATE payment_webhook_logs SET error_message = 'Missing signature', processed = TRUE WHERE id = $1`, [logId]);
-        logger.warn('webhook_missing_signature', { logId, eventType });
-        return res.status(401).json({ success: false, error: 'Missing signature' });
-      }
-      const expectedSignature = crypto
-        .createHmac('sha256', PROVIDER_WEBHOOK_SECRET)
-        .update(payloadForSignature)
-        .digest('hex');
-      // Constant-time comparison to avoid leaking the expected HMAC via timing.
-      // Length-guard first: timingSafeEqual throws on unequal-length buffers,
-      // and a length mismatch is itself a definitive rejection.
-      const sigBuf = Buffer.from(signature, 'utf8');
-      const expBuf = Buffer.from(expectedSignature, 'utf8');
-      const signatureValid =
-        sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf);
-      if (!signatureValid) {
-        await query(`UPDATE payment_webhook_logs SET error_message = 'Invalid signature', processed = TRUE WHERE id = $1`, [logId]);
-        logger.warn('webhook_invalid_signature', { logId, eventType, paymentId });
-        return res.status(401).json({ success: false, error: 'Invalid signature' });
-      }
-      logger.info('webhook_signature_ok', { logId, eventType, paymentId });
-    }
+    logger.info('webhook_received_authenticated', { logId, eventType, paymentId });
 
     if (!paymentId) {
       await query(`

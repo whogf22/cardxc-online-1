@@ -19,10 +19,21 @@ export default function PurchaseModal({ isOpen, onClose, card }: PurchaseModalPr
   if (!isOpen || !card) return null;
 
   const total = selectedDenom ? selectedDenom * quantity : 0;
-  const paymentAmount = total * (card.rate / 100);
+
+  // A card with no server-quoted rate is not purchasable. `rate` is null when
+  // the server cannot produce a price covering acquisition cost plus margin, and
+  // `null / 100` would otherwise render the charge as $0.
+  const hasValidRate =
+    typeof card.rate === 'number' && Number.isFinite(card.rate) && card.rate > 0;
+  const isPurchasable = hasValidRate && (card as { available?: boolean }).available !== false;
+  const paymentAmount = hasValidRate ? total * (card.rate / 100) : 0;
 
   const handlePurchase = async () => {
     if (!selectedDenom || !card) return;
+    if (!isPurchasable) {
+      toast.error('This gift card is not available for purchase right now.');
+      return;
+    }
 
     setIsProcessing(true);
     try {
@@ -153,19 +164,19 @@ export default function PurchaseModal({ isOpen, onClose, card }: PurchaseModalPr
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-neutral-400">Rate</span>
-                    <span className="text-success-400">{card.rate}%</span>
+                    <span className="text-success-400">{hasValidRate ? `${card.rate}%` : "Unavailable"}</span>
                   </div>
                   <div className="h-px bg-dark-border" />
                   <div className="flex justify-between">
                     <span className="text-neutral-300 font-medium">You Pay</span>
-                    <span className="text-lime-400 font-bold text-lg">${paymentAmount.toFixed(2)}</span>
+                    <span className="text-lime-400 font-bold text-lg">{isPurchasable ? `$${paymentAmount.toFixed(2)}` : "Unavailable"}</span>
                   </div>
                 </div>
               )}
 
               <button
                 onClick={() => setStep('confirm')}
-                disabled={!selectedDenom}
+                disabled={!selectedDenom || !isPurchasable}
                 className="w-full py-4 bg-lime-500 text-black font-semibold rounded-2xl hover:bg-lime-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Continue
@@ -222,7 +233,7 @@ export default function PurchaseModal({ isOpen, onClose, card }: PurchaseModalPr
                 <div className="h-px bg-dark-border" />
                 <div className="flex justify-between">
                   <span className="text-neutral-300 font-medium">Payment Amount</span>
-                  <span className="text-lime-400 font-bold text-lg">${paymentAmount.toFixed(2)}</span>
+                  <span className="text-lime-400 font-bold text-lg">{isPurchasable ? `$${paymentAmount.toFixed(2)}` : "Unavailable"}</span>
                 </div>
               </div>
 
@@ -276,7 +287,7 @@ export default function PurchaseModal({ isOpen, onClose, card }: PurchaseModalPr
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-400">Amount Paid</span>
-                  <span className="text-lime-400 font-semibold">${paymentAmount.toFixed(2)}</span>
+                  <span className="text-lime-400 font-semibold">{isPurchasable ? `$${paymentAmount.toFixed(2)}` : "Unavailable"}</span>
                 </div>
               </div>
 

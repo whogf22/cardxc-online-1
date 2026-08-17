@@ -56,8 +56,14 @@ export default function GiftCardItem({ card, onSelect }: GiftCardItemProps) {
       <div className="p-4 flex flex-col gap-2">
         <h3 className="font-semibold text-white text-sm line-clamp-2">{card.name}</h3>
         <div className="flex items-center gap-1 text-xs text-neutral-400">
-          <span className="text-success-400 font-medium">{card.rate}%</span>
-          <span>rate</span>
+          {typeof card.rate === 'number' && Number.isFinite(card.rate) ? (
+            <>
+              <span className="text-success-400 font-medium">{card.rate}%</span>
+              <span>rate</span>
+            </>
+          ) : (
+            <span className="text-neutral-500">Unavailable</span>
+          )}
         </div>
         <div className="flex flex-wrap gap-1.5">
           {card.denominations.slice(0, 3).map((denom) => (
