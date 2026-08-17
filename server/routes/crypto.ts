@@ -44,13 +44,16 @@ router.post('/deposit/intent',
             throw new AppError(errors.array()[0].msg, 400, 'VALIDATION_ERROR');
         }
 
+        // SECURITY (FIN-1): `fromAddress` is accepted for the user's own reference
+        // ONLY. It does NOT determine who an incoming deposit is credited to —
+        // attribution is by the server-generated, unique `expectedAmount` below.
         const { amount, fromAddress } = req.body;
         const result = await createDepositIntent(req.user!.id, parseFloat(amount), fromAddress);
 
         res.status(201).json({
             success: true,
             data: result,
-            message: 'Deposit intent created. Send USDT to the provided address.',
+            message: `Deposit intent created. Send EXACTLY ${result.expectedAmount} USDT (TRC-20) to the provided address. A different amount cannot be credited automatically.`,
         });
     })
 );

@@ -10,6 +10,7 @@ import { isStripeConfigured, createPaymentIntent, getPaymentIntent } from '../se
 import { isFluzConfigured } from '../services/fluzClient';
 import { getSecurityEvents, getSecurityEventsByType, getSecurityEventsByIP } from '../middleware/securityLogger';
 import { getRateLimitViolations, clearRateLimitViolations } from '../middleware/rateLimit';
+import { logger } from '../middleware/logger';
 
 const router = Router();
 router.use(authenticate);
@@ -472,14 +473,26 @@ router.post('/withdrawals/:withdrawalId/approve',
         throw new AppError('Withdrawal already processed', 400, 'ALREADY_PROCESSED');
       }
 
-      await client.query(`
+      // The guarded debit MUST affect exactly the one wallet row. If it affects
+      // 0 rows (insufficient balance, or the reserve was already released) the
+      // money was never debited — approving anyway would pay out funds the user
+      // does not have. Throwing here rolls back the whole approval, so the
+      // withdrawal stays 'pending' and its transaction is NOT marked SUCCESS.
+      const debit = await client.query(`
         UPDATE wallets
         SET balance_cents = balance_cents - $1, reserved_cents = reserved_cents - $1, updated_at = NOW()
         WHERE user_id = $2 AND currency = $3 AND balance_cents >= $1
       `, [withdrawal.amount_cents, withdrawal.user_id, withdrawal.currency]);
 
+      if (debit.rowCount !== 1) {
+        logger.error('[Admin] Withdrawal approval aborted: guarded wallet debit affected no row', {
+          withdrawalId, userId: withdrawal.user_id, currency: withdrawal.currency, rowCount: debit.rowCount,
+        });
+        throw new AppError('Insufficient balance to settle this withdrawal', 400, 'INSUFFICIENT_BALANCE');
+      }
+
       await client.query(`
-        UPDATE transactions SET status = 'SUCCESS', updated_at = NOW() 
+        UPDATE transactions SET status = 'SUCCESS', updated_at = NOW()
         WHERE reference = $1 AND type = 'withdrawal'
       `, [withdrawalId]);
     });

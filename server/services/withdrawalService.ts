@@ -91,12 +91,16 @@ async function processBankWithdrawal(request: BankWithdrawalRequest) {
                 throw new AppError('Insufficient USDT balance', 400);
             }
 
-            // Deduct from USDT balance
-            await client.query(`
-        UPDATE wallets 
+            // Deduct from USDT balance (guarded: rowCount 0 aborts the withdrawal
+            // rather than letting a concurrent debit overdraw the wallet)
+            const usdtWithdrawDebit = await client.query(`
+        UPDATE wallets
         SET usdt_balance_cents = usdt_balance_cents - $1, updated_at = NOW()
-        WHERE user_id = $2 AND currency = $3
+        WHERE user_id = $2 AND currency = $3 AND usdt_balance_cents >= $1
       `, [amountCents, request.userId, request.currency]);
+            if (usdtWithdrawDebit.rowCount === 0) {
+                throw new AppError('Insufficient USDT balance', 400);
+            }
 
         } else {
             available = Number(wallet.rows[0].balance_cents) - Number(wallet.rows[0].reserved_cents);
@@ -194,12 +198,16 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
             throw new AppError('Insufficient USDT balance', 400);
         }
 
-        // Deduct USDT
-        await client.query(`
-      UPDATE wallets 
+        // Deduct USDT (guarded: rowCount 0 aborts the crypto withdrawal rather
+        // than allowing an overdraw under concurrent debits)
+        const cryptoUsdtDebit = await client.query(`
+      UPDATE wallets
       SET usdt_balance_cents = usdt_balance_cents - $1, updated_at = NOW()
-      WHERE user_id = $2 AND currency = 'USD'
+      WHERE user_id = $2 AND currency = 'USD' AND usdt_balance_cents >= $1
     `, [amountCents, request.userId]);
+        if (cryptoUsdtDebit.rowCount === 0) {
+            throw new AppError('Insufficient USDT balance', 400);
+        }
 
         // Create withdrawal request with pending_payout status
         const withdrawalResult = await client.query(`
@@ -373,12 +381,15 @@ async function processPlatformTransfer(request: PlatformWithdrawalRequest) {
                 throw new AppError('Insufficient USDT balance', 400);
             }
 
-            // Deduct from sender USDT
-            await client.query(`
-        UPDATE wallets 
+            // Deduct from sender USDT (guarded: rowCount 0 aborts the transfer)
+            const usdtDebit = await client.query(`
+        UPDATE wallets
         SET usdt_balance_cents = usdt_balance_cents - $1, updated_at = NOW()
-        WHERE user_id = $2 AND currency = $3
+        WHERE user_id = $2 AND currency = $3 AND usdt_balance_cents >= $1
       `, [amountCents, request.userId, currency]);
+            if (usdtDebit.rowCount === 0) {
+                throw new AppError('Insufficient USDT balance', 400);
+            }
 
             // Credit recipient USDT
             await client.query(`
@@ -394,12 +405,16 @@ async function processPlatformTransfer(request: PlatformWithdrawalRequest) {
                 throw new AppError('Insufficient balance', 400);
             }
 
-            // Deduct from sender
-            await client.query(`
-        UPDATE wallets 
+            // Deduct from sender against AVAILABLE funds (guarded: rowCount 0
+            // aborts rather than spending reserved money)
+            const fiatDebit = await client.query(`
+        UPDATE wallets
         SET balance_cents = balance_cents - $1, updated_at = NOW()
-        WHERE user_id = $2 AND currency = $3
+        WHERE user_id = $2 AND currency = $3 AND balance_cents - COALESCE(reserved_cents, 0) >= $1
       `, [amountCents, request.userId, currency]);
+            if (fiatDebit.rowCount === 0) {
+                throw new AppError('Insufficient balance', 400);
+            }
 
             // Credit recipient
             await client.query(`

@@ -13,6 +13,8 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { randomInt } from 'node:crypto';
+import { validateKycFileContent } from '../lib/fileSignature';
+import { isValidFullName, MAX_FULL_NAME_LENGTH } from '../lib/aiPrompt';
 
 // KYC document upload config.
 // Prefer an absolute path from KYC_UPLOAD_DIR; fall back to `<cwd>/uploads/kyc`.
@@ -53,7 +55,11 @@ router.get('/profile', asyncHandler(async (req: AuthenticatedRequest, res: Respo
 }));
 
 router.put('/profile',
-  body('fullName').optional().trim().isLength({ min: 2 }),
+  // CSO #4: fullName is validated in the handler rather than here, because the
+  // rule is conditional on whether the value actually CHANGED. Rows written
+  // before this rule existed can violate it, and rejecting a resubmitted legacy
+  // name would lock those users out of editing phone/country too.
+  body('fullName').optional().trim(),
   body('phone').optional().trim(),
   body('country').optional().trim(),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -63,11 +69,51 @@ router.put('/profile',
     }
 
     const { fullName, phone, country } = req.body;
+
+    // CSO #4 legacy compatibility. The hardened rule applies to what the user is
+    // CHANGING it to, not to what is already stored. A legacy row can hold a
+    // name that predates the rule (over-long, or carrying a control character);
+    // the profile form prefills it and submits it back untouched. Enforcing the
+    // rule on that unchanged value would 400 the whole request and make phone
+    // and country uneditable, with no way for the user to fix it themselves.
+    //
+    // An unchanged legacy value is left in place rather than rewritten, so it is
+    // never silently truncated or mutated. Note the AI context path sanitises
+    // and caps whatever is stored at read time, so a legacy value still cannot
+    // reach the model unbounded.
+    let fullNameChanged = false;
+    if (fullName !== undefined) {
+      const current = await queryOne<{ full_name: string | null }>(
+        'SELECT full_name FROM users WHERE id = $1',
+        [req.user!.id],
+      );
+
+      if (!current) {
+        throw new AppError('User not found', 404, 'NOT_FOUND');
+      }
+
+      // Compare against the TRIMMED stored value. express-validator's `.trim()`
+      // sanitiser has already rewritten the submitted value, so comparing to the
+      // raw stored one would make a legacy name whose only violation is leading
+      // or trailing whitespace look "changed" and get rejected — reintroducing
+      // exactly the lockout this exemption exists to prevent.
+      const storedTrimmed = (current.full_name ?? '').trim();
+      fullNameChanged = fullName !== storedTrimmed;
+
+      if (fullNameChanged && !isValidFullName(fullName)) {
+        throw new AppError(
+          `Full name must be 2-${MAX_FULL_NAME_LENGTH} characters and contain no line breaks or control characters`,
+          400,
+          'VALIDATION_ERROR',
+        );
+      }
+    }
+
     const updates: string[] = [];
     const values: any[] = [];
     let paramIndex = 1;
 
-    if (fullName) {
+    if (fullName && fullNameChanged) {
       updates.push(`full_name = $${paramIndex++}`);
       values.push(fullName);
     }
@@ -217,6 +263,12 @@ router.post('/withdraw',
       action: 'WITHDRAWAL',
       amount: amountCents,
     });
+
+    // Fail closed: a risk engine that did not pass (including the
+    // FRAUD_CHECK_ERROR outage case) must block the withdrawal.
+    if (!fraudCheck.passed) {
+      throw new AppError('Withdrawal temporarily blocked by risk checks. Please try again later.', 429, 'FRAUD_BLOCKED');
+    }
 
     // Check balance based on wallet type
     const wallet = await queryOne<any>(`
@@ -375,6 +427,22 @@ router.post('/kyc/upload',
       // Delete uploaded file if validation fails
       fs.unlinkSync(req.file.path);
       throw new AppError('Invalid document type. Must be one of: ' + validTypes.join(', '), 400, 'INVALID_TYPE');
+    }
+
+    // Content validation (magic bytes): the declared MIME/extension is
+    // attacker-controlled, so verify the real file signature matches an allowed
+    // type before persisting. Prevents MIME spoofing (e.g. HTML/script with an
+    // image content-type).
+    const fd = fs.openSync(req.file.path, 'r');
+    const head = Buffer.alloc(16);
+    try {
+      fs.readSync(fd, head, 0, 16, 0);
+    } finally {
+      fs.closeSync(fd);
+    }
+    if (!validateKycFileContent(head, req.file.mimetype)) {
+      fs.unlinkSync(req.file.path);
+      throw new AppError('File content does not match an allowed document type (JPEG, PNG, WebP, or PDF).', 400, 'INVALID_FILE_CONTENT');
     }
 
     // Persist only the basename (server-generated filename). The absolute path

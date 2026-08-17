@@ -242,6 +242,12 @@ router.post('/transfer',
       amount: amountCents,
     });
 
+    // Fail closed: a risk engine that did not pass (including the
+    // FRAUD_CHECK_ERROR outage case) must block the money movement.
+    if (!fraudCheck.passed) {
+      throw new AppError('Transfer temporarily blocked by risk checks. Please try again later.', 429, 'FRAUD_BLOCKED');
+    }
+
     if (fraudCheck.flags.includes('HIGH_VELOCITY_TRANSFERS')) {
       throw new AppError('Transfer temporarily blocked due to unusual activity', 429, 'FRAUD_BLOCKED');
     }

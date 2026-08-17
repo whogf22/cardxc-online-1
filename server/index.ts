@@ -9,6 +9,7 @@ import http from 'http';
 import { fileURLToPath } from 'url';
 import swaggerUi from 'swagger-ui-express';
 import { logger, requestLogger } from './middleware/logger';
+import { buildAllowedOrigins, isOriginAllowed } from './lib/corsOrigin';
 import { errorHandler } from './middleware/errorHandler';
 import { apiLimiter } from './middleware/rateLimit';
 import {
@@ -97,31 +98,49 @@ if (!isProduction && process.env.REPL_ID) {
   logger.info('Development mode: using port 3001 for API so Vite can use 5000');
 }
 
-const allowedOrigins = [
-  'http://localhost:5000',
-  'http://localhost:5173',
-  process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : '',
-  ...(process.env.REPLIT_DOMAINS || '')
-    .split(',')
-    .map(d => d.trim())
-    .filter(Boolean)
-    .map(d => (d.startsWith('http') ? d : `https://${d}`)),
-].filter(Boolean);
+// CSO #3: loopback origins are development-only (they used to be unconditional,
+// so production accepted credentialed requests from localhost:5000/5173), and
+// matching is now exact including scheme. See server/lib/corsOrigin.ts.
+const allowedOrigins = buildAllowedOrigins(process.env, isProduction);
+
+// Fail loudly at boot rather than as an opaque per-request CORS error: in
+// production the loopback defaults are gone, so an unset REPLIT_DOMAINS leaves
+// the allowlist empty and every cross-origin browser call is refused.
+if (isProduction && allowedOrigins.length === 0) {
+  logger.warn(
+    '[CORS] Allowlist is EMPTY in production — set REPLIT_DOMAINS to your public origin(s). ' +
+      'All cross-origin browser requests will be refused until this is configured.',
+  );
+}
 
 // Enhanced security headers
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      // TODO: migrate remaining inline scripts (primarily the Vite HMR
-      // bootstrap in dev and any third-party embeds) to nonce-based CSP so
-      // 'unsafe-inline' can be dropped. 'unsafe-eval' is removed because no
-      // current script path requires eval().
+      // script-src 'unsafe-eval' is absent (no eval path). 'unsafe-inline' is
+      // RETAINED as a documented blocker: index.html uses inline `onload`
+      // CSS-swap handlers on preload <link> tags (async font/icon loading) and
+      // an enforced <meta> CSP, and inline event-handler attributes are gated by
+      // script-src. Removing it requires either moving those handlers to an
+      // external script or 'unsafe-hashes' + per-handler hashes verified across
+      // browsers (incl. Safari) — a follow-up that needs production-mode browser
+      // verification. (The only inline <script> blocks are non-executable
+      // application/ld+json SEO data, which script-src does not gate.)
       scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.googleapis.com", "https://js.stripe.com"],
+      // style-src 'unsafe-inline' retained: React renders inline style
+      // attributes (style={{…}}); CSP nonces/hashes cannot cover style
+      // *attributes*, so removing this would break rendering.
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
       fontSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.gstatic.com", "https://cdn.fontshare.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "https://api.exchangerate-api.com", "https://api.stripe.com", "https://hooks.stripe.com", "wss://cardxc.online", "wss://www.cardxc.online", "ws://localhost:5000", "ws://localhost:5173"],
+      // Loopback WebSocket origins are only valid in local dev; exclude them from
+      // the production policy to keep connect-src tight.
+      connectSrc: [
+        "'self'", "https://api.exchangerate-api.com", "https://api.stripe.com", "https://hooks.stripe.com",
+        "wss://cardxc.online", "wss://www.cardxc.online",
+        ...(isProduction ? [] : ["ws://localhost:5000", "ws://localhost:5173"]),
+      ],
       workerSrc: ["'self'", "blob:"],
       frameSrc: ["https://js.stripe.com", "https://hooks.stripe.com"],
       objectSrc: ["'none'"],
@@ -141,19 +160,20 @@ app.use(helmet({
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Exact-match allowlist only. We intentionally do NOT allow arbitrary
-    // subdomain matches — a compromised subdomain must not silently gain
-    // cross-origin credentials. Add required subdomains explicitly to
-    // REPLIT_DOMAINS / allowedOrigins.
+    // Exact-match allowlist only, scheme included. We intentionally do NOT allow
+    // arbitrary subdomain matches, nor an http:// origin against an https://
+    // entry — a compromised subdomain or a downgraded connection must not
+    // silently gain cross-origin credentials. Add required subdomains
+    // explicitly to REPLIT_DOMAINS.
+    //
+    // A request with no Origin header is not a cross-origin browser request
+    // (curl, server-to-server, same-origin navigation). The cors middleware
+    // emits no Access-Control-Allow-Origin for these, so no credentialed
+    // cross-origin read is granted by allowing them through.
     if (!origin) {
       return callback(null, true);
     }
-    const cleanOrigin = origin.replace(/^https?:\/\//, '');
-    const matched = allowedOrigins.some(allowed => {
-      const cleanAllowed = allowed.replace(/^https?:\/\//, '');
-      return cleanOrigin === cleanAllowed;
-    });
-    callback(null, matched);
+    callback(null, isOriginAllowed(origin, allowedOrigins));
   },
   credentials: true,
 }));

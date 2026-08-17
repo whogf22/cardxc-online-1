@@ -17,20 +17,10 @@ else
   echo "[install] PostgreSQL already present."
 fi
 
-echo "[install] Ensuring local .env exists..."
-if [ ! -f .env ]; then
-  cat > .env <<EOF
-# Auto-generated local development environment (git-ignored).
-NODE_ENV=development
-PORT=5001
-DATABASE_URL=postgresql://cardxc:cardxc@localhost:5432/cardxc?sslmode=disable
-DATABASE_SSL=false
-SESSION_SECRET=$(openssl rand -hex 32)
-JWT_SECRET=$(openssl rand -hex 32)
-EOF
-  echo "[install] Created .env with generated local dev secrets."
-else
-  echo "[install] .env already present; leaving it untouched."
-fi
+echo "[install] Ensuring local .env exists and is complete..."
+# Creates .env when absent and backfills any missing required key (notably
+# MCP_SECRET / MCP_API_KEY, without which `npm run mcp:http` refuses to start).
+# Existing values are never overwritten. See scripts/ensure-env.sh.
+bash scripts/ensure-env.sh
 
 echo "[install] Done."

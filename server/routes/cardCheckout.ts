@@ -25,7 +25,14 @@ import {
 } from '../services/stripeService';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../middleware/logger';
-import crypto, { randomInt } from 'crypto';
+import crypto from 'crypto';
+import {
+  isStablecoinFulfillmentEnabled,
+  isKycRequiredForCardCheckout,
+  isEmailVerificationRequiredForCardCheckout,
+  DEPOSIT_MERCHANT_DISPLAY_NAME,
+  depositDescription,
+} from '../services/fulfillmentPolicy';
 
 const checkoutRouter = Router();
 const webhookRouter = Router();
@@ -33,12 +40,36 @@ const adminRouter = Router();
 
 const PROVIDER_WEBHOOK_SECRET = process.env.FLUZ_WEBHOOK_SECRET;
 const USDT_RATE = parseFloat(process.env.USDT_RATE || '1.0');
-const REQUIRE_EMAIL_VERIFIED_FOR_CARD_CHECKOUT = process.env.REQUIRE_EMAIL_VERIFIED_FOR_CARD_CHECKOUT !== 'false';
-const REQUIRE_KYC_FOR_CARD_CHECKOUT = process.env.REQUIRE_KYC_FOR_CARD_CHECKOUT === 'true';
 
-function generateMerchantDisplayName(merchantName: string, transactionId: string): string {
-  const last4 = transactionId.slice(-4);
-  return `${merchantName} • ${last4}`;
+/**
+ * Credit stablecoin (USDT) for a completed card-funded deposit — ONLY when
+ * stablecoin fulfillment is explicitly enabled (fail-closed by default).
+ * Centralized so every completion path (provider webhook, Stripe webhook, admin
+ * replay) makes the identical gated decision instead of duplicating the logic.
+ */
+async function creditStablecoinIfEnabled(
+  client: { query: (text: string, params?: any[]) => Promise<any> },
+  creditUserId: string,
+  order: { id: string; amount_cents: number },
+  transactionId: string,
+  context: string,
+): Promise<void> {
+  if (!isStablecoinFulfillmentEnabled()) {
+    logger.info('stablecoin_fulfillment_skipped', { orderId: order.id, context });
+    return;
+  }
+  const usdtAmountCents = Math.round(order.amount_cents / USDT_RATE);
+  await client.query(`
+    INSERT INTO wallets (user_id, currency, balance_cents, usdt_balance_cents)
+    VALUES ($1, 'USD', 0, $2)
+    ON CONFLICT (user_id, currency)
+    DO UPDATE SET usdt_balance_cents = COALESCE(wallets.usdt_balance_cents, 0) + $2, updated_at = NOW()
+  `, [creditUserId, usdtAmountCents]);
+  await client.query(`
+    INSERT INTO crypto_ledger_entries (user_id, source_order_id, source_transaction_id, crypto_type, amount_cents, exchange_rate, usd_equivalent_cents, description)
+    VALUES ($1, $2, $3, 'USDT', $4, $5, $6, $7)
+    ON CONFLICT (source_order_id, user_id) DO NOTHING
+  `, [creditUserId, order.id, transactionId, usdtAmountCents, USDT_RATE, order.amount_cents, `USDT fulfillment for card deposit (${context})`]);
 }
 
 // Get available card products
@@ -90,10 +121,10 @@ checkoutRouter.post('/card',
     if (!depositor) {
       throw new AppError('User not found', 404, 'USER_NOT_FOUND');
     }
-    if (REQUIRE_EMAIL_VERIFIED_FOR_CARD_CHECKOUT && !depositor.email_verified) {
+    if (isEmailVerificationRequiredForCardCheckout() && !depositor.email_verified) {
       throw new AppError('Please verify your email before adding funds with a card.', 403, 'EMAIL_VERIFICATION_REQUIRED');
     }
-    if (REQUIRE_KYC_FOR_CARD_CHECKOUT && (depositor.kyc_status || '').toLowerCase() !== 'approved') {
+    if (isKycRequiredForCardCheckout() && (depositor.kyc_status || '').toLowerCase() !== 'approved') {
       throw new AppError('Identity verification (KYC) is required before adding funds with a card.', 403, 'KYC_REQUIRED');
     }
 
@@ -197,7 +228,59 @@ webhookRouter.post('/payment',
     const eventType = payload.event ?? payload.type ?? 'unknown';
     const paymentId = payload.paymentId ?? payload.id ?? payload.orderId;
 
-    // Idempotency: if we already processed this paymentId + event successfully, return 200 without inserting a log (reduce DB churn)
+    // Fail-closed: a provider webhook secret is REQUIRED. Without it we cannot
+    // authenticate the sender, so processing an unsigned/forged event could
+    // credit arbitrary wallets. Reject before doing any work (mirrors Stripe).
+    if (!PROVIDER_WEBHOOK_SECRET) {
+      logger.error('provider_webhook_no_secret_configured', {
+        message: 'FLUZ_WEBHOOK_SECRET is required; rejecting webhook request',
+      });
+      return res.status(503).json({ success: false, error: 'Webhook secret not configured' });
+    }
+
+    // ---- AUTHENTICATE FIRST -------------------------------------------------
+    // Nothing attacker-controlled is persisted, and no existence oracle is
+    // answered, until the HMAC verifies. Previously the payload was INSERTed
+    // into payment_webhook_logs and the idempotency lookup replied
+    // "Already processed" before any signature check, which let an
+    // unauthenticated caller write into a trusted table and probe whether a
+    // given paymentId had been handled.
+    if (!signature) {
+      // Minimal sanitised metadata only: no payload, no paymentId, no secret.
+      // The message distinguishes missing from invalid, which leaks nothing —
+      // the caller already knows whether it sent a signature header.
+      logger.warn('webhook_rejected_missing_signature');
+      return res.status(401).json({ success: false, error: 'Missing signature' });
+    }
+
+    // Malformed body: an object is required to carry a real event.
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      logger.warn('webhook_rejected_malformed_body');
+      return res.status(400).json({ success: false, error: 'Malformed body' });
+    }
+
+    const expectedSignature = crypto
+      .createHmac('sha256', PROVIDER_WEBHOOK_SECRET)
+      .update(payloadForSignature)
+      .digest('hex');
+    // Constant-time comparison to avoid leaking the expected HMAC via timing.
+    // Length-guard first: timingSafeEqual throws on unequal-length buffers,
+    // and a length mismatch is itself a definitive rejection.
+    const sigBuf = Buffer.from(signature, 'utf8');
+    const expBuf = Buffer.from(expectedSignature, 'utf8');
+    const signatureValid =
+      sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf);
+    if (!signatureValid) {
+      // Same status and body as the missing-signature case: an unauthenticated
+      // caller learns nothing about the payload or about what we already hold.
+      logger.warn('webhook_rejected_invalid_signature');
+      return res.status(401).json({ success: false, error: 'Invalid signature' });
+    }
+    // ---- AUTHENTICATED FROM HERE -------------------------------------------
+
+    // Idempotency (authenticated callers only, so this is no longer an oracle):
+    // if we already processed this paymentId + event successfully, return 200
+    // without inserting a log (reduce DB churn).
     if (paymentId) {
       const alreadyProcessedEarlier = await queryOne<{ id: string }>(`
         SELECT id FROM payment_webhook_logs
@@ -212,6 +295,7 @@ webhookRouter.post('/payment',
       }
     }
 
+    // Only now is the payload trusted enough to persist.
     const logRow = await queryOne<{ id: string }>(`
       INSERT INTO payment_webhook_logs (event_type, payload, signature, processed)
       VALUES ($1, $2, $3, FALSE)
@@ -224,32 +308,7 @@ webhookRouter.post('/payment',
       return res.status(500).json({ success: false, error: 'Failed to record webhook' });
     }
 
-    logger.info('webhook_received', { logId, eventType, paymentId });
-
-    if (PROVIDER_WEBHOOK_SECRET) {
-      if (!signature) {
-        await query(`UPDATE payment_webhook_logs SET error_message = 'Missing signature', processed = TRUE WHERE id = $1`, [logId]);
-        logger.warn('webhook_missing_signature', { logId, eventType });
-        return res.status(401).json({ success: false, error: 'Missing signature' });
-      }
-      const expectedSignature = crypto
-        .createHmac('sha256', PROVIDER_WEBHOOK_SECRET)
-        .update(payloadForSignature)
-        .digest('hex');
-      // Constant-time comparison to avoid leaking the expected HMAC via timing.
-      // Length-guard first: timingSafeEqual throws on unequal-length buffers,
-      // and a length mismatch is itself a definitive rejection.
-      const sigBuf = Buffer.from(signature, 'utf8');
-      const expBuf = Buffer.from(expectedSignature, 'utf8');
-      const signatureValid =
-        sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf);
-      if (!signatureValid) {
-        await query(`UPDATE payment_webhook_logs SET error_message = 'Invalid signature', processed = TRUE WHERE id = $1`, [logId]);
-        logger.warn('webhook_invalid_signature', { logId, eventType, paymentId });
-        return res.status(401).json({ success: false, error: 'Invalid signature' });
-      }
-      logger.info('webhook_signature_ok', { logId, eventType, paymentId });
-    }
+    logger.info('webhook_received_authenticated', { logId, eventType, paymentId });
 
     if (!paymentId) {
       await query(`
@@ -320,43 +379,14 @@ webhookRouter.post('/payment',
 
           const transactionId = txResult.rows[0].id;
 
-          // Map internal product names to display names
-          let displayDescription = order.merchant_name;
-          let displayMerchant = order.merchant_name;
-
-          // Helper to generate unique realistic shop names
-          const generateUniqueShopName = () => {
-            const prefixes = ['Urban', 'Nova', 'Green', 'Blue', 'Star', 'Swift', 'Prime', 'Elite', 'Global', 'Tech', 'Alpha', 'Zenith', 'Rapid', 'Bright', 'Metro'];
-            const industries = ['Retail', 'Tech', 'Studio', 'Systems', 'Solutions', 'Mart', 'Boutique', 'Logistics', 'Enterprises', 'Group', 'Hub', 'Labs', 'Digital', 'Concepts', 'Ventures'];
-
-            const random = (arr: string[]) => arr[randomInt(0, arr.length)];
-            const uniqueId = randomInt(100, 1000); // 3 digit random number
-
-            return `${random(prefixes)} ${random(industries)} ${uniqueId}`;
-          };
-
-          // Genericize internal provider product names
-          if (
-            displayMerchant.toLowerCase().includes('fluz') ||
-            displayMerchant.toLowerCase().includes('1800')
-          ) {
-            if (order.currency === 'USD') {
-              // Generate a UNIQUE shop name for every transaction
-              displayMerchant = generateUniqueShopName();
-              displayDescription = 'Merchant Payment - #' + transactionId.substring(0, 8).toUpperCase();
-            } else {
-              displayMerchant = 'Global Services ' + randomInt(0, 1000);
-            }
-          }
-
-          // Generate a clean transaction ID format
-          const merchantDisplayName = displayMerchant; // Use the generated unique name directly
-
+          // Honest, non-randomized labeling: this is a card-funded wallet
+          // deposit, not a merchant purchase. We never synthesize fake shop
+          // names to disguise the real purpose.
           await client.query(`
-            UPDATE transactions 
-            SET merchant_display_name = $1, merchant_name = $2, description = $3 
-            WHERE id = $4
-          `, [merchantDisplayName, displayMerchant, displayDescription, transactionId]);
+            UPDATE transactions
+            SET merchant_display_name = $1, description = $2
+            WHERE id = $3
+          `, [DEPOSIT_MERCHANT_DISPLAY_NAME, depositDescription(), transactionId]);
 
           await client.query(`
             INSERT INTO wallets (user_id, currency, balance_cents)
@@ -365,20 +395,9 @@ webhookRouter.post('/payment',
             DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
           `, [creditUserId, order.currency, order.amount_cents]);
 
-          const usdtAmountCents = Math.round(order.amount_cents / USDT_RATE);
-
-          await client.query(`
-            INSERT INTO wallets (user_id, currency, balance_cents, usdt_balance_cents)
-            VALUES ($1, 'USD', 0, $2)
-            ON CONFLICT (user_id, currency) 
-            DO UPDATE SET usdt_balance_cents = COALESCE(wallets.usdt_balance_cents, 0) + $2, updated_at = NOW()
-          `, [creditUserId, usdtAmountCents]);
-
-          await client.query(`
-            INSERT INTO crypto_ledger_entries (user_id, source_order_id, source_transaction_id, crypto_type, amount_cents, exchange_rate, usd_equivalent_cents, description)
-            VALUES ($1, $2, $3, 'USDT', $4, $5, $6, $7)
-            ON CONFLICT (source_order_id, user_id) DO NOTHING
-          `, [creditUserId, order.id, transactionId, usdtAmountCents, USDT_RATE, order.amount_cents, `Auto USDT credit from card deposit`]);
+          // Stablecoin (USDT) fulfillment is fail-closed: skipped unless
+          // explicitly enabled. A card deposit credits only the fiat balance.
+          await creditStablecoinIfEnabled(client, creditUserId, order, transactionId, 'provider_webhook');
 
           await client.query(`
             UPDATE card_orders SET status = 'COMPLETED', transaction_id = $1, updated_at = NOW() WHERE id = $2
@@ -584,24 +603,14 @@ adminRouter.post('/webhook-logs/:id/replay',
         JSON.stringify({ paymentId, orderId: order.id, createdBy: order.created_by_user_id, replayed: true }),
       ]);
       const transactionId = txResult.rows[0].id;
-      const merchantDisplayName = generateMerchantDisplayName(order.merchant_name || 'Card Deposit', transactionId);
-      await client.query(`UPDATE transactions SET merchant_display_name = $1 WHERE id = $2`, [merchantDisplayName, transactionId]);
+      await client.query(`UPDATE transactions SET merchant_display_name = $1, description = $2 WHERE id = $3`, [DEPOSIT_MERCHANT_DISPLAY_NAME, depositDescription(), transactionId]);
       await client.query(`
         INSERT INTO wallets (user_id, currency, balance_cents)
         VALUES ($1, $2, $3)
         ON CONFLICT (user_id, currency) DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
       `, [creditUserId, order.currency, order.amount_cents]);
-      const usdtAmountCents = Math.round(order.amount_cents / USDT_RATE);
-      await client.query(`
-        INSERT INTO wallets (user_id, currency, balance_cents, usdt_balance_cents)
-        VALUES ($1, 'USD', 0, $2)
-        ON CONFLICT (user_id, currency) DO UPDATE SET usdt_balance_cents = COALESCE(wallets.usdt_balance_cents, 0) + $2, updated_at = NOW()
-      `, [creditUserId, usdtAmountCents]);
-      await client.query(`
-        INSERT INTO crypto_ledger_entries (user_id, source_order_id, source_transaction_id, crypto_type, amount_cents, exchange_rate, usd_equivalent_cents, description)
-        VALUES ($1, $2, $3, 'USDT', $4, $5, $6, $7)
-        ON CONFLICT (source_order_id, user_id) DO NOTHING
-      `, [creditUserId, order.id, transactionId, usdtAmountCents, USDT_RATE, order.amount_cents, 'Auto USDT credit from card deposit (replay)']);
+      // Fail-closed: stablecoin credit only when explicitly enabled.
+      await creditStablecoinIfEnabled(client, creditUserId, order, transactionId, 'admin_replay');
       await client.query(`UPDATE card_orders SET status = 'COMPLETED', transaction_id = $1, updated_at = NOW() WHERE id = $2`, [transactionId, order.id]);
       await client.query(`UPDATE payment_webhook_logs SET processed = TRUE, error_message = NULL WHERE id = $1`, [logId]);
     });
@@ -779,10 +788,10 @@ checkoutRouter.post('/stripe-session',
     if (!depositor) {
       throw new AppError('User not found', 404, 'USER_NOT_FOUND');
     }
-    if (REQUIRE_EMAIL_VERIFIED_FOR_CARD_CHECKOUT && !depositor.email_verified) {
+    if (isEmailVerificationRequiredForCardCheckout() && !depositor.email_verified) {
       throw new AppError('Please verify your email before adding funds with a card.', 403, 'EMAIL_VERIFICATION_REQUIRED');
     }
-    if (REQUIRE_KYC_FOR_CARD_CHECKOUT && (depositor.kyc_status || '').toLowerCase() !== 'approved') {
+    if (isKycRequiredForCardCheckout() && (depositor.kyc_status || '').toLowerCase() !== 'approved') {
       throw new AppError('Identity verification (KYC) is required before adding funds with a card.', 403, 'KYC_REQUIRED');
     }
 
@@ -850,6 +859,19 @@ checkoutRouter.get('/stripe-session/:sessionId/status',
 
     if (!isStripeConfigured()) {
       throw new AppError('Stripe is not configured', 503, 'STRIPE_NOT_CONFIGURED');
+    }
+
+    // Ownership check (prevents IDOR): the caller may only read the status of a
+    // checkout session that belongs to one of their own orders. Return 404
+    // (not 403) so we don't reveal whether an arbitrary session id exists.
+    const order = await queryOne<{ user_id: string; target_user_id: string | null; created_by_user_id: string | null }>(
+      `SELECT user_id, target_user_id, created_by_user_id FROM card_orders WHERE provider_payment_id = $1`,
+      [sessionId]
+    );
+    const uid = req.user!.id;
+    const owns = !!order && (order.user_id === uid || order.target_user_id === uid || order.created_by_user_id === uid);
+    if (!owns && req.user!.role !== 'SUPER_ADMIN') {
+      throw new AppError('Checkout session not found', 404, 'NOT_FOUND');
     }
 
     try {
@@ -926,6 +948,39 @@ webhookRouter.post('/stripe',
         return res.json({ received: true });
       }
 
+      // Fulfillment verification (fail-closed): only credit when Stripe reports
+      // the funds were actually captured AND the paid amount + currency match
+      // the order we created. Guards against crediting on unpaid/async-pending
+      // sessions or on any amount/currency tampering.
+      const paymentStatus = session.payment_status;
+      const paidAmount = typeof session.amount_total === 'number' ? session.amount_total : null;
+      const paidCurrency = typeof session.currency === 'string' ? session.currency.toLowerCase() : null;
+      const expectedCurrency = String(order.currency || '').toLowerCase();
+
+      if (paymentStatus !== 'paid') {
+        logger.warn('stripe_webhook_not_paid', { orderId, sessionId: session.id, paymentStatus });
+        return res.json({ received: true });
+      }
+      if (paidAmount !== order.amount_cents || paidCurrency !== expectedCurrency) {
+        logger.error('stripe_webhook_amount_currency_mismatch', {
+          orderId,
+          sessionId: session.id,
+          expectedAmount: order.amount_cents,
+          paidAmount,
+          expectedCurrency,
+          paidCurrency,
+        });
+        await query(`UPDATE card_orders SET status = 'FAILED', updated_at = NOW() WHERE id = $1 AND status = 'PENDING'`, [orderId]);
+        await createAuditLog({
+          userId: order.user_id,
+          action: 'CARD_PAYMENT_MISMATCH',
+          entityType: 'card_order',
+          entityId: order.id,
+          newValues: { expectedAmount: order.amount_cents, paidAmount, expectedCurrency, paidCurrency },
+        });
+        return res.json({ received: true });
+      }
+
       const creditUserId = order.target_user_id || order.user_id;
 
       try {
@@ -942,30 +997,13 @@ webhookRouter.post('/stripe',
             `stripe_${session.id}`,
             order.amount_cents,
             order.currency,
-            `Card Deposit - Stripe Checkout`,
+            depositDescription(),
             'Stripe Checkout',
-            null,
+            DEPOSIT_MERCHANT_DISPLAY_NAME,
             JSON.stringify({ stripeSessionId: session.id, orderId: order.id, createdBy: order.created_by_user_id }),
           ]);
 
           const transactionId = txResult.rows[0].id;
-
-          const generateUniqueShopName = () => {
-            const prefixes = ['Urban', 'Nova', 'Green', 'Blue', 'Star', 'Swift', 'Prime', 'Elite', 'Global', 'Tech', 'Alpha', 'Zenith', 'Rapid', 'Bright', 'Metro'];
-            const industries = ['Retail', 'Tech', 'Studio', 'Systems', 'Solutions', 'Mart', 'Boutique', 'Logistics', 'Enterprises', 'Group', 'Hub', 'Labs', 'Digital', 'Concepts', 'Ventures'];
-            const random = (arr: string[]) => arr[randomInt(0, arr.length)];
-            const uniqueId = randomInt(100, 1000);
-            return `${random(prefixes)} ${random(industries)} ${uniqueId}`;
-          };
-
-          let displayMerchant = generateUniqueShopName();
-          let displayDescription = 'Merchant Payment - #' + transactionId.substring(0, 8).toUpperCase();
-
-          await client.query(`
-            UPDATE transactions
-            SET merchant_display_name = $1, merchant_name = $2, description = $3
-            WHERE id = $4
-          `, [displayMerchant, displayMerchant, displayDescription, transactionId]);
 
           await client.query(`
             INSERT INTO wallets (user_id, currency, balance_cents)
@@ -974,20 +1012,9 @@ webhookRouter.post('/stripe',
             DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
           `, [creditUserId, order.currency, order.amount_cents]);
 
-          const usdtAmountCents = Math.round(order.amount_cents / USDT_RATE);
-
-          await client.query(`
-            INSERT INTO wallets (user_id, currency, balance_cents, usdt_balance_cents)
-            VALUES ($1, 'USD', 0, $2)
-            ON CONFLICT (user_id, currency)
-            DO UPDATE SET usdt_balance_cents = COALESCE(wallets.usdt_balance_cents, 0) + $2, updated_at = NOW()
-          `, [creditUserId, usdtAmountCents]);
-
-          await client.query(`
-            INSERT INTO crypto_ledger_entries (user_id, source_order_id, source_transaction_id, crypto_type, amount_cents, exchange_rate, usd_equivalent_cents, description)
-            VALUES ($1, $2, $3, 'USDT', $4, $5, $6, $7)
-            ON CONFLICT (source_order_id, user_id) DO NOTHING
-          `, [creditUserId, order.id, transactionId, usdtAmountCents, USDT_RATE, order.amount_cents, 'Auto USDT credit from card deposit']);
+          // Stablecoin (USDT) fulfillment is fail-closed: skipped unless
+          // explicitly enabled. Stripe card funds credit only the fiat balance.
+          await creditStablecoinIfEnabled(client, creditUserId, order, transactionId, 'stripe_webhook');
 
           await client.query(`
             UPDATE card_orders SET status = 'COMPLETED', transaction_id = $1, updated_at = NOW() WHERE id = $2

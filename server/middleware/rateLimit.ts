@@ -116,6 +116,26 @@ export const webhookLimiter = createRateLimiter({
   code: 'RATE_LIMIT_EXCEEDED',
 });
 
+/**
+ * CSO #5 — AI assistant calls a metered third-party API on the platform's own
+ * key, so the cost is incurred per USER, not per IP. Keying this limiter on the
+ * authenticated user id means a proxy pool does not multiply the allowance.
+ *
+ * Falls back to the IP key only when there is no authenticated user; the AI
+ * router mounts `authenticate` first, so in practice that branch is unreachable
+ * and exists purely so the limiter cannot fail open.
+ */
+export const aiLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: 'Too many AI requests. Please wait a moment.',
+  code: 'RATE_LIMIT_EXCEEDED',
+  keyGenerator: (req: any) => {
+    const userId = req.user?.id;
+    return userId ? `ai:user:${userId}` : `ai:ip:${ipKeyGenerator(req, req.res)}`;
+  },
+});
+
 export function getRateLimitViolations(): Map<string, number> {
   return new Map(rateLimitViolations);
 }

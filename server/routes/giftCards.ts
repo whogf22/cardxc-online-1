@@ -6,7 +6,7 @@ import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { sensitiveOpLimiter } from '../middleware/rateLimit';
 import { createAuditLog } from '../services/auditService';
 import { logger } from '../middleware/logger';
-import { fetchAllGiftCardsWithPricing, calculateTransactionProfit } from '../services/giftCardPricingService';
+import { fetchAllGiftCardsWithPricing, calculateTransactionProfit, calculatePricing } from '../services/giftCardPricingService';
 
 const router = Router();
 router.use(authenticate);
@@ -50,14 +50,47 @@ router.post('/requests',
             throw new AppError(errors.array()[0].msg, 400, 'VALIDATION_ERROR');
         }
 
-        const { type, brand, amount, currency = 'USD', rate = 100, paymentMethod = 'fiat', metadata } = req.body;
+        // SECURITY: pricing is server-authoritative. Any client-supplied `rate`
+        // is IGNORED; the applicable rate is derived from server pricing so a
+        // caller cannot set their own price (e.g. rate=1 to pay ~1% of face
+        // value). Buy uses our sell rate; sell uses our buy rate.
+        const { type, brand, amount, currency = 'USD', paymentMethod = 'fiat', metadata } = req.body;
         const amountCents = Math.round(amount * 100);
+        const pricing = calculatePricing(brand, amountCents);
+
+        // FAIL CLOSED. The pricing service refuses to quote when the brand is
+        // not in our catalog or when no price exists that covers our
+        // acquisition cost plus the required margin. Proceeding here would
+        // either sell at a loss or compute a NaN charge from a null rate.
+        if (type === 'buy' && (!pricing.sellAvailable || pricing.ourSellRate === null)) {
+            throw new AppError(
+                'This gift card is not available for purchase right now.',
+                503,
+                'PRICING_UNAVAILABLE',
+            );
+        }
+        if (type === 'sell' && (pricing.ourBuyRate === null || pricing.ourSellRate === null)) {
+            throw new AppError(
+                'This gift card is not available for sale right now.',
+                503,
+                'PRICING_UNAVAILABLE',
+            );
+        }
+
+        const resolvedRate = (type === 'buy' ? pricing.ourSellRate : pricing.ourBuyRate) as number;
+
+        // Business records carry the CANONICAL catalog brand, not the raw caller
+        // string. Pricing is already derived canonically; persisting the raw text
+        // would let records diverge from what was actually priced and fulfilled.
+        const recordBrand = pricing.canonicalBrand ?? brand;
 
         if (type === 'buy') {
             const requestId = await transaction(async (client) => {
-                const totalCostCents = Math.round(amountCents * (rate / 100));
+                const totalCostCents = Math.round(amountCents * (resolvedRate / 100));
 
-                // Check balance based on payment method
+                // Check AVAILABLE balance based on payment method. Fiat
+                // availability excludes funds reserved by a pending withdrawal
+                // (available = balance_cents - reserved_cents).
                 if (paymentMethod === 'usdt') {
                     const walletRows = await client.query(
                         'SELECT usdt_balance_cents FROM wallets WHERE user_id = $1 AND currency = $2 FOR UPDATE',
@@ -69,17 +102,17 @@ router.post('/requests',
                     }
                 } else {
                     const walletRows = await client.query(
-                        'SELECT balance_cents FROM wallets WHERE user_id = $1 AND currency = $2 FOR UPDATE',
+                        'SELECT balance_cents - COALESCE(reserved_cents, 0) AS available_cents FROM wallets WHERE user_id = $1 AND currency = $2 FOR UPDATE',
                         [req.user!.id, currency]
                     );
-                    const fiatBalance = walletRows.rows[0]?.balance_cents || 0;
-                    if (fiatBalance < totalCostCents) {
+                    const fiatAvailable = walletRows.rows[0]?.available_cents || 0;
+                    if (fiatAvailable < totalCostCents) {
                         throw new AppError('Insufficient balance to purchase this card.', 400, 'INSUFFICIENT_BALANCE');
                     }
                 }
 
-                // Calculate profit
-                const profitCalc = calculateTransactionProfit('buy', brand, amountCents, rate);
+                // Calculate profit (server-authoritative rate)
+                const profitCalc = calculateTransactionProfit('buy', brand, amountCents, resolvedRate);
 
                 // 2. Insert Request with profit data
                 const requestInsert = await client.query(`
@@ -90,33 +123,42 @@ router.post('/requests',
                     VALUES ($1, $2, $3, $4, $5, $6, 'processing', $7, $8, $9, $10, $11)
                     RETURNING id
                 `, [
-                    req.user!.id, type, brand, amountCents, currency, rate,
-                    profitCalc.costCents, profitCalc.profitCents, rate,
+                    req.user!.id, type, recordBrand, amountCents, currency, resolvedRate,
+                    profitCalc.costCents, profitCalc.profitCents, resolvedRate,
                     profitCalc.profitPercent, metadata ? JSON.stringify(metadata) : null
                 ]);
 
                 const rId = requestInsert.rows[0].id;
 
-                // 3. Deduct Balance (USDT or Fiat)
+                // 3. Deduct Balance (USDT or Fiat) with an ATOMIC GUARDED debit.
+                //    The WHERE clause re-asserts sufficiency at write time and the
+                //    rowCount check aborts the whole transaction if it fails, so a
+                //    concurrent debit (or reserved funds) can never be overdrawn.
                 if (paymentMethod === 'usdt') {
-                    await client.query(`
+                    const debit = await client.query(`
                         UPDATE wallets SET usdt_balance_cents = usdt_balance_cents - $1, updated_at = NOW()
-                        WHERE user_id = $2 AND currency = 'USD'
+                        WHERE user_id = $2 AND currency = 'USD' AND usdt_balance_cents >= $1
                     `, [totalCostCents, req.user!.id]);
+                    if (debit.rowCount === 0) {
+                        throw new AppError('Insufficient USDT balance. Add funds via Card Checkout first.', 400, 'INSUFFICIENT_USDT_BALANCE');
+                    }
 
                     // Record crypto ledger entry
                     await client.query(`
                         INSERT INTO crypto_ledger_entries (
-                            user_id, source_transaction_id, crypto_type, amount_cents, 
+                            user_id, source_transaction_id, crypto_type, amount_cents,
                             exchange_rate, usd_equivalent_cents, description
                         )
                         VALUES ($1, $2, 'USDT', $3, 1.0, $4, $5)
                     `, [req.user!.id, rId, -totalCostCents, -totalCostCents, `USDT payment for ${brand} gift card`]);
                 } else {
-                    await client.query(`
+                    const debit = await client.query(`
                         UPDATE wallets SET balance_cents = balance_cents - $1, updated_at = NOW()
-                        WHERE user_id = $2 AND currency = $3
+                        WHERE user_id = $2 AND currency = $3 AND balance_cents - COALESCE(reserved_cents, 0) >= $1
                     `, [totalCostCents, req.user!.id, currency]);
+                    if (debit.rowCount === 0) {
+                        throw new AppError('Insufficient balance to purchase this card.', 400, 'INSUFFICIENT_BALANCE');
+                    }
                 }
 
                 // 4. Create internal Transaction record
@@ -151,8 +193,8 @@ router.post('/requests',
             return;
         }
 
-        // Handle Sell Requests
-        const profitCalc = calculateTransactionProfit('sell', brand, amountCents, rate);
+        // Handle Sell Requests (server-authoritative rate)
+        const profitCalc = calculateTransactionProfit('sell', brand, amountCents, resolvedRate);
 
         const result = await queryOne<{ id: string }>(`
             INSERT INTO gift_card_requests (
@@ -162,8 +204,8 @@ router.post('/requests',
             VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, $9, $10, $11)
             RETURNING id
         `, [
-            req.user!.id, type, brand, amountCents, currency, rate,
-            profitCalc.costCents, profitCalc.profitCents, rate,
+            req.user!.id, type, brand, amountCents, currency, resolvedRate,
+            profitCalc.costCents, profitCalc.profitCents, resolvedRate,
             profitCalc.profitPercent, metadata ? JSON.stringify(metadata) : null
         ]);
 
