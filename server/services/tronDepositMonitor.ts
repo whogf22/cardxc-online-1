@@ -447,8 +447,25 @@ export async function getUserCryptoTransactions(userId: string, limit = 20): Pro
     return txs;
 }
 
+/**
+ * A TRON transaction id is the 32-byte SHA-256 of the transaction, rendered as
+ * exactly 64 hex characters with no 0x prefix. Validating the shape before the
+ * value is interpolated into a provider URL prevents request-target injection
+ * (a '/', '?', '#', or '..' in the value would otherwise change which TronGrid
+ * endpoint is called).
+ */
+export function isValidTronTxHash(txHash: unknown): txHash is string {
+    return typeof txHash === 'string' && /^[0-9a-fA-F]{64}$/.test(txHash);
+}
+
 export async function getTransactionByHash(txHash: string): Promise<any> {
-    const url = `${TRONGRID_BASE}/v1/transactions/${txHash}/info`;
+    if (!isValidTronTxHash(txHash)) {
+        logger.warn('[DepositMonitor] Rejected malformed TRON tx hash', { txHash: String(txHash).slice(0, 80) });
+        return null;
+    }
+    // Belt-and-suspenders: the value is already known to be 64 hex chars, but
+    // encode the path component so it can never carry path/query syntax.
+    const url = `${TRONGRID_BASE}/v1/transactions/${encodeURIComponent(txHash)}/info`;
     try {
         const response = await fetch(url, { headers: getTronGridHeaders() });
         if (!response.ok) return null;

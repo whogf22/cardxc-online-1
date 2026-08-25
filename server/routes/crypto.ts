@@ -87,7 +87,14 @@ router.get('/transactions',
 
 router.get('/tx/:txHash',
     authenticate,
+    param('txHash')
+        .matches(/^[0-9a-fA-F]{64}$/)
+        .withMessage('Invalid transaction hash'),
     asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            throw new AppError(errors.array()[0].msg, 400, 'VALIDATION_ERROR');
+        }
         const txInfo = await getTransactionByHash(req.params.txHash as string);
         if (!txInfo) {
             throw new AppError('Transaction not found on blockchain', 404);
