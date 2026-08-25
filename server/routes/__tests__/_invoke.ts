@@ -19,6 +19,8 @@ export interface InvokeResult {
 
 export interface InvokeOptions {
   body?: any;
+  /** Raw request body, for handlers that verify webhook signatures. */
+  rawBody?: Buffer;
   query?: Record<string, any>;
   headers?: Record<string, string>;
   user?: any;
@@ -47,6 +49,7 @@ export function invokeRouter(
       },
     };
     if (opts.user !== undefined) req.user = opts.user;
+    if (opts.rawBody !== undefined) req.rawBody = opts.rawBody;
 
     let settled = false;
     const done = (status: number, body: any) => {

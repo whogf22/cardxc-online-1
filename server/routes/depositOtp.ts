@@ -20,7 +20,10 @@ import {
   isStripeConfigured,
 } from '../services/stripeService';
 import { logger } from '../middleware/logger';
-import { isStablecoinFulfillmentEnabled } from '../services/fulfillmentPolicy';
+import {
+  isStablecoinFulfillmentEnabled,
+  isUnconfirmedDepositBypassAllowed,
+} from '../services/fulfillmentPolicy';
 import crypto from 'crypto';
 
 const router = Router();
@@ -238,16 +241,25 @@ router.post(
       }
     }
 
-    // Allow completion if Stripe payment is confirmed OR if in test/demo mode
+    // A deposit is fulfilled only against a confirmed Stripe payment. The
+    // unconfirmed-deposit bypass is a fail-closed local/demo affordance
+    // (non-production + explicit opt-in + test key); a test key alone never
+    // suffices, so a production-shaped environment always rejects here.
     const stripeConfirmed = stripeSession?.payment_status === 'paid' || stripeSession?.status === 'complete';
-    const isTestMode = process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_');
 
-    if (!stripeConfirmed && !isTestMode) {
-      throw new AppError(
-        'Payment not yet confirmed. Please complete the payment first.',
-        402,
-        'PAYMENT_NOT_CONFIRMED'
-      );
+    if (!stripeConfirmed) {
+      if (!isUnconfirmedDepositBypassAllowed()) {
+        throw new AppError(
+          'Payment not yet confirmed. Please complete the payment first.',
+          402,
+          'PAYMENT_NOT_CONFIRMED'
+        );
+      }
+      logger.warn('deposit_otp_payment_confirmation_bypassed', {
+        orderId,
+        userId,
+        reason: 'ALLOW_UNCONFIRMED_DEPOSITS enabled in a non-production test-key environment',
+      });
     }
 
     // Get user info for email
@@ -259,76 +271,117 @@ router.post(
     // Mark OTP as verified
     await query('UPDATE deposit_otps SET verified = TRUE WHERE id = $1', [otpRecord.id]);
 
-    // Credit wallet in a transaction
+    // Credit wallet in a transaction.
+    //
+    // An OTP-initiated deposit also has a live Stripe checkout session, so this
+    // path and the Stripe webhook can both try to fulfill the SAME order under
+    // DIFFERENT transaction idempotency keys (`deposit_otp_<order>` vs
+    // `stripe_<session>`) — the unique index on transactions.idempotency_key
+    // cannot dedupe across them. The shared identity is the ORDER, so
+    // fulfillment is serialized by an atomic conditional claim of the order row
+    // inside this transaction: only the caller whose UPDATE matches a still
+    // PENDING row may credit. Under READ COMMITTED the row lock serializes
+    // concurrent claimants and the loser re-evaluates the predicate against the
+    // committed row, matching 0 rows.
     let newBalance = 0;
-    await transaction(async (client) => {
-      // Check idempotency
-      const existing = await client.query(
-        `SELECT id FROM transactions WHERE idempotency_key = $1`,
-        [`deposit_otp_${orderId}`]
-      );
-      if (existing.rows.length > 0) {
-        // Already processed
-        const walletRow = await client.query(
-          `SELECT balance_cents FROM wallets WHERE user_id = $1 AND currency = $2`,
-          [userId, order.currency]
+    let credited = false;
+    try {
+      await transaction(async (client) => {
+        // Atomic fulfillment claim. Credit only from the row we actually won,
+        // never from the stale pre-transaction read.
+        const claim = await client.query(
+          `UPDATE card_orders
+              SET status = 'COMPLETED', updated_at = NOW()
+            WHERE id = $1 AND user_id = $2 AND status = 'PENDING'
+          RETURNING amount_cents, currency`,
+          [orderId, userId]
         );
-        newBalance = walletRow.rows[0]?.balance_cents / 100 || 0;
-        return;
-      }
 
-      // Insert transaction
-      const txResult = await client.query(
-        `INSERT INTO transactions (user_id, idempotency_key, type, status, amount_cents, currency, description, metadata)
-         VALUES ($1, $2, 'deposit', 'SUCCESS', $3, $4, $5, $6)
-         RETURNING id`,
-        [
-          userId,
-          `deposit_otp_${orderId}`,
-          order.amount_cents,
-          order.currency,
-          'Card Deposit (OTP Verified)',
-          JSON.stringify({ orderId, source: 'card_deposit_otp', stripeSessionId: order.provider_payment_id }),
-        ]
-      );
-      const transactionId = txResult.rows[0].id;
+        if (claim.rowCount === 0) {
+          // Another fulfillment path (Stripe webhook, or a concurrent retry of
+          // this one) already claimed the order. Report the current balance and
+          // credit nothing.
+          const walletRow = await client.query(
+            `SELECT balance_cents FROM wallets WHERE user_id = $1 AND currency = $2`,
+            [userId, order.currency]
+          );
+          newBalance = walletRow.rows[0]?.balance_cents / 100 || 0;
+          logger.info('deposit_otp_fulfillment_claim_lost', { userId, orderId });
+          return;
+        }
 
-      // Credit wallet
-      const walletResult = await client.query(
-        `INSERT INTO wallets (user_id, currency, balance_cents)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (user_id, currency)
-         DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
-         RETURNING balance_cents`,
-        [userId, order.currency, order.amount_cents]
-      );
-      newBalance = walletResult.rows[0].balance_cents / 100;
+        const claimed = claim.rows[0];
 
-      // Stablecoin (USDT) fulfillment is fail-closed: a card deposit credits
-      // only the fiat balance unless stablecoin fulfillment is explicitly
-      // enabled via ENABLE_STABLECOIN_FULFILLMENT.
-      if (isStablecoinFulfillmentEnabled()) {
-        const usdtAmountCents = Math.round(order.amount_cents / USDT_RATE);
-        await client.query(
-          `INSERT INTO wallets (user_id, currency, balance_cents, usdt_balance_cents)
-           VALUES ($1, 'USD', 0, $2)
+        // Insert transaction
+        const txResult = await client.query(
+          `INSERT INTO transactions (user_id, idempotency_key, type, status, amount_cents, currency, description, metadata)
+           VALUES ($1, $2, 'deposit', 'SUCCESS', $3, $4, $5, $6)
+           RETURNING id`,
+          [
+            userId,
+            `deposit_otp_${orderId}`,
+            claimed.amount_cents,
+            claimed.currency,
+            'Card Deposit (OTP Verified)',
+            JSON.stringify({ orderId, source: 'card_deposit_otp', stripeSessionId: order.provider_payment_id }),
+          ]
+        );
+        const transactionId = txResult.rows[0].id;
+
+        // Credit wallet
+        const walletResult = await client.query(
+          `INSERT INTO wallets (user_id, currency, balance_cents)
+           VALUES ($1, $2, $3)
            ON CONFLICT (user_id, currency)
-           DO UPDATE SET usdt_balance_cents = COALESCE(wallets.usdt_balance_cents, 0) + $2, updated_at = NOW()`,
-          [userId, usdtAmountCents]
+           DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
+           RETURNING balance_cents`,
+          [userId, claimed.currency, claimed.amount_cents]
         );
-      } else {
-        logger.info('stablecoin_fulfillment_skipped', { orderId, context: 'deposit_otp' });
-      }
+        newBalance = walletResult.rows[0].balance_cents / 100;
 
-      // Update order status
-      await client.query(
-        `UPDATE card_orders SET status = 'COMPLETED', transaction_id = $1, updated_at = NOW() WHERE id = $2`,
-        [transactionId, orderId]
+        // Stablecoin (USDT) fulfillment is fail-closed: a card deposit credits
+        // only the fiat balance unless stablecoin fulfillment is explicitly
+        // enabled via ENABLE_STABLECOIN_FULFILLMENT.
+        if (isStablecoinFulfillmentEnabled()) {
+          const usdtAmountCents = Math.round(claimed.amount_cents / USDT_RATE);
+          await client.query(
+            `INSERT INTO wallets (user_id, currency, balance_cents, usdt_balance_cents)
+             VALUES ($1, 'USD', 0, $2)
+             ON CONFLICT (user_id, currency)
+             DO UPDATE SET usdt_balance_cents = COALESCE(wallets.usdt_balance_cents, 0) + $2, updated_at = NOW()`,
+            [userId, usdtAmountCents]
+          );
+        } else {
+          logger.info('stablecoin_fulfillment_skipped', { orderId, context: 'deposit_otp' });
+        }
+
+        // Link the order to its ledger entry (status was already set by the claim).
+        await client.query(
+          `UPDATE card_orders SET transaction_id = $1, updated_at = NOW() WHERE id = $2`,
+          [transactionId, orderId]
+        );
+
+        credited = true;
+      });
+    } catch (err: any) {
+      // The transactions unique index is the authoritative claim. If a
+      // concurrent fulfillment of the same order committed first, this whole
+      // transaction (including the order claim) rolled back — so the deposit is
+      // already fulfilled exactly once. Report idempotent success, not a 500.
+      const isDuplicate = err?.code === '23505' || /duplicate key/i.test(err?.message ?? '');
+      if (!isDuplicate) throw err;
+
+      logger.warn('deposit_otp_fulfillment_duplicate_race', { userId, orderId, error: err.message });
+      const walletRow = await queryOne<{ balance_cents: number }>(
+        'SELECT balance_cents FROM wallets WHERE user_id = $1 AND currency = $2',
+        [userId, order.currency]
       );
-    });
+      newBalance = walletRow ? walletRow.balance_cents / 100 : 0;
+    }
 
-    // Send success email
-    if (user) {
+    // Send success email only for the caller that actually credited, so a
+    // webhook/OTP race cannot notify the user twice for one deposit.
+    if (user && credited) {
       await sendDepositSuccessEmail(
         user.email,
         user.full_name,

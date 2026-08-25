@@ -40,10 +40,15 @@ let app: express.Express;
 let clientCalls: Array<{ sql: string; params: unknown[] }> = [];
 
 function installTransactionMock() {
-  mockTransaction.mockImplementation(async (fn: (client: { query: (sql: string, params?: unknown[]) => Promise<{ rows: { id: string }[]; rowCount: number }> }) => Promise<void>) => {
+  mockTransaction.mockImplementation(async (fn: (client: { query: (sql: string, params?: unknown[]) => Promise<{ rows: any[]; rowCount: number }> }) => Promise<void>) => {
     const client = {
       query: vi.fn(async (sql: string, params?: unknown[]) => {
         clientCalls.push({ sql, params: params ?? [] });
+        // Atomic fulfillment claim: PENDING -> COMPLETED. These tests exercise
+        // the uncontended case, so the claim wins and returns the order row.
+        if (sql.includes('UPDATE card_orders') && sql.includes('RETURNING')) {
+          return { rows: [{ amount_cents: ORDER.amount_cents, currency: ORDER.currency }], rowCount: 1 };
+        }
         if (sql.includes('INSERT INTO transactions')) {
           return { rows: [{ id: 'tx-id-1' }], rowCount: 1 };
         }

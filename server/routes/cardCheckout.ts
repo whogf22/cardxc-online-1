@@ -982,9 +982,37 @@ webhookRouter.post('/stripe',
       }
 
       const creditUserId = order.target_user_id || order.user_id;
+      let fulfilled = false;
 
       try {
         await transaction(async (client) => {
+          // Atomic fulfillment claim on the shared identity (the order).
+          //
+          // An OTP-initiated order also has a live Stripe session, so this
+          // webhook and POST /api/deposit-otp/verify can both reach fulfillment
+          // for the SAME order under DIFFERENT transaction idempotency keys
+          // (`stripe_<session>` vs `deposit_otp_<order>`), which the unique
+          // index on transactions.idempotency_key cannot dedupe. The
+          // pre-transaction status read above is only a fast path; this
+          // conditional UPDATE is the authoritative claim. Under READ COMMITTED
+          // the row lock serializes concurrent claimants and the loser
+          // re-evaluates the predicate against the committed row, matching 0
+          // rows — so exactly one path credits.
+          const claim = await client.query(`
+            UPDATE card_orders
+               SET status = 'COMPLETED', updated_at = NOW()
+             WHERE id = $1 AND status = 'PENDING'
+            RETURNING amount_cents, currency
+          `, [order.id]);
+
+          if (claim.rowCount === 0) {
+            logger.info('stripe_webhook_fulfillment_claim_lost', { orderId, sessionId: session.id });
+            return;
+          }
+
+          // Credit from the row we actually claimed, not the stale pre-read.
+          const claimed = claim.rows[0];
+
           const txResult = await client.query(`
             INSERT INTO transactions (
               user_id, idempotency_key, type, status, amount_cents, currency,
@@ -995,8 +1023,8 @@ webhookRouter.post('/stripe',
           `, [
             creditUserId,
             `stripe_${session.id}`,
-            order.amount_cents,
-            order.currency,
+            claimed.amount_cents,
+            claimed.currency,
             depositDescription(),
             'Stripe Checkout',
             DEPOSIT_MERCHANT_DISPLAY_NAME,
@@ -1010,29 +1038,45 @@ webhookRouter.post('/stripe',
             VALUES ($1, $2, $3)
             ON CONFLICT (user_id, currency)
             DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
-          `, [creditUserId, order.currency, order.amount_cents]);
+          `, [creditUserId, claimed.currency, claimed.amount_cents]);
 
           // Stablecoin (USDT) fulfillment is fail-closed: skipped unless
           // explicitly enabled. Stripe card funds credit only the fiat balance.
-          await creditStablecoinIfEnabled(client, creditUserId, order, transactionId, 'stripe_webhook');
+          // Sized from the claimed row so every credit in this transaction
+          // derives from the same authoritative amount.
+          await creditStablecoinIfEnabled(
+            client,
+            creditUserId,
+            { ...order, amount_cents: claimed.amount_cents },
+            transactionId,
+            'stripe_webhook',
+          );
 
+          // Link the order to its ledger entry (status was set by the claim).
           await client.query(`
-            UPDATE card_orders SET status = 'COMPLETED', transaction_id = $1, updated_at = NOW() WHERE id = $2
+            UPDATE card_orders SET transaction_id = $1, updated_at = NOW() WHERE id = $2
           `, [transactionId, order.id]);
+
+          fulfilled = true;
         });
 
-        await createAuditLog({
-          userId: creditUserId,
-          action: 'CARD_PAYMENT_COMPLETED',
-          entityType: 'card_order',
-          entityId: order.id,
-          newValues: { amount: order.amount_cents, currency: order.currency, source: 'stripe' },
-        });
+        if (fulfilled) {
+          await createAuditLog({
+            userId: creditUserId,
+            action: 'CARD_PAYMENT_COMPLETED',
+            entityType: 'card_order',
+            entityId: order.id,
+            newValues: { amount: order.amount_cents, currency: order.currency, source: 'stripe' },
+          });
 
-        logger.info('stripe_webhook_order_completed', { orderId, sessionId: session.id, amountCents: order.amount_cents, currency: order.currency });
+          logger.info('stripe_webhook_order_completed', { orderId, sessionId: session.id, amountCents: order.amount_cents, currency: order.currency });
+        }
       } catch (error: any) {
         logger.error('stripe_webhook_processing_error', { orderId, error: error.message });
-        if (error.message?.includes('duplicate key')) {
+        // The transactions unique index is the authoritative claim: a duplicate
+        // means a concurrent fulfillment of this order committed first and this
+        // transaction (claim included) rolled back. Acknowledge idempotently.
+        if (error?.code === '23505' || error.message?.includes('duplicate key')) {
           return res.json({ received: true });
         }
         throw error;

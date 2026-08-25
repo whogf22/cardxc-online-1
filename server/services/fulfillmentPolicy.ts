@@ -43,6 +43,28 @@ export function isEmailVerificationRequiredForCardCheckout(): boolean {
   return process.env.REQUIRE_EMAIL_VERIFIED_FOR_CARD_CHECKOUT !== 'false';
 }
 
+/**
+ * Whether a deposit may be fulfilled WITHOUT a confirmed Stripe payment.
+ *
+ * This exists only so local/demo environments can walk the deposit flow end to
+ * end without a real card charge. It is fail-closed and requires ALL of:
+ *   1. the environment is NOT production, AND
+ *   2. an operator explicitly opts in (`ALLOW_UNCONFIRMED_DEPOSITS=true`), AND
+ *   3. Stripe is actually pointed at a test key (`sk_test_...`).
+ *
+ * A test-mode key ALONE must never bypass confirmation: a production-shaped
+ * deployment that still holds an `sk_test_` key would otherwise credit an
+ * unpaid wallet. Production always fails closed, whatever the flags say.
+ */
+export function isUnconfirmedDepositBypassAllowed(): boolean {
+  if (process.env.NODE_ENV === 'production') {
+    return false;
+  }
+  const optedIn = process.env.ALLOW_UNCONFIRMED_DEPOSITS === 'true';
+  const usingTestKey = process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_') ?? false;
+  return optedIn && usingTestKey;
+}
+
 /** Honest, non-randomized display name for a card-funded wallet deposit. */
 export const DEPOSIT_MERCHANT_DISPLAY_NAME = 'CardXC Wallet Deposit';
 
