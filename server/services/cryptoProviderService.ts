@@ -13,6 +13,33 @@ export type CryptoProvider = 'binance_pay' | 'coinbase_commerce' | 'circle' | 't
 // Crypto network types
 export type CryptoNetwork = 'TRC20' | 'ERC20' | 'BEP20' | 'POLYGON';
 
+/**
+ * Broadcast-safety classification for a payout attempt. This drives the refund
+ * decision in the withdrawal service (CRITICAL-2):
+ *
+ *  - 'not_sent'       — we KNOW no on-chain broadcast happened (validation
+ *                       failed, provider unconfigured/unimplemented, or the
+ *                       failure occurred strictly before .send()). Safe to
+ *                       refund.
+ *  - 'confirmed_sent' — a broadcast completed and returned a recognized tx id.
+ *                       Funds have left custody; never refund.
+ *  - 'unknown'        — the broadcast may or may not have happened (the send
+ *                       threw, or returned an unrecognized shape). NEVER
+ *                       auto-refund; route to manual reconciliation.
+ */
+export type PayoutOutcome = 'not_sent' | 'confirmed_sent' | 'unknown';
+
+// USDT (TRC20) uses 6 decimal places. This is the single canonical conversion
+// from a USDT amount to on-chain minor units ("Sun" for TRC20). Rounding to the
+// nearest minor unit avoids the float-truncation drift of Math.floor (e.g.
+// 0.29 * 1e6 === 289999.9999999999 would floor to 289999, under-sending),
+// while still never over-sending for well-formed 6-dp amounts.
+export const USDT_DECIMALS = 6;
+export function toUsdtMinorUnits(amount: number): number {
+    if (!Number.isFinite(amount) || amount < 0) return 0;
+    return Math.round(amount * 10 ** USDT_DECIMALS);
+}
+
 interface CryptoPayoutRequest {
     userId: string;
     amount: number; // Amount in USDT
@@ -27,6 +54,7 @@ interface CryptoPayoutResponse {
     payoutId?: string;
     txHash?: string;
     status: 'pending' | 'processing' | 'completed' | 'failed';
+    outcome: PayoutOutcome;
     error?: string;
     estimatedCompletionTime?: string;
 }
@@ -54,6 +82,7 @@ export async function sendCryptoToWallet(request: CryptoPayoutRequest): Promise<
             return {
                 success: false,
                 status: 'failed',
+                outcome: 'not_sent',
                 error: `Minimum crypto payout amount is ${MIN_CRYPTO_PAYOUT_AMOUNT} USDT`
             };
         }
@@ -63,6 +92,7 @@ export async function sendCryptoToWallet(request: CryptoPayoutRequest): Promise<
             return {
                 success: false,
                 status: 'failed',
+                outcome: 'not_sent',
                 error: 'Invalid crypto wallet address'
             };
         }
@@ -103,9 +133,13 @@ export async function sendCryptoToWallet(request: CryptoPayoutRequest): Promise<
             amount: request.amount
         });
 
+        // Fail-closed: an unexpected throw escaping a provider call means we
+        // cannot prove the broadcast never happened. Treat as ambiguous so the
+        // withdrawal service holds for reconciliation instead of refunding.
         return {
             success: false,
             status: 'failed',
+            outcome: 'unknown',
             error: error.message || 'Failed to process crypto payout'
         };
     }
@@ -116,7 +150,12 @@ export async function sendCryptoToWallet(request: CryptoPayoutRequest): Promise<
  */
 async function sendViaBinancePay(request: CryptoPayoutRequest): Promise<CryptoPayoutResponse> {
     if (!BINANCE_API_KEY || !BINANCE_SECRET_KEY) {
-        throw new Error('Binance API credentials not configured');
+        return {
+            success: false,
+            status: 'failed',
+            outcome: 'not_sent',
+            error: 'Binance API credentials not configured'
+        };
     }
 
     logger.error('Binance Pay payout not implemented - rejecting request', { amount: request.amount, userId: request.userId });
@@ -124,6 +163,7 @@ async function sendViaBinancePay(request: CryptoPayoutRequest): Promise<CryptoPa
     return {
         success: false,
         status: 'failed',
+        outcome: 'not_sent',
         error: 'Binance Pay integration is not yet available. Please use manual processing.'
     };
 }
@@ -133,7 +173,12 @@ async function sendViaBinancePay(request: CryptoPayoutRequest): Promise<CryptoPa
  */
 async function sendViaCoinbaseCommerce(request: CryptoPayoutRequest): Promise<CryptoPayoutResponse> {
     if (!COINBASE_API_KEY) {
-        throw new Error('Coinbase Commerce API key not configured');
+        return {
+            success: false,
+            status: 'failed',
+            outcome: 'not_sent',
+            error: 'Coinbase Commerce API key not configured'
+        };
     }
 
     logger.error('Coinbase Commerce payout not implemented - rejecting request', { amount: request.amount, userId: request.userId });
@@ -141,6 +186,7 @@ async function sendViaCoinbaseCommerce(request: CryptoPayoutRequest): Promise<Cr
     return {
         success: false,
         status: 'failed',
+        outcome: 'not_sent',
         error: 'Coinbase Commerce integration is not yet available. Please use manual processing.'
     };
 }
@@ -150,7 +196,12 @@ async function sendViaCoinbaseCommerce(request: CryptoPayoutRequest): Promise<Cr
  */
 async function sendViaCircle(request: CryptoPayoutRequest): Promise<CryptoPayoutResponse> {
     if (!CIRCLE_API_KEY) {
-        throw new Error('Circle API key not configured');
+        return {
+            success: false,
+            status: 'failed',
+            outcome: 'not_sent',
+            error: 'Circle API key not configured'
+        };
     }
 
     logger.error('Circle payout not implemented - rejecting request', { amount: request.amount, userId: request.userId });
@@ -158,6 +209,7 @@ async function sendViaCircle(request: CryptoPayoutRequest): Promise<CryptoPayout
     return {
         success: false,
         status: 'failed',
+        outcome: 'not_sent',
         error: 'Circle integration is not yet available. Please use manual processing.'
     };
 }
@@ -171,6 +223,7 @@ async function sendViaTronGrid(request: CryptoPayoutRequest): Promise<CryptoPayo
         return {
             success: false,
             status: 'failed',
+            outcome: 'not_sent',
             error: 'TronGrid only supports TRC20. Use manual for other networks.'
         };
     }
@@ -179,57 +232,92 @@ async function sendViaTronGrid(request: CryptoPayoutRequest): Promise<CryptoPayo
         return await createManualPayoutRequest(request);
     }
 
+    // Phase 1 — setup AND transaction build, strictly BEFORE any broadcast.
+    // TronWeb's contract.transfer(...) only builds the method object (no
+    // network I/O); the broadcast happens in .send(). A failure anywhere in
+    // this phase therefore cannot have moved funds, so it is 'not_sent' (safe
+    // to refund upstream).
+    let tronWeb: any;
+    let contract: any;
+    let method: any;
+    let amountSun: number;
     try {
         const { TronWeb } = await import('tronweb' as any);
-        const tronWeb = new TronWeb({
+        tronWeb = new TronWeb({
             fullHost: TRONGRID_BASE,
             headers: TRONGRID_API_KEY ? { 'TRON-PRO-API-KEY': TRONGRID_API_KEY } : {}
         });
         tronWeb.setPrivateKey(TRON_HOT_WALLET_PRIVATE_KEY);
-
-        const amountSun = Math.floor(request.amount * 1e6);
-        const contract = await tronWeb.contract().at(USDT_TRC20_CONTRACT);
-        const tx = await contract.transfer(request.walletAddress, amountSun).send();
-
-        if (tx && ((tx as any).transaction?.txID || (tx as any).txid || typeof tx === 'string')) {
-            const txHash = typeof tx === 'string' ? tx : ((tx as any).transaction?.txID || (tx as any).txid);
-            logger.info('TronGrid USDT TRC20 sent', {
-                txHash,
-                amount: request.amount,
-                to: request.walletAddress.substring(0, 10) + '...'
-            });
-
-            try {
-                await query(
-                    `INSERT INTO crypto_transactions (
-                        user_id, type, status, amount, currency, network, tx_hash,
-                        from_address, to_address, confirmations, required_confirmations, withdrawal_request_id
-                    ) VALUES ($1, 'withdrawal', 'completed', $2, 'USDT', 'TRC20', $3, $4, $5, 20, 20, $6)`,
-                    [request.userId, request.amount, txHash,
-                     process.env.USDT_TRC20_DEPOSIT_ADDRESS || process.env.TRON_HOT_WALLET_ADDRESS || '',
-                     request.walletAddress, request.transactionId || null]
-                );
-            } catch (dbErr: any) {
-                logger.error('Failed to record crypto tx in DB', { error: dbErr.message });
-            }
-
-            return {
-                success: true,
-                payoutId: txHash,
-                txHash,
-                status: 'completed',
-                estimatedCompletionTime: '1-2 minutes'
-            };
-        }
-        throw new Error('No transaction ID returned');
-    } catch (error: any) {
-        logger.error('TronGrid payout failed', { error: error.message, amount: request.amount });
+        amountSun = toUsdtMinorUnits(request.amount);
+        contract = await tronWeb.contract().at(USDT_TRC20_CONTRACT);
+        method = contract.transfer(request.walletAddress, amountSun);
+    } catch (setupError: any) {
+        logger.error('TronGrid payout setup failed (pre-broadcast)', { error: setupError.message, amount: request.amount });
         return {
             success: false,
             status: 'failed',
-            error: error.message || 'TronGrid transfer failed'
+            outcome: 'not_sent',
+            error: setupError.message || 'TronGrid setup failed'
         };
     }
+
+    // Phase 2 — the broadcast itself. From the moment .send() is invoked we can
+    // no longer prove the transaction did NOT go out: a thrown error or a lost
+    // response is AMBIGUOUS, not a definite failure.
+    let tx: any;
+    try {
+        tx = await method.send();
+    } catch (sendError: any) {
+        logger.error('TronGrid broadcast threw — outcome UNKNOWN, must reconcile', { error: sendError.message, amount: request.amount });
+        return {
+            success: false,
+            status: 'failed',
+            outcome: 'unknown',
+            error: sendError.message || 'TronGrid transfer failed after broadcast attempt'
+        };
+    }
+
+    if (tx && ((tx as any).transaction?.txID || (tx as any).txid || typeof tx === 'string')) {
+        const txHash = typeof tx === 'string' ? tx : ((tx as any).transaction?.txID || (tx as any).txid);
+        logger.info('TronGrid USDT TRC20 sent', {
+            txHash,
+            amount: request.amount,
+            to: request.walletAddress.substring(0, 10) + '...'
+        });
+
+        try {
+            await query(
+                `INSERT INTO crypto_transactions (
+                    user_id, type, status, amount, currency, network, tx_hash,
+                    from_address, to_address, confirmations, required_confirmations, withdrawal_request_id
+                ) VALUES ($1, 'withdrawal', 'completed', $2, 'USDT', 'TRC20', $3, $4, $5, 20, 20, $6)`,
+                [request.userId, request.amount, txHash,
+                 process.env.USDT_TRC20_DEPOSIT_ADDRESS || process.env.TRON_HOT_WALLET_ADDRESS || '',
+                 request.walletAddress, request.transactionId || null]
+            );
+        } catch (dbErr: any) {
+            logger.error('Failed to record crypto tx in DB', { error: dbErr.message });
+        }
+
+        return {
+            success: true,
+            payoutId: txHash,
+            txHash,
+            status: 'completed',
+            outcome: 'confirmed_sent',
+            estimatedCompletionTime: '1-2 minutes'
+        };
+    }
+
+    // Broadcast returned but with an unrecognized shape: we cannot confirm it
+    // succeeded OR that it failed. Ambiguous → never auto-refund.
+    logger.error('TronGrid returned no recognizable tx id — outcome UNKNOWN, must reconcile', { amount: request.amount });
+    return {
+        success: false,
+        status: 'failed',
+        outcome: 'unknown',
+        error: 'No transaction ID returned'
+    };
 }
 
 /**
@@ -248,6 +336,7 @@ async function createManualPayoutRequest(request: CryptoPayoutRequest): Promise<
         success: true,
         payoutId: `manual_${Date.now()}`,
         status: 'pending',
+        outcome: 'not_sent',
         estimatedCompletionTime: 'Pending admin approval'
     };
 }

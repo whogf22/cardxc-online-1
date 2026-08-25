@@ -3,10 +3,23 @@
  *
  * Regression tests for the crypto withdrawal money-movement flow.
  *
- * The critical invariant under test: once an external crypto payout has
- * SUCCEEDED (funds have left custody), a later bookkeeping failure must NEVER
- * refund the user's balance. Refunds are only allowed when the payout itself
- * failed before any funds moved.
+ * Two invariants under test:
+ *
+ *  1. CRITICAL-2 — ambiguous-broadcast refund safety. A crypto payout can only
+ *     be refunded when we KNOW the funds never left custody (outcome
+ *     'not_sent'). If the provider response is ambiguous ('unknown' — e.g. the
+ *     broadcast may have gone out but the confirmation was lost) OR the payout
+ *     call throws after the risky send, the balance must NOT be auto-refunded;
+ *     the withdrawal is held for manual reconciliation instead. Refunding an
+ *     ambiguous outcome is exactly the double-payout bug (send on-chain + give
+ *     the money back).
+ *
+ *  2. Once an external crypto payout has CONFIRMED (funds left custody), a later
+ *     bookkeeping failure must NEVER refund the balance.
+ *
+ * NOTE: the send path is gated behind CRYPTO_AUTO_PAYOUT_ENABLED (HIGH-3, tested
+ * separately in withdrawalCryptoControls.test.ts). These tests enable it so the
+ * refund-safety logic downstream of the send is exercised directly.
  */
 import { beforeEach, afterEach, vi, describe, it, expect } from 'vitest';
 
@@ -15,6 +28,7 @@ const mockQuery = vi.fn();
 const mockQueryOne = vi.fn();
 const mockSendCryptoToWallet = vi.fn();
 const mockCreateAuditLog = vi.fn().mockResolvedValue(undefined);
+const mockRunFraudChecks = vi.fn();
 
 vi.mock('../../db/pool', () => ({
   query: (...args: unknown[]) => mockQuery(...args),
@@ -25,6 +39,9 @@ vi.mock('../auditService', () => ({ createAuditLog: (...args: unknown[]) => mock
 vi.mock('../cryptoProviderService', () => ({
   sendCryptoToWallet: (...args: unknown[]) => mockSendCryptoToWallet(...args),
 }));
+vi.mock('../fraudService', () => ({
+  runFraudChecks: (...args: unknown[]) => mockRunFraudChecks(...args),
+}));
 vi.mock('../../middleware/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
@@ -33,15 +50,22 @@ let processWithdrawal: typeof import('../withdrawalService')['processWithdrawal'
 
 beforeEach(async () => {
   vi.resetModules();
+  // Enable auto-payout so the refund-safety logic (post-send) is reachable.
+  process.env.CRYPTO_AUTO_PAYOUT_ENABLED = 'true';
+  process.env.CRYPTO_AUTO_PAYOUT_MAX_USD = '1000000';
+  mockRunFraudChecks.mockResolvedValue({ passed: true, flags: [], score: 0 });
   ({ processWithdrawal } = await import('../withdrawalService'));
 });
 
 afterEach(() => {
+  delete process.env.CRYPTO_AUTO_PAYOUT_ENABLED;
+  delete process.env.CRYPTO_AUTO_PAYOUT_MAX_USD;
   mockTransaction.mockReset();
   mockQuery.mockReset();
   mockQueryOne.mockReset();
   mockSendCryptoToWallet.mockReset();
   mockCreateAuditLog.mockReset();
+  mockRunFraudChecks.mockReset();
 });
 
 /**
@@ -74,20 +98,21 @@ function installTransaction(executedSql: string[], opts: {
   });
 }
 
-describe('processCryptoWithdrawal double-spend protection', () => {
-  const baseReq = {
-    type: 'crypto' as const,
-    userId: 'user-1',
-    amount: 50,
-    walletAddress: 'TxxxxxxxxxxxxxxxxxxxxxxxxxxxxxYYYY',
-    network: 'TRC20',
-  };
+const baseReq = {
+  type: 'crypto' as const,
+  userId: 'user-1',
+  amount: 50,
+  walletAddress: 'TxxxxxxxxxxxxxxxxxxxxxxxxxxxxxYYYY',
+  network: 'TRC20',
+};
 
-  it('does NOT refund when payout succeeded but bookkeeping (ledger) failed', async () => {
+describe('processCryptoWithdrawal — refund safety (CRITICAL-2)', () => {
+  it('does NOT refund when payout CONFIRMED but bookkeeping (ledger) failed', async () => {
     const executedSql: string[] = [];
     installTransaction(executedSql, { failBookkeeping: true });
     mockSendCryptoToWallet.mockResolvedValue({
       success: true,
+      outcome: 'confirmed_sent',
       payoutId: 'payout-123',
       txHash: '0xabc',
       status: 'completed',
@@ -95,53 +120,75 @@ describe('processCryptoWithdrawal double-spend protection', () => {
 
     const result = await processWithdrawal(baseReq);
 
-    // Withdrawal still reported as success (funds already sent on-chain).
     expect(result.success).toBe(true);
     expect(mockSendCryptoToWallet).toHaveBeenCalledTimes(1);
 
-    // The refund path must NOT have run: no wallet credit-back UPDATE.
     const refundHappened = executedSql.some(
       (sql) => sql.includes('usdt_balance_cents = usdt_balance_cents + $1'),
     );
     expect(refundHappened).toBe(false);
-
-    // And it must NOT have been marked rejected.
     const markedRejected = executedSql.some((sql) => sql.includes("status = 'rejected'"));
     expect(markedRejected).toBe(false);
   });
 
-  it('DOES refund when the external payout fails', async () => {
+  it('DOES refund when payout is CONFIRMED-not-sent (failed before broadcast)', async () => {
     const executedSql: string[] = [];
     installTransaction(executedSql);
     mockSendCryptoToWallet.mockResolvedValue({
       success: false,
+      outcome: 'not_sent',
       status: 'failed',
-      error: 'provider down',
+      error: 'provider rejected before broadcast',
     });
 
     await expect(processWithdrawal(baseReq)).rejects.toThrow(/Crypto withdrawal failed/);
 
-    // Refund UPDATE must have run exactly once.
     const refundHappened = executedSql.some(
       (sql) => sql.includes('usdt_balance_cents = usdt_balance_cents + $1'),
     );
     expect(refundHappened).toBe(true);
-
     const markedRejected = executedSql.some((sql) => sql.includes("status = 'rejected'"));
     expect(markedRejected).toBe(true);
   });
 
-  it('rejects and refunds when payout throws unexpectedly', async () => {
+  it('does NOT refund on an AMBIGUOUS provider response (outcome unknown) — holds for reconciliation', async () => {
     const executedSql: string[] = [];
     installTransaction(executedSql);
-    mockSendCryptoToWallet.mockRejectedValue(new Error('network timeout'));
+    mockSendCryptoToWallet.mockResolvedValue({
+      success: false,
+      outcome: 'unknown',
+      status: 'failed',
+      error: 'No transaction ID returned',
+    });
 
-    await expect(processWithdrawal(baseReq)).rejects.toThrow(/Crypto withdrawal failed/);
+    // Must not throw a failure that implies the money is safe: it resolves to a
+    // pending/manual-review result, and critically does not refund.
+    const result = await processWithdrawal(baseReq);
 
     const refundHappened = executedSql.some(
       (sql) => sql.includes('usdt_balance_cents = usdt_balance_cents + $1'),
     );
-    expect(refundHappened).toBe(true);
+    expect(refundHappened).toBe(false);
+    const markedRejected = executedSql.some((sql) => sql.includes("status = 'rejected'"));
+    expect(markedRejected).toBe(false);
+    // A reconciliation hold must be recorded.
+    const heldForReview = executedSql.some((sql) => sql.includes('admin_notes') && sql.includes('UPDATE withdrawal_requests'));
+    expect(heldForReview).toBe(true);
+    expect(result.requiresReconciliation ?? result.status).toBeTruthy();
+  });
+
+  it('does NOT refund when the payout call THROWS after the send (ambiguous) — holds for reconciliation', async () => {
+    const executedSql: string[] = [];
+    installTransaction(executedSql);
+    mockSendCryptoToWallet.mockRejectedValue(new Error('network timeout'));
+
+    const result = await processWithdrawal(baseReq);
+
+    const refundHappened = executedSql.some(
+      (sql) => sql.includes('usdt_balance_cents = usdt_balance_cents + $1'),
+    );
+    expect(refundHappened).toBe(false);
+    expect(result.requiresReconciliation ?? result.status).toBeTruthy();
   });
 
   it('rejects before payout when USDT balance is insufficient', async () => {
@@ -149,8 +196,6 @@ describe('processCryptoWithdrawal double-spend protection', () => {
     installTransaction(executedSql, { balanceCents: 10_00 }); // only $10, need $50
 
     await expect(processWithdrawal(baseReq)).rejects.toThrow(/Insufficient USDT balance/);
-
-    // Payout must never be attempted when balance is insufficient.
     expect(mockSendCryptoToWallet).not.toHaveBeenCalled();
   });
 });

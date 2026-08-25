@@ -11,9 +11,30 @@ import { AppError } from '../middleware/errorHandler';
 import { logger } from '../middleware/logger';
 import { createAuditLog } from './auditService';
 import { sendCryptoToWallet } from './cryptoProviderService';
+import { runFraudChecks } from './fraudService';
 
 export type WithdrawalType = 'bank' | 'crypto' | 'platform';
 export type WalletType = 'fiat' | 'usdt';
+
+/**
+ * Unified result shape for every withdrawal path. Individual paths populate the
+ * subset of optional fields relevant to them (e.g. crypto sets `status` /
+ * `requiresReconciliation`; platform sets `recipient`). A single declared type
+ * keeps callers and tests from having to narrow a large structural union.
+ */
+export interface WithdrawalResult {
+    success: boolean;
+    message: string;
+    withdrawalId?: string;
+    payoutId?: string;
+    txHash?: string | null;
+    status?: string;
+    estimatedTime?: string;
+    idempotent?: boolean;
+    requiresReview?: boolean;
+    requiresReconciliation?: boolean;
+    recipient?: { email: string; name: string | null };
+}
 
 interface BankWithdrawalRequest {
     type: 'bank';
@@ -24,6 +45,7 @@ interface BankWithdrawalRequest {
     bankName: string;
     accountNumber: string;
     accountName: string;
+    idempotencyKey?: string;
 }
 
 interface CryptoWithdrawalRequest {
@@ -32,6 +54,7 @@ interface CryptoWithdrawalRequest {
     amount: number; // Amount in USDT
     walletAddress: string;
     network: string; // TRC20, ERC20, etc.
+    idempotencyKey?: string;
 }
 
 interface PlatformWithdrawalRequest {
@@ -41,6 +64,7 @@ interface PlatformWithdrawalRequest {
     amount: number;
     walletType: WalletType;
     message?: string;
+    idempotencyKey?: string;
 }
 
 type WithdrawalRequest = BankWithdrawalRequest | CryptoWithdrawalRequest | PlatformWithdrawalRequest;
@@ -48,7 +72,7 @@ type WithdrawalRequest = BankWithdrawalRequest | CryptoWithdrawalRequest | Platf
 /**
  * Process withdrawal request based on type
  */
-export async function processWithdrawal(request: WithdrawalRequest) {
+export async function processWithdrawal(request: WithdrawalRequest): Promise<WithdrawalResult> {
     switch (request.type) {
         case 'bank':
             return await processBankWithdrawal(request);
@@ -170,87 +194,215 @@ async function processBankWithdrawal(request: BankWithdrawalRequest) {
 }
 
 /**
+ * Hold a crypto withdrawal for manual review / reconciliation. The USDT balance
+ * has ALREADY been deducted and is intentionally kept deducted (the funds are
+ * held, not refunded). This is used both when the control gate blocks an
+ * auto-payout (HIGH-3) and when a broadcast outcome is ambiguous (CRITICAL-2).
+ */
+async function holdForManualReview(withdrawalId: string, request: CryptoWithdrawalRequest, note: string) {
+    try {
+        await transaction(async (client) => {
+            await client.query(`
+        UPDATE withdrawal_requests
+        SET status = 'processing', admin_notes = $1, updated_at = NOW()
+        WHERE id = $2
+      `, [note, withdrawalId]);
+        });
+    } catch (e: any) {
+        logger.error('Failed to mark crypto withdrawal for manual review', { withdrawalId, error: e?.message });
+    }
+    try {
+        await createAuditLog({
+            userId: request.userId,
+            action: 'CRYPTO_WITHDRAWAL_HELD',
+            entityType: 'withdrawal_request',
+            entityId: withdrawalId,
+            newValues: { note, amount: request.amount, network: request.network },
+        });
+    } catch {
+        // Audit logging is best-effort; never let it change the money decision.
+    }
+}
+
+/**
+ * Look up an already-submitted withdrawal by its logical idempotency key so a
+ * retry/double-submit returns the prior request instead of moving money twice.
+ */
+async function findPriorWithdrawal(userId: string, idempotencyKey: string) {
+    return await queryOne<{ id: string; status: string; tx_hash: string | null }>(`
+    SELECT id, status, tx_hash FROM withdrawal_requests
+    WHERE user_id = $1 AND idempotency_key = $2
+  `, [userId, idempotencyKey]);
+}
+
+/**
  * 2. Crypto Transfer (USDT to external wallet)
  */
 async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
     const amountCents = Math.round(request.amount * 100);
+    const idempotencyKey = request.idempotencyKey?.trim() || null;
 
     // Minimum amount check
     if (request.amount < 10) {
         throw new AppError('Minimum crypto withdrawal is 10 USDT', 400);
     }
 
+    // HIGH-4: idempotency. If this logical request was already submitted, return
+    // the prior withdrawal rather than deducting or broadcasting a second time.
+    if (idempotencyKey) {
+        const prior = await findPriorWithdrawal(request.userId, idempotencyKey);
+        if (prior) {
+            return {
+                success: true,
+                withdrawalId: prior.id,
+                txHash: prior.tx_hash || null,
+                idempotent: true,
+                status: prior.status,
+                message: 'Withdrawal already submitted'
+            };
+        }
+    }
+
     let withdrawalId: string = '';
 
-    // Step 1: Deduct balance and create withdrawal request in a transaction
-    await transaction(async (client) => {
-        // Check USDT balance
-        const wallet = await client.query(`
-      SELECT usdt_balance_cents 
-      FROM wallets 
+    // Step 1: Deduct balance and create withdrawal request in a transaction.
+    try {
+        await transaction(async (client) => {
+            // Check USDT balance
+            const wallet = await client.query(`
+      SELECT usdt_balance_cents
+      FROM wallets
       WHERE user_id = $1 AND currency = 'USD'
       FOR UPDATE
     `, [request.userId]);
 
-        const usdtBalance = Number(wallet.rows[0]?.usdt_balance_cents || 0);
+            const usdtBalance = Number(wallet.rows[0]?.usdt_balance_cents || 0);
 
-        if (usdtBalance < amountCents) {
-            throw new AppError('Insufficient USDT balance', 400);
-        }
+            if (usdtBalance < amountCents) {
+                throw new AppError('Insufficient USDT balance', 400);
+            }
 
-        // Deduct USDT (guarded: rowCount 0 aborts the crypto withdrawal rather
-        // than allowing an overdraw under concurrent debits)
-        const cryptoUsdtDebit = await client.query(`
+            // Deduct USDT (guarded: rowCount 0 aborts the crypto withdrawal rather
+            // than allowing an overdraw under concurrent debits)
+            const cryptoUsdtDebit = await client.query(`
       UPDATE wallets
       SET usdt_balance_cents = usdt_balance_cents - $1, updated_at = NOW()
       WHERE user_id = $2 AND currency = 'USD' AND usdt_balance_cents >= $1
     `, [amountCents, request.userId]);
-        if (cryptoUsdtDebit.rowCount === 0) {
-            throw new AppError('Insufficient USDT balance', 400);
-        }
+            if (cryptoUsdtDebit.rowCount === 0) {
+                throw new AppError('Insufficient USDT balance', 400);
+            }
 
-        // Create withdrawal request with pending_payout status
-        const withdrawalResult = await client.query(`
+            // Create withdrawal request with processing status. The idempotency
+            // key is persisted so a concurrent duplicate collides on the unique
+            // index instead of creating a second debit.
+            const withdrawalResult = await client.query(`
       INSERT INTO withdrawal_requests (
         user_id, amount_cents, currency, withdrawal_type,
-        crypto_address, crypto_network, status
+        crypto_address, crypto_network, status, idempotency_key
       )
-      VALUES ($1, $2, 'USD', 'crypto', $3, $4, 'processing')
+      VALUES ($1, $2, 'USD', 'crypto', $3, $4, 'processing', $5)
       RETURNING id
     `, [
-            request.userId, amountCents,
-            request.walletAddress, request.network
-        ]);
+                request.userId, amountCents,
+                request.walletAddress, request.network, idempotencyKey
+            ]);
 
-        withdrawalId = withdrawalResult.rows[0].id;
-    });
+            withdrawalId = withdrawalResult.rows[0].id;
+        });
+    } catch (err: any) {
+        // Idempotency race: a concurrent duplicate won the unique index. The
+        // deduction in THIS transaction was rolled back, so return the prior row.
+        if (err?.code === '23505' && idempotencyKey) {
+            const prior = await findPriorWithdrawal(request.userId, idempotencyKey);
+            if (prior) {
+                return {
+                    success: true,
+                    withdrawalId: prior.id,
+                    txHash: prior.tx_hash || null,
+                    idempotent: true,
+                    status: prior.status,
+                    message: 'Withdrawal already submitted'
+                };
+            }
+        }
+        throw err;
+    }
 
-    // Step 2: Now that transaction is committed, initiate external payout.
-    // IMPORTANT: track whether the external payout actually succeeded so that a
-    // later bookkeeping failure never triggers a refund of already-sent crypto.
-    let payoutSucceeded = false;
+    // Step 1.5: HIGH-3 control gate. Auto-payout is DEFAULT-OFF. An on-chain
+    // broadcast only proceeds when the operator has explicitly enabled it, the
+    // amount is within the configured cap, AND the fraud/velocity engine passes.
+    // Otherwise the withdrawal is HELD for manual review — the external send is
+    // never invoked and the deducted balance is NOT refunded (funds are held,
+    // pending an operator decision). This is the fail-closed default: no
+    // unattended, uncapped, unscreened crypto payout.
+    const autoEnabled = process.env.CRYPTO_AUTO_PAYOUT_ENABLED === 'true';
+    const capUsd = Number(process.env.CRYPTO_AUTO_PAYOUT_MAX_USD || '0');
+    const capCents = Number.isFinite(capUsd) ? Math.round(capUsd * 100) : 0;
+
+    let holdReason = '';
+    if (!autoEnabled) {
+        holdReason = 'Automatic crypto payout is disabled; manual review required';
+    } else if (capCents <= 0 || amountCents > capCents) {
+        holdReason = 'Amount exceeds automatic payout cap; manual review required';
+    } else {
+        // fraudService works in minor units (cents), matching amountCents.
+        const fraud = await runFraudChecks({ userId: request.userId, action: 'WITHDRAWAL', amount: amountCents });
+        if (!fraud.passed) {
+            holdReason = `Fraud/velocity gate blocked: ${fraud.flags.join(', ') || 'blocked'}`;
+        }
+    }
+
+    if (holdReason) {
+        await holdForManualReview(withdrawalId, request, `MANUAL_REVIEW: ${holdReason}`);
+        logger.warn('Crypto withdrawal held for manual review (auto-payout gate)', {
+            userId: request.userId, withdrawalId, holdReason
+        });
+        return {
+            success: true,
+            withdrawalId,
+            status: 'processing',
+            requiresReview: true,
+            message: 'Withdrawal received and is pending manual review'
+        };
+    }
+
+    // Step 2: Initiate the external payout and interpret its BROADCAST outcome.
+    // CRITICAL-2: the refund decision is driven by `outcome`, never by `success`
+    // alone. We refund ONLY when we know the funds never left custody.
+    let payoutResult: Awaited<ReturnType<typeof sendCryptoToWallet>>;
     try {
-        const payoutResult = await sendCryptoToWallet({
+        payoutResult = await sendCryptoToWallet({
             userId: request.userId,
             amount: request.amount,
             walletAddress: request.walletAddress,
             network: request.network as any,
             transactionId: withdrawalId
         });
+    } catch (sendErr: any) {
+        // A THROW from the payout call is AMBIGUOUS — the broadcast may already
+        // have gone out. Never auto-refund; hold for reconciliation.
+        logger.error('Crypto payout call threw — holding for reconciliation (NO refund)', {
+            userId: request.userId, withdrawalId, error: sendErr?.message
+        });
+        await holdForManualReview(withdrawalId, request, `RECONCILIATION_REQUIRED: payout call threw (${sendErr?.message || 'unknown error'})`);
+        return {
+            success: true,
+            withdrawalId,
+            status: 'processing',
+            requiresReconciliation: true,
+            message: 'Withdrawal is being verified'
+        };
+    }
 
-        if (!payoutResult.success) {
-            throw new Error('Payout failed: ' + (payoutResult.error || 'Unknown error'));
-        }
-
+    if (payoutResult.outcome === 'confirmed_sent') {
         // The funds have left our custody. From here on we must NOT refund.
-        payoutSucceeded = true;
-
-        // Step 3: Record the successful payout. If this bookkeeping fails we log
-        // loudly for manual reconciliation but keep the user's balance deducted.
+        // Record the successful payout. If bookkeeping fails we log loudly for
+        // manual reconciliation but keep the user's balance deducted.
         try {
             await transaction(async (client) => {
                 await client.query(`
-          UPDATE withdrawal_requests 
+          UPDATE withdrawal_requests
           SET status = 'processing', admin_notes = $1, tx_hash = $2, updated_at = NOW()
           WHERE id = $3
         `, [`Payout ID: ${payoutResult.payoutId}`, payoutResult.txHash || null, withdrawalId]);
@@ -305,37 +457,49 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
             estimatedTime: payoutResult.estimatedCompletionTime || '1-10 minutes',
             status: payoutResult.status
         };
+    }
 
-    } catch (error: any) {
-        // Only refund when the external payout never went out. If the payout
-        // already succeeded, a thrown error here must not restore the balance.
-        if (payoutSucceeded) {
-            throw error;
-        }
-
-        // Step 4: Refund because the payout failed before funds left custody.
+    if (payoutResult.outcome === 'not_sent') {
+        // Definite pre-broadcast failure: the funds never left custody, so it is
+        // safe to refund and reject.
         await transaction(async (client) => {
             await client.query(`
-        UPDATE wallets 
+        UPDATE wallets
         SET usdt_balance_cents = usdt_balance_cents + $1
         WHERE user_id = $2 AND currency = 'USD'
       `, [amountCents, request.userId]);
 
             await client.query(`
-        UPDATE withdrawal_requests 
+        UPDATE withdrawal_requests
         SET status = 'rejected', admin_notes = $1
         WHERE id = $2
-      `, [error.message, withdrawalId]);
+      `, [payoutResult.error || 'Payout failed before broadcast', withdrawalId]);
         });
 
-        logger.error('Crypto withdrawal failed', {
+        logger.error('Crypto withdrawal failed before broadcast — refunded', {
             userId: request.userId,
             withdrawalId,
-            error: error.message
+            error: payoutResult.error
         });
 
-        throw new AppError('Crypto withdrawal failed: ' + error.message, 500);
+        throw new AppError('Crypto withdrawal failed: ' + (payoutResult.error || 'payout failed'), 500);
     }
+
+    // outcome === 'unknown' (or unrecognized): AMBIGUOUS. The broadcast may have
+    // gone out. NEVER auto-refund — hold for manual reconciliation.
+    logger.error('Crypto withdrawal outcome UNKNOWN — holding for reconciliation (NO refund)', {
+        userId: request.userId,
+        withdrawalId,
+        error: payoutResult.error
+    });
+    await holdForManualReview(withdrawalId, request, `RECONCILIATION_REQUIRED: ambiguous payout outcome (${payoutResult.error || 'no confirmation'})`);
+    return {
+        success: true,
+        withdrawalId,
+        status: 'processing',
+        requiresReconciliation: true,
+        message: 'Withdrawal is being verified'
+    };
 }
 
 /**

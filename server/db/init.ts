@@ -132,6 +132,8 @@ export async function initializeDatabase() {
         account_name VARCHAR(255),
         crypto_address VARCHAR(255),
         crypto_network VARCHAR(50),
+        idempotency_key VARCHAR(255),
+        tx_hash VARCHAR(255),
         status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'processing', 'completed', 'failed')),
         admin_notes TEXT,
         approved_by UUID REFERENCES users(id),
@@ -145,6 +147,7 @@ export async function initializeDatabase() {
     await client.query(`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS crypto_address VARCHAR(255)`);
     await client.query(`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS crypto_network VARCHAR(50)`);
     await client.query(`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS tx_hash VARCHAR(255)`);
+    await client.query(`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(255)`);
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS admin_adjustments (
@@ -526,6 +529,7 @@ export async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_budgets_user ON budgets(user_id);
       CREATE INDEX IF NOT EXISTS idx_virtual_cards_user_id ON virtual_cards(user_id);
       CREATE INDEX IF NOT EXISTS idx_withdrawal_requests_user_id ON withdrawal_requests(user_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_withdrawal_requests_idempotency_unique ON withdrawal_requests(user_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
       CREATE INDEX IF NOT EXISTS idx_card_transactions_card_id ON card_transactions(card_id);
       CREATE INDEX IF NOT EXISTS idx_split_bills_creator_id ON split_bills(creator_id);

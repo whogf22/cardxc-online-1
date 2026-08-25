@@ -14,6 +14,21 @@ import {
 const router = Router();
 
 /**
+ * Extract a caller-supplied logical idempotency key for a withdrawal. Accepts
+ * the standard `Idempotency-Key` header (preferred) or an `idempotencyKey`
+ * body field. Bounded to 255 chars to match the persisted column; anything
+ * empty/oversized/non-string is treated as absent (the request is then simply
+ * non-idempotent rather than rejected).
+ */
+function extractIdempotencyKey(req: AuthenticatedRequest): string | undefined {
+    const raw = req.get('Idempotency-Key') ?? req.body?.idempotencyKey;
+    if (typeof raw !== 'string') return undefined;
+    const trimmed = raw.trim();
+    if (!trimmed || trimmed.length > 255) return undefined;
+    return trimmed;
+}
+
+/**
  * GET /api/withdraw/crypto/config
  * Returns provider/network status + deposit addresses configured on server
  */
@@ -96,7 +111,8 @@ router.post('/crypto',
             userId: req.user!.id,
             amount,
             walletAddress,
-            network
+            network,
+            idempotencyKey: extractIdempotencyKey(req)
         });
 
         res.status(201).json({
