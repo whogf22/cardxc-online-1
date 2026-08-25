@@ -712,7 +712,7 @@ const mcpManifest = {
     name: "cardxc-mcp",
     version: "2.1.0",
     description: "CardXC MCP Server — AI-powered debugging, code editing, database access, and development tools for the CardXC fintech platform.",
-    author: "GameNova Vault LLC",
+    author: "CARDXC LLC",
     homepage: "https://cardxc.online",
     protocol: "mcp",
     capabilities: { tools: true, resources: false, prompts: false },
@@ -858,7 +858,7 @@ app.get("/", (req, res) => {
 <div class="wrap">
   <div class="badge"><div class="dot"></div> Server Online</div>
   <h1>CardXC MCP Server</h1>
-  <p class="sub">Model Context Protocol Server v2.1.0 &mdash; by GameNova Vault LLC</p>
+  <p class="sub">Model Context Protocol Server v2.1.0 &mdash; by CARDXC LLC</p>
 
   <div class="card">
     <h3>Capabilities</h3>
@@ -962,7 +962,7 @@ curl -X POST https://${host}/execute \\
   </div>
 
   <div class="footer">
-    &copy; ${new Date().getFullYear()} CardXC &mdash; a digital wallet and payments platform operated by GameNova Vault LLC.
+    &copy; ${new Date().getFullYear()} CardXC &mdash; a digital wallet and payments platform operated by CARDXC LLC.
   </div>
 </div>
 <script>
