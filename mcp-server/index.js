@@ -6,11 +6,11 @@ import fs from "fs/promises";
 import path from "path";
 import pg from "pg";
 import { GoogleGenAI } from "@google/genai";
+import { validateSQL } from "./sql-guard.js";
 
 const PROJECT_ROOT = path.resolve(".");
 const BLOCKED_PATHS = [".env", "node_modules/.cache", ".git/objects"];
 const BLOCKED_COMMANDS = ["rm -rf /", "mkfs", "dd if=", ":(){ :|:& };:", "shutdown", "reboot", "halt", "poweroff"];
-const DANGEROUS_SQL = /^\s*(DROP\s+(DATABASE|SCHEMA)|TRUNCATE\s+ALL|DELETE\s+FROM\s+\w+\s*;?\s*$)/i;
 
 let genAI = null;
 try {
@@ -43,11 +43,6 @@ function validateCommand(command) {
         throw new Error("Suspicious command pattern blocked");
     }
     return command;
-}
-
-function validateSQL(query) {
-    if (DANGEROUS_SQL.test(query)) throw new Error("Destructive SQL blocked");
-    return query;
 }
 
 const toolDefs = [
@@ -195,7 +190,9 @@ async function executeTool(name, toolInput) {
             return results.length > 0 ? results.join("\n") : "No matches found";
         }
         // nosemgrep: javascript.lang.security.audit.sqli.node-postgres-sqli
-        // MCP tool: authenticated admin debug tool, dangerous SQL blocked by validateSQL()
+        // MCP tool: authenticated admin debug tool. Raw SQL is disabled unless
+        // MCP_ENABLE_RAW_SQL=true and is then restricted to a single read-only
+        // SELECT by the shared validateSQL() allowlist in ./sql-guard.js.
         case "query_database": {
             const dbUrl = process.env.DATABASE_URL;
             if (!dbUrl) return "DATABASE_URL not configured";

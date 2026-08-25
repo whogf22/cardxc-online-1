@@ -1,22 +1,35 @@
 /**
  * @vitest-environment node
  *
- * SEC-4 — MCP hardening, verified against the shipped source of
- * `mcp-server/http-server.js` (the file is an ESM entrypoint that connects to a
- * DB and binds a port on import, so we assert on its source rather than
- * executing it).
+ * SEC-4 / HIGH-5 — MCP hardening.
+ *
+ * The credential and bind guarantees are verified against the shipped source of
+ * `mcp-server/http-server.js` (an ESM entrypoint that connects to a DB and binds
+ * a port on import, so it is asserted on as text, not executed).
+ *
+ * The SQL guard now lives in a single shared module, `mcp-server/sql-guard.js`,
+ * which is pure (no import side effects) and is therefore imported and executed
+ * directly here — the behavioural table runs against the real shipped code, and
+ * separate source assertions pin that BOTH the stdio server (`index.js`) and the
+ * HTTP server (`http-server.js`) route through it, so the two entrypoints cannot
+ * silently diverge.
  *
  * Guarantees pinned here:
  *  - no hardcoded fallback credentials (secret or API key) anywhere;
  *  - the server refuses to start without them;
  *  - it binds loopback by default;
- *  - raw SQL is disabled by default and, when enabled, is read-only SELECT only.
+ *  - raw SQL is disabled by default and, when enabled, is read-only SELECT only;
+ *  - the stdio server no longer uses the old DROP/TRUNCATE blocklist.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { validateSQL, isRawSqlEnabled } from '../../../mcp-server/sql-guard.js';
 
-const SRC = readFileSync(join(__dirname, '..', '..', '..', 'mcp-server', 'http-server.js'), 'utf8');
+const MCP_DIR = join(__dirname, '..', '..', '..', 'mcp-server');
+const SRC = readFileSync(join(MCP_DIR, 'http-server.js'), 'utf8');
+const STDIO_SRC = readFileSync(join(MCP_DIR, 'index.js'), 'utf8');
+const GUARD_SRC = readFileSync(join(MCP_DIR, 'sql-guard.js'), 'utf8');
 
 describe('SEC-4: no fallback credentials', () => {
   it('has no hardcoded development signing secret', () => {
@@ -32,10 +45,7 @@ describe('SEC-4: no fallback credentials', () => {
     // calls at module scope — so a missing secret still aborts startup. See
     // mcpAuth.test.ts for the behavioural coverage of that function.
     expect(SRC).toContain('const JWT_SECRET = resolveMcpSecret(process.env)');
-    const AUTH_SRC = readFileSync(
-      join(__dirname, '..', '..', '..', 'mcp-server', 'mcp-auth.js'),
-      'utf8',
-    );
+    const AUTH_SRC = readFileSync(join(MCP_DIR, 'mcp-auth.js'), 'utf8');
     expect(AUTH_SRC).toMatch(/if \(!secret\)\s*\{[\s\S]*?throw new Error\(/);
   });
 
@@ -58,40 +68,44 @@ describe('SEC-4: not publicly exposed by default', () => {
   });
 });
 
-/**
- * Behavioural check of the SQL guard. The predicate below mirrors the shipped
- * `validateSQL`; the test above pins that the real file contains this same
- * allowlist logic, so the two cannot silently diverge.
- */
-function makeValidateSQL(rawSqlEnabled: boolean) {
-  const WRITE_SQL = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE|COPY|VACUUM|REINDEX|CALL|DO|SET|MERGE)\b/i;
-  return (query: string) => {
-    if (!rawSqlEnabled) throw new Error('Raw SQL execution is disabled.');
-    const text = String(query ?? '').trim();
-    if (!text) throw new Error('Empty SQL query');
-    const stripped = text.replace(/--[^\n]*/g, ' ').replace(/\/\*[\s\S]*?\*\//g, ' ').trim();
-    const withoutTrailing = stripped.replace(/;\s*$/, '');
-    if (withoutTrailing.includes(';')) throw new Error('Only a single statement is allowed');
-    if (!/^(SELECT|WITH)\b/i.test(withoutTrailing)) throw new Error('Only read-only SELECT queries are allowed');
-    if (WRITE_SQL.test(withoutTrailing)) throw new Error('Only read-only SELECT queries are allowed');
-    return query;
-  };
-}
-
-describe('SEC-4: raw SQL is constrained', () => {
-  it('is disabled by default (MCP_ENABLE_RAW_SQL unset)', () => {
-    expect(SRC).toContain('process.env.MCP_ENABLE_RAW_SQL === "true"');
-    const validate = makeValidateSQL(false);
-    expect(() => validate('SELECT 1')).toThrow(/disabled/i);
+describe('HIGH-5: a single shared SQL guard, used by both MCP entrypoints', () => {
+  it('the shared guard is the source of the enable gate and the allowlist message', () => {
+    // The gate keys off MCP_ENABLE_RAW_SQL === "true" (read from an injectable
+    // env that defaults to process.env), and the read-only allowlist message
+    // lives here in the one shared module.
+    expect(GUARD_SRC).toContain('MCP_ENABLE_RAW_SQL === "true"');
+    expect(GUARD_SRC).toContain('process.env');
+    expect(GUARD_SRC).toMatch(/Only read-only SELECT queries are allowed/);
   });
 
-  it('the shipped guard is an allowlist, not the old DROP/TRUNCATE blocklist', () => {
-    expect(SRC).not.toContain('const DANGEROUS_SQL');
-    expect(SRC).toMatch(/Only read-only SELECT queries are allowed/);
+  it('the stdio server imports the shared guard and calls it for query_database', () => {
+    expect(STDIO_SRC).toContain('from "./sql-guard.js"');
+    expect(STDIO_SRC).toMatch(/validateSQL\(toolInput\.query\)/);
+  });
+
+  it('the HTTP server imports the shared guard rather than defining its own', () => {
+    expect(SRC).toContain('from "./sql-guard.js"');
+    expect(SRC).not.toMatch(/function validateSQL/);
+    expect(SRC).not.toContain('const WRITE_SQL');
+  });
+
+  it('the stdio server no longer uses the old DROP/TRUNCATE blocklist', () => {
+    expect(STDIO_SRC).not.toContain('const DANGEROUS_SQL');
+    expect(STDIO_SRC).not.toContain('Destructive SQL blocked');
+  });
+});
+
+describe('SEC-4: raw SQL is constrained (real shared guard)', () => {
+  it('is disabled by default (MCP_ENABLE_RAW_SQL unset)', () => {
+    expect(isRawSqlEnabled({})).toBe(false);
+    expect(isRawSqlEnabled({ MCP_ENABLE_RAW_SQL: 'false' })).toBe(false);
+    expect(isRawSqlEnabled({ MCP_ENABLE_RAW_SQL: 'true' })).toBe(true);
+    // With the gate off, even a benign SELECT is refused.
+    expect(() => validateSQL('SELECT 1', { rawSqlEnabled: false })).toThrow(/disabled/i);
   });
 
   describe('when explicitly enabled', () => {
-    const validate = makeValidateSQL(true);
+    const validate = (q: string) => validateSQL(q, { rawSqlEnabled: true });
 
     it.each([
       ['SELECT id FROM users LIMIT 1'],

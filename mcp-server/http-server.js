@@ -9,15 +9,16 @@ import { resolveMcpSecret, signMcpToken, verifyMcpToken } from "./mcp-auth.js";
 import { Server } from "@modelcontextprotocol/sdk/server";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { validateSQL, isRawSqlEnabled } from "./sql-guard.js";
 
 const PROJECT_ROOT = path.resolve(".");
 const BLOCKED_PATHS = [".env", "node_modules/.cache", ".git/objects"];
 const BLOCKED_COMMANDS = ["rm -rf /", "mkfs", "dd if=", ":(){ :|:& };:", "shutdown", "reboot", "halt", "poweroff", "wget", "chmod", "chown", "pkill", "kill", "printenv"];
-// SEC-4: raw SQL over the MCP surface is OFF unless explicitly enabled, and when
-// enabled it is restricted to a SINGLE read-only SELECT/WITH statement. A
-// blocklist is not sufficient — anything not provably read-only is rejected.
-const RAW_SQL_ENABLED = process.env.MCP_ENABLE_RAW_SQL === "true";
-const WRITE_SQL = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE|COPY|VACUUM|REINDEX|CALL|DO|SET|MERGE)\b/i;
+// SEC-4 / HIGH-5: raw SQL over the MCP surface is OFF unless explicitly enabled,
+// and when enabled is restricted to a SINGLE read-only SELECT/WITH statement.
+// The guard is shared with the stdio server via ./sql-guard.js so the two
+// entrypoints cannot diverge; a blocklist is not sufficient — anything not
+// provably read-only is rejected.
 
 const app = express();
 app.use(cors({
@@ -124,35 +125,14 @@ function validateCommand(command) {
 }
 
 /**
- * SEC-4 — allowlist-based SQL guard (fail closed).
+ * SEC-4 / HIGH-5 — raw SQL guard.
  *
- * Raw SQL is disabled unless MCP_ENABLE_RAW_SQL=true. When enabled, only a
- * SINGLE read-only statement (SELECT, or WITH ... SELECT) is permitted: no
- * multiple statements, no writes, no DDL/DCL, no comment-smuggled payloads.
+ * validateSQL and isRawSqlEnabled are imported from ./sql-guard.js, the single
+ * allowlist shared with the stdio MCP server. Raw SQL is disabled unless
+ * MCP_ENABLE_RAW_SQL=true; when enabled, only a single read-only SELECT/WITH
+ * statement is permitted (no multiple statements, no writes, no DDL/DCL, no
+ * comment-smuggled payloads).
  */
-function validateSQL(query) {
-    if (!RAW_SQL_ENABLED) {
-        throw new Error("Raw SQL execution is disabled. Set MCP_ENABLE_RAW_SQL=true to enable read-only SELECT queries.");
-    }
-    const text = String(query ?? "").trim();
-    if (!text) {
-        throw new Error("Empty SQL query");
-    }
-    // Strip comments so they cannot hide a second statement or a write.
-    const stripped = text.replace(/--[^\n]*/g, " ").replace(/\/\*[\s\S]*?\*\//g, " ").trim();
-    // Reject multiple statements (a trailing single semicolon is tolerated).
-    const withoutTrailing = stripped.replace(/;\s*$/, "");
-    if (withoutTrailing.includes(";")) {
-        throw new Error("Only a single statement is allowed");
-    }
-    if (!/^(SELECT|WITH)\b/i.test(withoutTrailing)) {
-        throw new Error("Only read-only SELECT queries are allowed");
-    }
-    if (WRITE_SQL.test(withoutTrailing)) {
-        throw new Error("Only read-only SELECT queries are allowed (write/DDL keyword detected)");
-    }
-    return query;
-}
 
 const authenticateToken = (req, res, next) => {
     const clientKey = req.ip || req.connection.remoteAddress || "unknown";
@@ -503,7 +483,9 @@ const executeToolInternal = async (tool, toolInput) => {
 
         // nosemgrep: javascript.lang.security.audit.sqli.node-postgres-sqli
         // MCP tool: query_database accepts SQL from authenticated MCP clients (JWT-protected).
-        // Dangerous SQL is blocked by validateSQL(). This is an intentional admin debug tool.
+        // Raw SQL is disabled by default and, when enabled, restricted to a
+        // single read-only SELECT by the shared validateSQL() allowlist. This
+        // is an intentional, JWT-authenticated admin debug tool.
         case "query_database": {
             const databaseUrl = process.env.DATABASE_URL;
             if (!databaseUrl) return "Database not configured. DATABASE_URL is missing.";
@@ -1005,7 +987,7 @@ const BIND_HOST = process.env.MCP_BIND_HOST || "127.0.0.1";
     app.listen(PORT, BIND_HOST, () => {
         console.log("MCP HTTP Server running on " + BIND_HOST + ":" + PORT);
         console.log("Features: JWT Auth, API Key Auth, Gemini AI, Database, File Ops, Rate Limiting");
-        console.log("Raw SQL: " + (RAW_SQL_ENABLED ? "ENABLED (read-only SELECT)" : "disabled"));
+        console.log("Raw SQL: " + (isRawSqlEnabled() ? "ENABLED (read-only SELECT)" : "disabled"));
         console.log("Tools: " + tools.length + " available");
         console.log("Cursor MCP: use URL http://localhost:" + PORT + "/mcp (Streamable HTTP)");
         if (BIND_HOST !== "127.0.0.1" && BIND_HOST !== "localhost") {
