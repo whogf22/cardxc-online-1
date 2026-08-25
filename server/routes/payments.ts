@@ -83,9 +83,11 @@ router.post('/p2p/transfer',
 
       // Guarded debit: only succeeds if the sender still has enough available
       // balance. Prevents concurrent transfers from overdrawing the wallet.
+      // COALESCE the reserve so a NULL reserved_cents does not make the
+      // predicate NULL and wrongly block a fully-funded transfer.
       const debit = await client.query(`
         UPDATE wallets SET balance_cents = balance_cents - $1, updated_at = NOW()
-        WHERE user_id = $2 AND currency = $3 AND balance_cents - reserved_cents >= $1
+        WHERE user_id = $2 AND currency = $3 AND balance_cents - COALESCE(reserved_cents, 0) >= $1
       `, [amountCents, req.user!.id, currency]);
 
       if (debit.rowCount === 0) {

@@ -306,7 +306,7 @@ router.post('/withdraw',
         }
       } else {
         const reserve = await client.query(`
-          UPDATE wallets SET reserved_cents = reserved_cents + $1 WHERE user_id = $2 AND currency = $3 AND balance_cents - reserved_cents >= $1
+          UPDATE wallets SET reserved_cents = COALESCE(reserved_cents, 0) + $1 WHERE user_id = $2 AND currency = $3 AND balance_cents - COALESCE(reserved_cents, 0) >= $1
         `, [amountCents, req.user!.id, currency]);
         if (reserve.rowCount === 0) {
           throw new AppError('Insufficient balance', 400, 'INSUFFICIENT_BALANCE');
