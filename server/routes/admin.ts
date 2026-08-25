@@ -595,14 +595,30 @@ router.post('/adjustments',
         `, [userId, req.user!.id, type, amountCents, currency, reason]);
 
         const adjustmentId = result.rows[0].id;
-        const balanceChange = type === 'credit' ? amountCents : -amountCents;
 
-        await client.query(`
-          INSERT INTO wallets (user_id, currency, balance_cents)
-          VALUES ($1, $2, $3)
-          ON CONFLICT (user_id, currency) 
-          DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
-        `, [userId, currency, balanceChange]);
+        if (type === 'credit') {
+          await client.query(`
+            INSERT INTO wallets (user_id, currency, balance_cents)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (user_id, currency)
+            DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
+          `, [userId, currency, amountCents]);
+        } else {
+          // A debit may only ever reduce an existing, sufficient balance. The
+          // guarded predicate makes an over-debit match 0 rows (and a missing
+          // wallet match 0 rows), so it can never drive a balance negative or
+          // seed a new wallet at a negative balance. A 0-row result aborts the
+          // whole transaction, rolling back the APPROVED adjustment and ledger
+          // insert with it.
+          const debit = await client.query(`
+            UPDATE wallets
+            SET balance_cents = balance_cents - $1, updated_at = NOW()
+            WHERE user_id = $2 AND currency = $3 AND balance_cents >= $1
+          `, [amountCents, userId, currency]);
+          if (debit.rowCount !== 1) {
+            throw new AppError('Insufficient balance for this debit adjustment', 400, 'INSUFFICIENT_BALANCE');
+          }
+        }
 
         await client.query(`
           INSERT INTO transactions (user_id, type, status, amount_cents, currency, reference, description)
@@ -675,14 +691,26 @@ router.post('/adjustments/:adjustmentId/approve',
         WHERE id = $2
       `, [req.user!.id, adjustmentId]);
 
-      const balanceChange = adjustment.type === 'credit' ? adjustment.amount_cents : -adjustment.amount_cents;
-
-      await client.query(`
-        INSERT INTO wallets (user_id, currency, balance_cents)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (user_id, currency) 
-        DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
-      `, [adjustment.user_id, adjustment.currency, balanceChange]);
+      if (adjustment.type === 'credit') {
+        await client.query(`
+          INSERT INTO wallets (user_id, currency, balance_cents)
+          VALUES ($1, $2, $3)
+          ON CONFLICT (user_id, currency)
+          DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
+        `, [adjustment.user_id, adjustment.currency, adjustment.amount_cents]);
+      } else {
+        // Guarded debit: only reduces an existing, sufficient balance. A 0-row
+        // result aborts the transaction so the adjustment stays PENDING and no
+        // negative balance is written.
+        const debit = await client.query(`
+          UPDATE wallets
+          SET balance_cents = balance_cents - $1, updated_at = NOW()
+          WHERE user_id = $2 AND currency = $3 AND balance_cents >= $1
+        `, [adjustment.amount_cents, adjustment.user_id, adjustment.currency]);
+        if (debit.rowCount !== 1) {
+          throw new AppError('Insufficient balance for this debit adjustment', 400, 'INSUFFICIENT_BALANCE');
+        }
+      }
 
       await client.query(`
         INSERT INTO transactions (user_id, type, status, amount_cents, currency, reference, description)
