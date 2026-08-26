@@ -55,6 +55,10 @@ router.post('/vaults',
 
 router.post('/vaults/:id/deposit',
   sensitiveOpLimiter,
+  // PHASE 6: validate the path id before it reaches a uuid column. Without this
+  // a malformed value made Postgres raise 22P02, which surfaced as a 500 and
+  // leaked the driver message (including the rejected value) into the response.
+  param('id').isUUID().withMessage('Invalid vault id'),
   body('amount').isFloat({ min: 0.01 }),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const errors = validationResult(req);
@@ -97,10 +101,20 @@ router.post('/vaults/:id/deposit',
         throw new AppError('Insufficient balance', 400, 'INSUFFICIENT_BALANCE');
       }
 
-      await client.query(`
+      // PHASE 6: ownership is enforced HERE, in the SQL predicate, not only by
+      // the out-of-transaction pre-read above — the same JS-vs-SQL ownership
+      // pattern already fixed on the withdraw and delete paths. A 0-row result
+      // means the vault is not ours (or vanished), which must abort the whole
+      // transaction so the wallet debit above is rolled back rather than the
+      // money disappearing.
+      const credit = await client.query(`
         UPDATE savings_vaults SET balance_cents = balance_cents + $1, updated_at = NOW()
-        WHERE id = $2
-      `, [amountCents, id]);
+        WHERE id = $2 AND user_id = $3
+      `, [amountCents, id, req.user!.id]);
+
+      if (credit.rowCount !== 1) {
+        throw new AppError('Vault not found', 404, 'NOT_FOUND');
+      }
 
       await client.query(`
         INSERT INTO transactions (user_id, type, status, amount_cents, currency, description, metadata)

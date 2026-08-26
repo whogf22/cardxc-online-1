@@ -58,7 +58,10 @@ afterEach(() => {
 });
 
 describe('POST /api/savings/vaults/:id/deposit atomic debit', () => {
-  const vaultId = '11111111-1111-1111-1111-111111111111';
+  // Must be a real RFC-4122 UUID: the deposit route now validates the path id
+  // with isUUID(), and validator.js requires a valid version nibble ([1-8]) and
+  // variant ([89ab]). The previous literal had version '1' and variant '1'.
+  const vaultId = '11111111-1111-4111-8111-111111111111';
 
   beforeEach(() => {
     mockQueryOne.mockImplementation(async (sql: string) => {
