@@ -153,8 +153,7 @@ export async function initializeDatabase() {
     // NEW-1: record WHICH wallet column funded the withdrawal. Without this the
     // admin resolvers cannot tell a fiat withdrawal (which reserves
     // reserved_cents) from a USDT one (which debits usdt_balance_cents outright),
-    // so they mutated the wrong asset. 'fiat' is the safe default because every
-    // pre-existing bank row reserved fiat.
+    // so they mutated the wrong asset.
     await client.query(`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS asset_type VARCHAR(10) DEFAULT 'fiat'`);
     await client.query(`
       ALTER TABLE withdrawal_requests DROP CONSTRAINT IF EXISTS withdrawal_requests_asset_type_check;
@@ -166,6 +165,35 @@ export async function initializeDatabase() {
     await client.query(`
       UPDATE withdrawal_requests SET asset_type = 'usdt'
       WHERE withdrawal_type = 'crypto' AND asset_type IS DISTINCT FROM 'usdt'
+    `);
+    // MIGRATION COVERAGE GAP (independently confirmed, flagged rather than
+    // guessed). A BANK withdrawal could also be USDT-funded before this column
+    // existed: the pre-change bank path with walletType='usdt' debited
+    // usdt_balance_cents and inserted withdrawal_type='bank', status='pending'.
+    // Those rows are indistinguishable from genuine fiat bank rows using the
+    // schema alone — the funding wallet was never persisted — so the back-fill
+    // above CANNOT classify them and they inherit the 'fiat' default.
+    //
+    // Consequence for an unresolved one: /approve and /reject both require a fiat
+    // reserve that was never taken, so they correctly refuse (INSUFFICIENT_BALANCE
+    // / RESERVE_MISMATCH) and the row cannot be resolved; and if the same user
+    // holds another pending fiat withdrawal whose reserve covers this amount,
+    // /approve could settle THIS row against THAT reserve.
+    //
+    // We deliberately do NOT guess a classification and do NOT change any status
+    // or balance. Instead every at-risk legacy row is FLAGGED in admin_notes for
+    // human triage. Idempotent, non-destructive, and reversible.
+    await client.query(`
+      UPDATE withdrawal_requests
+      SET admin_notes = COALESCE(admin_notes || ' | ', '') || 'LEGACY_ASSET_TYPE_UNVERIFIED: created before asset_type existed; confirm whether this was funded from the fiat or USDT balance before resolving'
+      WHERE withdrawal_type = 'bank'
+        AND status = 'pending'
+        AND asset_type = 'fiat'
+        AND (admin_notes IS NULL OR admin_notes NOT LIKE '%LEGACY_ASSET_TYPE_UNVERIFIED%')
+        AND created_at < (
+          SELECT COALESCE(MIN(created_at), NOW())
+          FROM withdrawal_requests WHERE asset_type = 'usdt'
+        )
     `);
     // NEW-1: 'held' is the explicit lifecycle state for a withdrawal whose funds
     // have ALREADY been debited and which is awaiting an operator decision
