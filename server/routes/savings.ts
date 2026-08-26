@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { body, validationResult } from 'express-validator';
+import { body, param, validationResult } from 'express-validator';
 import { query, queryOne, transaction } from '../db/pool';
 import { AppError, asyncHandler } from '../middleware/errorHandler';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
@@ -118,6 +118,10 @@ router.post('/vaults/:id/deposit',
 
 router.post('/vaults/:id/withdraw',
   sensitiveOpLimiter,
+  // LOW: validate the path id. Without this a malformed value reached a uuid
+  // column and Postgres raised 22P02, surfacing as a 500 (and potentially leaking
+  // a PG message) instead of a clean 400.
+  param('id').isUUID().withMessage('Invalid vault id'),
   body('amount').isFloat({ min: 0.01 }),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const errors = validationResult(req);
@@ -143,26 +147,34 @@ router.post('/vaults/:id/withdraw',
     await transaction(async (client) => {
       // Atomic, guarded debit against the vault balance. Prevents a race where
       // two concurrent withdrawals both pass the pre-check and overdraw the vault.
+      //
+      // LOW: ownership is enforced HERE, in the SQL predicate, not only by the
+      // JS pre-read above. That is the same JS-vs-SQL ownership pattern
+      // CRITICAL-1 was filed for. RETURNING currency means the credit below is
+      // sized from the row actually debited rather than the stale pre-read.
       const debit = await client.query(`
         UPDATE savings_vaults SET balance_cents = balance_cents - $1, updated_at = NOW()
-        WHERE id = $2 AND balance_cents >= $1
-      `, [amountCents, id]);
+        WHERE id = $2 AND user_id = $3 AND balance_cents >= $1
+        RETURNING currency
+      `, [amountCents, id, req.user!.id]);
 
       if (debit.rowCount === 0) {
         throw new AppError('Insufficient vault balance', 400, 'INSUFFICIENT_BALANCE');
       }
 
+      const debitedCurrency = debit.rows[0].currency;
+
       await client.query(`
         INSERT INTO wallets (user_id, currency, balance_cents)
         VALUES ($1, $2, $3)
-        ON CONFLICT (user_id, currency) 
+        ON CONFLICT (user_id, currency)
         DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
-      `, [req.user!.id, vault.currency, amountCents]);
+      `, [req.user!.id, debitedCurrency, amountCents]);
 
       await client.query(`
         INSERT INTO transactions (user_id, type, status, amount_cents, currency, description, metadata)
         VALUES ($1, 'transfer_in', 'SUCCESS', $2, $3, 'Savings vault withdrawal', $4)
-      `, [req.user!.id, amountCents, vault.currency, JSON.stringify({ vaultId: id })]);
+      `, [req.user!.id, amountCents, debitedCurrency, JSON.stringify({ vaultId: id })]);
     });
 
     const updated = await queryOne(`
@@ -173,7 +185,15 @@ router.post('/vaults/:id/withdraw',
   })
 );
 
-router.delete('/vaults/:id', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+router.delete('/vaults/:id',
+  // LOW: validate the path id before it reaches a uuid column, so a malformed
+  // value returns 400 instead of a Postgres 22P02 surfacing as a 500.
+  param('id').isUUID().withMessage('Invalid vault id'),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    throw new AppError(errors.array()[0].msg, 400, 'VALIDATION_ERROR');
+  }
   const id = req.params.id as string;
   const userId = req.user!.id;
 

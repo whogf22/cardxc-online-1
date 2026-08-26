@@ -21,6 +21,7 @@ import {
 } from '../services/stripeService';
 import { logger } from '../middleware/logger';
 import { isDepositIdempotencyViolation } from '../lib/pgErrors';
+import { resolveUsdtRate, usdtCentsForFiatCents } from '../lib/usdtRate';
 import {
   isStablecoinFulfillmentEnabled,
   isUnconfirmedDepositBypassAllowed,
@@ -32,7 +33,6 @@ router.use(authenticate);
 
 const OTP_EXPIRY_MINUTES = 10;
 const MAX_OTP_ATTEMPTS = 5;
-const USDT_RATE = parseFloat(process.env.USDT_RATE || '1.0');
 
 function generateOtp(): string {
   return crypto.randomInt(100000, 1000000).toString();
@@ -350,15 +350,28 @@ router.post(
         // Stablecoin (USDT) fulfillment is fail-closed: a card deposit credits
         // only the fiat balance unless stablecoin fulfillment is explicitly
         // enabled via ENABLE_STABLECOIN_FULFILLMENT.
+        //
+        // LOW: the rate is a DIVISOR and was used unvalidated. USDT_RATE=0 gave
+        // Infinity, non-numeric gave NaN, and USDT_RATE=0.5 silently DOUBLED the
+        // credit with no error. A rate we cannot trust means we skip the credit.
         if (isStablecoinFulfillmentEnabled()) {
-          const usdtAmountCents = Math.round(claimed.amount_cents / USDT_RATE);
-          await client.query(
-            `INSERT INTO wallets (user_id, currency, balance_cents, usdt_balance_cents)
+          const rate = resolveUsdtRate();
+          const usdtAmountCents = rate === null
+            ? null
+            : usdtCentsForFiatCents(claimed.amount_cents, rate);
+          if (usdtAmountCents === null) {
+            logger.error('stablecoin_fulfillment_skipped_invalid_rate', {
+              orderId, configured: process.env.USDT_RATE, amountCents: claimed.amount_cents,
+            });
+          } else {
+            await client.query(
+              `INSERT INTO wallets (user_id, currency, balance_cents, usdt_balance_cents)
              VALUES ($1, 'USD', 0, $2)
              ON CONFLICT (user_id, currency)
              DO UPDATE SET usdt_balance_cents = COALESCE(wallets.usdt_balance_cents, 0) + $2, updated_at = NOW()`,
-            [userId, usdtAmountCents]
-          );
+              [userId, usdtAmountCents]
+            );
+          }
         } else {
           logger.info('stablecoin_fulfillment_skipped', { orderId, context: 'deposit_otp' });
         }

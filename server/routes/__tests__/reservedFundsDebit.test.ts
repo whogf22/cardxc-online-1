@@ -139,7 +139,12 @@ describe('FIN-3: documented exceptions (reserve semantics must NOT be applied bl
   it('savings_vaults uses its own balance (no reserve concept on that table)', () => {
     const src = read('server/routes/savings.ts').replace(/\s+/g, ' ');
     expect(src).toContain('UPDATE savings_vaults SET balance_cents = balance_cents - $1');
-    expect(src).toContain('WHERE id = $2 AND balance_cents >= $1');
+    // The vault has no reserved_cents column, so the floor is its own balance.
+    // The predicate additionally scopes by user_id (ownership enforced in SQL,
+    // not only by the JS pre-read) — a LOW hardening applied after this test was
+    // written. The invariant asserted here is unchanged: no reserve subtraction.
+    expect(src).toContain('WHERE id = $2 AND user_id = $3 AND balance_cents >= $1');
+    expect(src).not.toContain('balance_cents - COALESCE(reserved_cents, 0) >= $1 RETURNING currency');
   });
 });
 

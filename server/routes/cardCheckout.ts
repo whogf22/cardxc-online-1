@@ -15,8 +15,8 @@ import {
   type FluzCreateOrderPayload,
 } from '../services/fluzClient';
 import { getCardProducts, getProviderProductId, validateCardAmount, calculateCardCheckoutCost } from '../services/cardProductService';
-import { sendCryptoToWallet, isCryptoProviderConfigured } from '../services/cryptoProviderService';
 import { isDepositIdempotencyViolation } from '../lib/pgErrors';
+import { resolveUsdtRate, usdtCentsForFiatCents } from '../lib/usdtRate';
 import {
   createCheckoutSession,
   getCheckoutSession,
@@ -40,7 +40,6 @@ const webhookRouter = Router();
 const adminRouter = Router();
 
 const PROVIDER_WEBHOOK_SECRET = process.env.FLUZ_WEBHOOK_SECRET;
-const USDT_RATE = parseFloat(process.env.USDT_RATE || '1.0');
 
 /**
  * Credit stablecoin (USDT) for a completed card-funded deposit — ONLY when
@@ -59,7 +58,25 @@ async function creditStablecoinIfEnabled(
     logger.info('stablecoin_fulfillment_skipped', { orderId: order.id, context });
     return;
   }
-  const usdtAmountCents = Math.round(order.amount_cents / USDT_RATE);
+  // LOW: the rate is a DIVISOR and was previously used unvalidated
+  // (parseFloat(env || '1.0')). USDT_RATE=0 gave Infinity, non-numeric gave NaN,
+  // and — worst because it raises no error at all — USDT_RATE=0.5 silently
+  // DOUBLED every credit. A rate we cannot trust means we skip the credit rather
+  // than guess, so a misconfiguration can never mint value.
+  const rate = resolveUsdtRate();
+  if (rate === null) {
+    logger.error('stablecoin_fulfillment_skipped_invalid_rate', {
+      orderId: order.id, context, configured: process.env.USDT_RATE,
+    });
+    return;
+  }
+  const usdtAmountCents = usdtCentsForFiatCents(order.amount_cents, rate);
+  if (usdtAmountCents === null) {
+    logger.error('stablecoin_fulfillment_skipped_unconvertible_amount', {
+      orderId: order.id, context, amountCents: order.amount_cents, rate,
+    });
+    return;
+  }
   await client.query(`
     INSERT INTO wallets (user_id, currency, balance_cents, usdt_balance_cents)
     VALUES ($1, 'USD', 0, $2)
@@ -70,7 +87,7 @@ async function creditStablecoinIfEnabled(
     INSERT INTO crypto_ledger_entries (user_id, source_order_id, source_transaction_id, crypto_type, amount_cents, exchange_rate, usd_equivalent_cents, description)
     VALUES ($1, $2, $3, 'USDT', $4, $5, $6, $7)
     ON CONFLICT (source_order_id, user_id) DO NOTHING
-  `, [creditUserId, order.id, transactionId, usdtAmountCents, USDT_RATE, order.amount_cents, `USDT fulfillment for card deposit (${context})`]);
+  `, [creditUserId, order.id, transactionId, usdtAmountCents, rate, order.amount_cents, `USDT fulfillment for card deposit (${context})`]);
 }
 
 // Get available card products
@@ -357,6 +374,10 @@ webhookRouter.post('/payment',
     const status = payload.status;
     if (event === 'payment.completed' || status === 'completed') {
       let fulfilled = false;
+      // LOW: the audit record and completion log must report the amount that
+      // actually sized the credit (the claimed row), not the stale pre-read.
+      let creditedAmountCents = order.amount_cents;
+      let creditedCurrency = order.currency;
       try {
         const creditUserId = order.target_user_id || order.user_id;
 
@@ -388,6 +409,8 @@ webhookRouter.post('/payment',
 
           // Credit from the row we actually claimed, never the stale pre-read.
           const claimed = claim.rows[0];
+          creditedAmountCents = claimed.amount_cents;
+          creditedCurrency = claimed.currency;
 
           const txResult = await client.query(`
             INSERT INTO transactions (
@@ -455,10 +478,10 @@ webhookRouter.post('/payment',
             action: 'CARD_PAYMENT_COMPLETED',
             entityType: 'card_order',
             entityId: order.id,
-            newValues: { amount: order.amount_cents, currency: order.currency },
+            newValues: { amount: creditedAmountCents, currency: creditedCurrency },
           });
 
-          logger.info('webhook_completed', { orderId: order.id, paymentId, eventType, amountCents: order.amount_cents, currency: order.currency });
+          logger.info('webhook_completed', { orderId: order.id, paymentId, eventType, amountCents: creditedAmountCents, currency: creditedCurrency });
         }
       } catch (error: any) {
         await query(`
@@ -1059,6 +1082,10 @@ webhookRouter.post('/stripe',
 
       const creditUserId = order.target_user_id || order.user_id;
       let fulfilled = false;
+      // LOW: report the amount that actually sized the credit (the claimed row),
+      // not the stale pre-transaction read.
+      let creditedAmountCents = order.amount_cents;
+      let creditedCurrency = order.currency;
 
       try {
         await transaction(async (client) => {
@@ -1088,6 +1115,8 @@ webhookRouter.post('/stripe',
 
           // Credit from the row we actually claimed, not the stale pre-read.
           const claimed = claim.rows[0];
+          creditedAmountCents = claimed.amount_cents;
+          creditedCurrency = claimed.currency;
 
           const txResult = await client.query(`
             INSERT INTO transactions (
@@ -1142,10 +1171,10 @@ webhookRouter.post('/stripe',
             action: 'CARD_PAYMENT_COMPLETED',
             entityType: 'card_order',
             entityId: order.id,
-            newValues: { amount: order.amount_cents, currency: order.currency, source: 'stripe' },
+            newValues: { amount: creditedAmountCents, currency: creditedCurrency, source: 'stripe' },
           });
 
-          logger.info('stripe_webhook_order_completed', { orderId, sessionId: session.id, amountCents: order.amount_cents, currency: order.currency });
+          logger.info('stripe_webhook_order_completed', { orderId, sessionId: session.id, amountCents: creditedAmountCents, currency: creditedCurrency });
         }
       } catch (error: any) {
         logger.error('stripe_webhook_processing_error', { orderId, error: error.message });

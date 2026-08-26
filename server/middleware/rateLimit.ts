@@ -1,8 +1,9 @@
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { Request } from 'express';
+import { isProductionEnv } from '../lib/env';
 import { logSecurityEvent } from './securityLogger';
 
-const isDev = process.env.NODE_ENV !== 'production';
+const isDev = !isProductionEnv();
 const trustProxy = process.env.TRUST_PROXY === 'true' || !!process.env.REPL_ID;
 
 // Store rate limit violations for security monitoring

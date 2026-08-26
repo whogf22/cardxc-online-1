@@ -13,7 +13,14 @@
  *
  * All flags are read at call time (not module load) so behavior is deterministic
  * in tests and can be toggled per-environment without re-importing.
+ *
+ * Production detection goes through isProductionEnv(), which normalises casing
+ * and whitespace. A literal `NODE_ENV === 'production'` comparison meant a
+ * deployment set to `NODE_ENV=PRODUCTION` was treated as non-production and both
+ * production-only protections below failed OPEN.
  */
+
+import { isProductionEnv } from '../lib/env';
 
 /**
  * Whether stablecoin/crypto (USDT) fulfillment from card-funded deposits is
@@ -29,7 +36,7 @@ export function isStablecoinFulfillmentEnabled(): boolean {
  * `REQUIRE_KYC_FOR_CARD_CHECKOUT=true`.
  */
 export function isKycRequiredForCardCheckout(): boolean {
-  if (process.env.NODE_ENV === 'production') {
+  if (isProductionEnv()) {
     return true;
   }
   return process.env.REQUIRE_KYC_FOR_CARD_CHECKOUT === 'true';
@@ -57,7 +64,7 @@ export function isEmailVerificationRequiredForCardCheckout(): boolean {
  * unpaid wallet. Production always fails closed, whatever the flags say.
  */
 export function isUnconfirmedDepositBypassAllowed(): boolean {
-  if (process.env.NODE_ENV === 'production') {
+  if (isProductionEnv()) {
     return false;
   }
   const optedIn = process.env.ALLOW_UNCONFIRMED_DEPOSITS === 'true';

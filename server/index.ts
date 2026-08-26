@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import { isProductionEnv } from './lib/env';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
@@ -84,7 +85,7 @@ if (process.env.TRUST_PROXY === 'true' || process.env.REPL_ID) {
   app.set('trust proxy', 1);
 }
 
-const isProduction = process.env.NODE_ENV === 'production';
+const isProduction = isProductionEnv();
 const MCP_PORT = parseInt(process.env.MCP_PORT || '8080', 10);
 
 // Port resolution:

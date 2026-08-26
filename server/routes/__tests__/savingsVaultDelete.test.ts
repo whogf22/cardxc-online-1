@@ -54,7 +54,10 @@ afterEach(() => {
   mockTransaction.mockReset();
 });
 
-const vaultId = '22222222-2222-2222-2222-222222222222';
+// Must be a real RFC-4122 UUID: the route now validates the path id with
+// isUUID(), and validator.js requires a valid version nibble ([1-8]) and
+// variant ([89ab]). The previous literal had variant '2' and is not a valid UUID.
+const vaultId = '22222222-2222-4222-8222-222222222222';
 
 describe('DELETE /vaults/:id — atomic claim (no money mint)', () => {
   it('claims via DELETE ... RETURNING scoped by user_id and credits only the claimed balance', async () => {

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { logger } from './logger';
+import { isProductionEnv } from '../lib/env';
 import { isDatabaseConnectionError } from '../db/pool';
 
 export class AppError extends Error {
@@ -36,7 +37,7 @@ export function errorHandler(err: Error | AppError, req: Request, res: Response,
   const statusCode = (err as AppError).statusCode || 500;
   const isOperational = (err as AppError).isOperational || false;
   
-  const isProduction = process.env.NODE_ENV === 'production';
+  const isProduction = isProductionEnv();
   logger.error('Error occurred', {
     message: err.message,
     ...(isProduction ? {} : { stack: err.stack }),

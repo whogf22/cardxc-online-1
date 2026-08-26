@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
+import { isProductionEnv } from '../lib/env';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import { body, validationResult } from 'express-validator';
@@ -126,7 +127,7 @@ router.post('/signup',
 
       res.cookie('auth_token', token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: isProductionEnv(),
         sameSite: 'lax',
         maxAge: SESSION_DURATION_HOURS * 60 * 60 * 1000,
         path: '/',
@@ -252,7 +253,7 @@ router.post('/signin',
 
     res.cookie('auth_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProductionEnv(),
       sameSite: 'lax',
       maxAge: SESSION_DURATION_HOURS * 60 * 60 * 1000,
       path: '/',
@@ -296,7 +297,7 @@ router.post(['/signout', '/logout'], asyncHandler(async (req: Request, res: Resp
   
   res.clearCookie('auth_token', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isProductionEnv(),
     sameSite: 'lax',
     path: '/',
   });
@@ -630,7 +631,7 @@ function sanitizeOAuthError(raw: unknown): string {
 function getGoogleCallbackUrl(req?: Request): string {
   // In production, always use the configured PRODUCTION_DOMAIN. Never derive
   // from the request Host header — it is attacker-controlled.
-  if (process.env.NODE_ENV === 'production') {
+  if (isProductionEnv()) {
     return `https://${PRODUCTION_DOMAIN}/api/auth/google/callback`;
   }
 
@@ -650,7 +651,7 @@ function getGoogleCallbackUrl(req?: Request): string {
 }
 
 function isSecureContext(req?: Request): boolean {
-  if (process.env.NODE_ENV === 'production') return true;
+  if (isProductionEnv()) return true;
   const host = req?.get('host') || '';
   return host.includes('replit.app') || host.includes('replit.dev') || host.includes(PRODUCTION_DOMAIN);
 }
@@ -876,7 +877,7 @@ router.get('/google/callback', asyncHandler(async (req: Request, res: Response) 
 
     res.cookie('auth_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProductionEnv(),
       sameSite: 'lax',
       maxAge: SESSION_DURATION_HOURS * 60 * 60 * 1000,
       path: '/',
@@ -934,7 +935,7 @@ router.post('/request-phone-otp',
 
     // In production, dispatch via an SMS provider. For now we only log in
     // non-production so the code does not appear in real server logs.
-    if (process.env.NODE_ENV !== 'production') {
+    if (!isProductionEnv()) {
       logger.info('phone_otp_generated_dev_only', { userId, phone: phone.substring(0, 3) + '***', code });
     } else {
       logger.info('phone_otp_generated', { userId, phone: phone.substring(0, 3) + '***' });
