@@ -355,13 +355,42 @@ webhookRouter.post('/payment',
     const event = payload.event;
     const status = payload.status;
     if (event === 'payment.completed' || status === 'completed') {
+      let fulfilled = false;
       try {
         const creditUserId = order.target_user_id || order.user_id;
 
         await transaction(async (client) => {
+          // NEW-2: atomically CLAIM the order before any money moves. This path
+          // keys its ledger row on `card_<paymentId>` while the Stripe webhook
+          // uses `stripe_<session>` and OTP verify uses `deposit_otp_<order>` —
+          // three different idempotency_key values for ONE order, so the unique
+          // index on transactions.idempotency_key cannot dedupe them. Since
+          // provider_payment_id IS the Stripe session id, all three resolve to
+          // the same order. The pre-read at the top of this handler is only a
+          // fast path; this conditional UPDATE is the authoritative claim, and
+          // under READ COMMITTED the row lock serializes concurrent claimants so
+          // the loser matches 0 rows and credits nothing.
+          const claim = await client.query(`
+            UPDATE card_orders
+               SET status = 'COMPLETED', updated_at = NOW()
+             WHERE id = $1 AND status = 'PENDING'
+            RETURNING amount_cents, currency
+          `, [order.id]);
+
+          if (claim.rowCount === 0) {
+            logger.info('provider_webhook_fulfillment_claim_lost', { logId, orderId: order.id, paymentId });
+            await client.query(`
+              UPDATE payment_webhook_logs SET processed = TRUE WHERE id = $1
+            `, [logId]);
+            return;
+          }
+
+          // Credit from the row we actually claimed, never the stale pre-read.
+          const claimed = claim.rows[0];
+
           const txResult = await client.query(`
             INSERT INTO transactions (
-              user_id, idempotency_key, type, status, amount_cents, currency, 
+              user_id, idempotency_key, type, status, amount_cents, currency,
               description, merchant_name, merchant_display_name, metadata
             )
             VALUES ($1, $2, 'deposit', 'SUCCESS', $3, $4, $5, $6, $7, $8)
@@ -369,8 +398,8 @@ webhookRouter.post('/payment',
           `, [
             creditUserId,
             `card_${paymentId}`,
-            order.amount_cents,
-            order.currency,
+            claimed.amount_cents,
+            claimed.currency,
             `Card Deposit - ${order.merchant_name}`,
             order.merchant_name,
             null,
@@ -391,37 +420,53 @@ webhookRouter.post('/payment',
           await client.query(`
             INSERT INTO wallets (user_id, currency, balance_cents)
             VALUES ($1, $2, $3)
-            ON CONFLICT (user_id, currency) 
+            ON CONFLICT (user_id, currency)
             DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
-          `, [creditUserId, order.currency, order.amount_cents]);
+          `, [creditUserId, claimed.currency, claimed.amount_cents]);
 
           // Stablecoin (USDT) fulfillment is fail-closed: skipped unless
           // explicitly enabled. A card deposit credits only the fiat balance.
-          await creditStablecoinIfEnabled(client, creditUserId, order, transactionId, 'provider_webhook');
+          // Sized from the claimed row so every credit derives from one amount.
+          await creditStablecoinIfEnabled(
+            client,
+            creditUserId,
+            { ...order, amount_cents: claimed.amount_cents },
+            transactionId,
+            'provider_webhook',
+          );
 
+          // Link the order to its ledger entry (status was set by the claim).
           await client.query(`
-            UPDATE card_orders SET status = 'COMPLETED', transaction_id = $1, updated_at = NOW() WHERE id = $2
+            UPDATE card_orders SET transaction_id = $1, updated_at = NOW() WHERE id = $2
           `, [transactionId, order.id]);
 
           await client.query(`
             UPDATE payment_webhook_logs SET processed = TRUE WHERE id = $1
           `, [logId]);
+
+          fulfilled = true;
         });
 
-        await createAuditLog({
-          userId: creditUserId,
-          action: 'CARD_PAYMENT_COMPLETED',
-          entityType: 'card_order',
-          entityId: order.id,
-          newValues: { amount: order.amount_cents, currency: order.currency },
-        });
+        // Only the caller that actually won the claim reports a completion.
+        if (fulfilled) {
+          await createAuditLog({
+            userId: creditUserId,
+            action: 'CARD_PAYMENT_COMPLETED',
+            entityType: 'card_order',
+            entityId: order.id,
+            newValues: { amount: order.amount_cents, currency: order.currency },
+          });
 
-        logger.info('webhook_completed', { orderId: order.id, paymentId, eventType, amountCents: order.amount_cents, currency: order.currency });
+          logger.info('webhook_completed', { orderId: order.id, paymentId, eventType, amountCents: order.amount_cents, currency: order.currency });
+        }
       } catch (error: any) {
         await query(`
           UPDATE payment_webhook_logs SET error_message = $1, processed = TRUE WHERE id = $2
         `, [error.message, logId]);
 
+        // NEW-9 (applied in a later commit) narrows this to the specific
+        // idempotency constraint; today any duplicate key is treated as a
+        // concurrent fulfillment that already committed.
         if (error.message?.includes('duplicate key')) {
           return res.json({ success: true, message: 'Already processed (idempotent)' });
         }
@@ -587,7 +632,28 @@ adminRouter.post('/webhook-logs/:id/replay',
       return res.json({ success: true, message: 'Replay only supports payment.completed; event was not completed' });
     }
     const creditUserId = order.target_user_id || order.user_id;
+    let replayed = false;
     await transaction(async (client) => {
+      // NEW-2: atomically CLAIM the order first. A replay keys its ledger row on
+      // `card_<paymentId>`, which differs from the Stripe (`stripe_<session>`)
+      // and OTP (`deposit_otp_<order>`) keys for the SAME order, so the unique
+      // index cannot dedupe across paths. Without this claim an operator replay
+      // racing a live webhook credited the wallet twice.
+      const claim = await client.query(`
+        UPDATE card_orders
+           SET status = 'COMPLETED', updated_at = NOW()
+         WHERE id = $1 AND status = 'PENDING'
+        RETURNING amount_cents, currency
+      `, [order.id]);
+
+      if (claim.rowCount === 0) {
+        logger.info('webhook_replay_fulfillment_claim_lost', { logId, orderId: order.id, paymentId });
+        return;
+      }
+
+      // Credit from the claimed row, never the stale pre-read.
+      const claimed = claim.rows[0];
+
       const txResult = await client.query(`
         INSERT INTO transactions (user_id, idempotency_key, type, status, amount_cents, currency, description, merchant_name, merchant_display_name, metadata)
         VALUES ($1, $2, 'deposit', 'SUCCESS', $3, $4, $5, $6, $7, $8)
@@ -595,8 +661,8 @@ adminRouter.post('/webhook-logs/:id/replay',
       `, [
         creditUserId,
         `card_${paymentId}`,
-        order.amount_cents,
-        order.currency,
+        claimed.amount_cents,
+        claimed.currency,
         `Card Deposit - ${order.merchant_name}`,
         order.merchant_name,
         null,
@@ -608,12 +674,20 @@ adminRouter.post('/webhook-logs/:id/replay',
         INSERT INTO wallets (user_id, currency, balance_cents)
         VALUES ($1, $2, $3)
         ON CONFLICT (user_id, currency) DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
-      `, [creditUserId, order.currency, order.amount_cents]);
-      // Fail-closed: stablecoin credit only when explicitly enabled.
-      await creditStablecoinIfEnabled(client, creditUserId, order, transactionId, 'admin_replay');
-      await client.query(`UPDATE card_orders SET status = 'COMPLETED', transaction_id = $1, updated_at = NOW() WHERE id = $2`, [transactionId, order.id]);
+      `, [creditUserId, claimed.currency, claimed.amount_cents]);
+      // Fail-closed: stablecoin credit only when explicitly enabled. Sized from
+      // the claimed row.
+      await creditStablecoinIfEnabled(client, creditUserId, { ...order, amount_cents: claimed.amount_cents }, transactionId, 'admin_replay');
+      // Link the order to its ledger entry (status was set by the claim).
+      await client.query(`UPDATE card_orders SET transaction_id = $1, updated_at = NOW() WHERE id = $2`, [transactionId, order.id]);
       await client.query(`UPDATE payment_webhook_logs SET processed = TRUE, error_message = NULL WHERE id = $1`, [logId]);
+      replayed = true;
     });
+
+    if (!replayed) {
+      return res.json({ success: true, message: 'Already processed (concurrent fulfillment won the claim)' });
+    }
+
     await createAuditLog({
       userId: req.user!.id,
       action: 'WEBHOOK_LOG_REPLAY',
