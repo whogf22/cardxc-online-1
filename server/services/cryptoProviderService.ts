@@ -446,23 +446,42 @@ async function sendViaTronGrid(request: CryptoPayoutRequest): Promise<CryptoPayo
 }
 
 /**
- * Manual payout - Creates request for admin to process manually
+ * No automated payout mechanism is available (provider is 'manual', or a
+ * configured provider is missing the credential it needs to broadcast).
+ *
+ * NEW-7: this used to return `{ success: true, status: 'pending', outcome:
+ * 'not_sent' }` alongside a comment promising "Store in pending_crypto_payouts
+ * table (admin will process)". That table does not exist and there was no
+ * INSERT — nothing was persisted, so no admin could ever process it. The
+ * response therefore reported a queued payout that did not exist, and its
+ * `success: true` contradicted its own `not_sent` outcome.
+ *
+ * It is now honestly fail-closed: failure, with `outcome: 'not_sent'` because we
+ * KNOW nothing was broadcast. The withdrawal service reads the outcome, refunds
+ * the user (safe — no funds left custody and nothing is queued) and rejects the
+ * request, so the caller is never left debited against a payout nobody will make.
+ *
+ * IF a real manual-payout queue is implemented later, it MUST go through the
+ * held-withdrawal lifecycle (`status = 'held'`, `asset_type = 'usdt'`, resolved
+ * by the admin USDT settle/refund endpoints) rather than being bolted on here.
+ * Persisting a queue row while still returning 'not_sent' would let an operator
+ * pay out a withdrawal that this path had already caused to be refunded and
+ * rejected — a double payout.
  */
 async function createManualPayoutRequest(request: CryptoPayoutRequest): Promise<CryptoPayoutResponse> {
-    logger.info('Manual crypto payout request created', {
+    logger.warn('Crypto payout unavailable: no automated provider configured (fail-closed, no payout queued)', {
         userId: request.userId,
         amount: request.amount,
         address: request.walletAddress.substring(0, 6) + '...' + request.walletAddress.substring(request.walletAddress.length - 4),
-        network: request.network
+        network: request.network,
+        provider: CRYPTO_PROVIDER,
     });
 
-    // Store in pending_crypto_payouts table (admin will process)
     return {
-        success: true,
-        payoutId: `manual_${Date.now()}`,
-        status: 'pending',
+        success: false,
+        status: 'failed',
         outcome: 'not_sent',
-        estimatedCompletionTime: 'Pending admin approval'
+        error: 'No automated crypto payout provider is configured; manual payout is not implemented',
     };
 }
 
