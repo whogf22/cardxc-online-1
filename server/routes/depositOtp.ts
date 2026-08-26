@@ -20,6 +20,7 @@ import {
   isStripeConfigured,
 } from '../services/stripeService';
 import { logger } from '../middleware/logger';
+import { isDepositIdempotencyViolation } from '../lib/pgErrors';
 import {
   isStablecoinFulfillmentEnabled,
   isUnconfirmedDepositBypassAllowed,
@@ -371,12 +372,15 @@ router.post(
         credited = true;
       });
     } catch (err: any) {
-      // The transactions unique index is the authoritative claim. If a
+      // The transactions idempotency index is the authoritative claim. If a
       // concurrent fulfillment of the same order committed first, this whole
       // transaction (including the order claim) rolled back — so the deposit is
       // already fulfilled exactly once. Report idempotent success, not a 500.
-      const isDuplicate = err?.code === '23505' || /duplicate key/i.test(err?.message ?? '');
-      if (!isDuplicate) throw err;
+      //
+      // NEW-9: this must inspect WHICH constraint was violated. Matching any
+      // 23505 (or any message containing "duplicate key") reported success for
+      // unrelated integrity failures too, hiding real bugs behind a 200.
+      if (!isDepositIdempotencyViolation(err)) throw err;
 
       logger.warn('deposit_otp_fulfillment_duplicate_race', { userId, orderId, error: err.message });
       const walletRow = await queryOne<{ balance_cents: number }>(

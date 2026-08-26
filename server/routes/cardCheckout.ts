@@ -16,6 +16,7 @@ import {
 } from '../services/fluzClient';
 import { getCardProducts, getProviderProductId, validateCardAmount, calculateCardCheckoutCost } from '../services/cardProductService';
 import { sendCryptoToWallet, isCryptoProviderConfigured } from '../services/cryptoProviderService';
+import { isDepositIdempotencyViolation } from '../lib/pgErrors';
 import {
   createCheckoutSession,
   getCheckoutSession,
@@ -464,10 +465,11 @@ webhookRouter.post('/payment',
           UPDATE payment_webhook_logs SET error_message = $1, processed = TRUE WHERE id = $2
         `, [error.message, logId]);
 
-        // NEW-9 (applied in a later commit) narrows this to the specific
-        // idempotency constraint; today any duplicate key is treated as a
-        // concurrent fulfillment that already committed.
-        if (error.message?.includes('duplicate key')) {
+        // NEW-9: only the transactions-idempotency constraint means "a concurrent
+        // fulfillment of this order already committed". Any OTHER unique
+        // violation is a real integrity failure and must surface as an error
+        // rather than being reported as an already-processed success.
+        if (isDepositIdempotencyViolation(error)) {
           return res.json({ success: true, message: 'Already processed (idempotent)' });
         }
         throw error;
@@ -1147,10 +1149,17 @@ webhookRouter.post('/stripe',
         }
       } catch (error: any) {
         logger.error('stripe_webhook_processing_error', { orderId, error: error.message });
-        // The transactions unique index is the authoritative claim: a duplicate
-        // means a concurrent fulfillment of this order committed first and this
-        // transaction (claim included) rolled back. Acknowledge idempotently.
-        if (error?.code === '23505' || error.message?.includes('duplicate key')) {
+        // The transactions idempotency index is the authoritative claim: a
+        // duplicate there means a concurrent fulfillment of this order committed
+        // first and this transaction (claim included) rolled back. Acknowledge
+        // idempotently.
+        //
+        // NEW-9: this MUST be constraint-specific. Replying `{ received: true }`
+        // permanently ACKs the Stripe event, so Stripe never retries — treating
+        // an UNRELATED unique violation as success would silently lose a paid
+        // deposit whose transaction actually rolled back. Anything else rethrows
+        // so Stripe retries.
+        if (isDepositIdempotencyViolation(error)) {
           return res.json({ received: true });
         }
         throw error;
