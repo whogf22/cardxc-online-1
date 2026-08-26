@@ -1055,12 +1055,25 @@ webhookRouter.post('/stripe',
       const paidAmount = typeof session.amount_total === 'number' ? session.amount_total : null;
       const paidCurrency = typeof session.currency === 'string' ? session.currency.toLowerCase() : null;
       const expectedCurrency = String(order.currency || '').toLowerCase();
+      // card_orders.amount_cents is BIGINT, and node-postgres returns int8 as a
+      // STRING. Comparing a JS number to that string with !== is ALWAYS true
+      // (5000 !== "5000"), which sent every correctly-paid deposit down the
+      // mismatch branch: order marked FAILED, CARD_PAYMENT_MISMATCH audited,
+      // { received: true } permanently ACKing the event, and no wallet credit.
+      // Normalise to a number before comparing. A genuine under- or overpayment
+      // is still rejected.
+      const expectedAmount = Number(order.amount_cents);
 
       if (paymentStatus !== 'paid') {
         logger.warn('stripe_webhook_not_paid', { orderId, sessionId: session.id, paymentStatus });
         return res.json({ received: true });
       }
-      if (paidAmount !== order.amount_cents || paidCurrency !== expectedCurrency) {
+      if (
+        paidAmount === null ||
+        !Number.isFinite(expectedAmount) ||
+        paidAmount !== expectedAmount ||
+        paidCurrency !== expectedCurrency
+      ) {
         logger.error('stripe_webhook_amount_currency_mismatch', {
           orderId,
           sessionId: session.id,

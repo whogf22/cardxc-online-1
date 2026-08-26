@@ -54,14 +54,43 @@ export function resolveUsdtRate(env: NodeJS.ProcessEnv = process.env): number | 
 }
 
 /**
+ * Normalise an amount-in-cents that may arrive as a BIGINT STRING.
+ *
+ * node-postgres maps OID 20 (int8/BIGINT) to `parseBigInteger`, which returns a
+ * string, and this repository installs no `setTypeParser` override — so
+ * `card_orders.amount_cents` and friends reach JavaScript as e.g. "10000".
+ *
+ * `Number.isFinite` does NOT coerce (ES2015: a non-Number argument returns
+ * false), so guarding a DB value with it rejects every real row. Parse
+ * explicitly instead, and stay strict: a digit string only, no exponent form, no
+ * separators, no sign.
+ */
+function normaliseCents(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isSafeInteger(value) && value >= 0 ? value : null;
+  }
+  if (typeof value === 'bigint') {
+    return value >= 0n && value <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(value) : null;
+  }
+  if (typeof value !== 'string') return null;
+  const text = value.trim();
+  if (!/^\d+$/.test(text)) return null;
+  const n = Number(text);
+  return Number.isSafeInteger(n) ? n : null;
+}
+
+/**
  * Convert a fiat amount in cents to a USDT amount in ledger cents at the given
  * validated rate. Fail-safe: returns null when either input is unusable, so the
  * caller skips the credit instead of writing a NaN/Infinity/negative value.
+ *
+ * Accepts the BIGINT string form as well as a number — see normaliseCents.
  */
 export function usdtCentsForFiatCents(fiatCents: number, rate: number): number | null {
-  if (!Number.isFinite(fiatCents) || fiatCents < 0) return null;
+  const cents = normaliseCents(fiatCents);
+  if (cents === null) return null;
   if (!Number.isFinite(rate) || rate <= 0) return null;
-  const cents = Math.round(fiatCents / rate);
-  if (!Number.isSafeInteger(cents) || cents < 0) return null;
-  return cents;
+  const out = Math.round(cents / rate);
+  if (!Number.isSafeInteger(out) || out < 0) return null;
+  return out;
 }
