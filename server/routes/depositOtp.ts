@@ -285,6 +285,11 @@ router.post(
     // committed row, matching 0 rows.
     let newBalance = 0;
     let credited = false;
+    // NEW-5: the amount/currency that ACTUALLY sized the credit, taken from the
+    // claimed row. Every downstream artefact (email, audit, log, HTTP receipt)
+    // must report these rather than the stale pre-transaction read.
+    let creditedAmountCents = order.amount_cents;
+    let creditedCurrency = order.currency;
     try {
       await transaction(async (client) => {
         // Atomic fulfillment claim. Credit only from the row we actually won,
@@ -311,6 +316,8 @@ router.post(
         }
 
         const claimed = claim.rows[0];
+        creditedAmountCents = claimed.amount_cents;
+        creditedCurrency = claimed.currency;
 
         // Insert transaction
         const txResult = await client.query(
@@ -379,40 +386,59 @@ router.post(
       newBalance = walletRow ? walletRow.balance_cents / 100 : 0;
     }
 
-    // Send success email only for the caller that actually credited, so a
-    // webhook/OTP race cannot notify the user twice for one deposit.
-    if (user && credited) {
-      await sendDepositSuccessEmail(
-        user.email,
-        user.full_name,
-        order.amount_cents / 100,
-        order.currency,
-        newBalance
-      );
+    // NEW-5: every credit-success artefact below is gated on `credited` — the
+    // caller that actually won the atomic claim. A race loser (the Stripe webhook
+    // fulfilled this order first) credited nothing, so emitting a
+    // DEPOSIT_OTP_VERIFIED audit record or a "verified_and_credited" log line
+    // would write a FALSE financial record and make double-credit
+    // investigations unreadable. The loser gets its own truthful event.
+    // Amount and currency come from the CLAIMED row, never the stale pre-read.
+    if (credited) {
+      if (user) {
+        await sendDepositSuccessEmail(
+          user.email,
+          user.full_name,
+          creditedAmountCents / 100,
+          creditedCurrency,
+          newBalance
+        );
+      }
+
+      await createAuditLog({
+        userId,
+        action: 'DEPOSIT_OTP_VERIFIED',
+        entityType: 'card_order',
+        entityId: orderId,
+        newValues: { amount: creditedAmountCents, currency: creditedCurrency, newBalance },
+      });
+
+      logger.info('deposit_otp_verified_and_credited', {
+        userId,
+        orderId,
+        amountCents: creditedAmountCents,
+        currency: creditedCurrency,
+        newBalance,
+      });
+    } else {
+      // Truthful record for the loser: the OTP was verified, but this request
+      // did not move money.
+      await createAuditLog({
+        userId,
+        action: 'DEPOSIT_OTP_VERIFIED_NO_CREDIT',
+        entityType: 'card_order',
+        entityId: orderId,
+        newValues: { orderId, reason: 'fulfillment claim lost to a concurrent path', newBalance },
+      });
     }
-
-    await createAuditLog({
-      userId,
-      action: 'DEPOSIT_OTP_VERIFIED',
-      entityType: 'card_order',
-      entityId: orderId,
-      newValues: { amount: order.amount_cents, currency: order.currency, newBalance },
-    });
-
-    logger.info('deposit_otp_verified_and_credited', {
-      userId,
-      orderId,
-      amountCents: order.amount_cents,
-      currency: order.currency,
-      newBalance,
-    });
 
     res.json({
       success: true,
       data: {
-        message: 'Deposit verified and credited to your wallet!',
-        amount: order.amount_cents / 100,
-        currency: order.currency,
+        message: credited
+          ? 'Deposit verified and credited to your wallet!'
+          : 'This deposit was already credited to your wallet.',
+        amount: creditedAmountCents / 100,
+        currency: creditedCurrency,
         newBalance,
       },
     });
