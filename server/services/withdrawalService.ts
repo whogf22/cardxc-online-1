@@ -10,7 +10,7 @@ import { query, queryOne, transaction } from '../db/pool';
 import { AppError } from '../middleware/errorHandler';
 import { logger } from '../middleware/logger';
 import { createAuditLog } from './auditService';
-import { sendCryptoToWallet } from './cryptoProviderService';
+import { sendCryptoToWallet, parseUsdtAmountToCents } from './cryptoProviderService';
 import { runFraudChecks } from './fraudService';
 
 export type WithdrawalType = 'bank' | 'crypto' | 'platform';
@@ -278,7 +278,15 @@ async function findPriorWithdrawal(userId: string, idempotencyKey: string) {
  * 2. Crypto Transfer (USDT to external wallet)
  */
 async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
-    const amountCents = Math.round(request.amount * 100);
+    // NEW-6: the ledger unit is 2-dp USDT cents while the chain is 6-dp. Parse
+    // ONE canonical integer here and use it for both the debit and the payout, so
+    // the chain can never receive more than was debited. Reject rather than
+    // truncate a sub-cent amount.
+    const parsedCents = parseUsdtAmountToCents(request.amount);
+    if (parsedCents === null) {
+        throw new AppError('Amount must have at most 2 decimal places', 400);
+    }
+    const amountCents = parsedCents;
     const idempotencyKey = request.idempotencyKey?.trim() || null;
 
     // Minimum amount check
@@ -418,6 +426,9 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
         payoutResult = await sendCryptoToWallet({
             userId: request.userId,
             amount: request.amount,
+            // NEW-6: the exact integer that was debited from the ledger drives the
+            // on-chain amount, so the chain can never receive more than we took.
+            amountCents,
             walletAddress: request.walletAddress,
             network: request.network as any,
             transactionId: withdrawalId

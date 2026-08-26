@@ -29,7 +29,11 @@ vi.mock('../../db/pool', () => ({
   transaction: (fn: (client: { query: typeof mockQuery }) => Promise<unknown>) => mockTransaction(fn),
 }));
 vi.mock('../auditService', () => ({ createAuditLog: (...args: unknown[]) => mockCreateAuditLog(...args) }));
-vi.mock('../cryptoProviderService', () => ({
+// Partial mock: only the network send is stubbed. The unit-conversion helpers
+// (parseUsdtAmountToCents / centsToUsdtMinorUnits) are the REAL production
+// implementations, so NEW-6 assertions exercise real parsing rather than a copy.
+vi.mock('../cryptoProviderService', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../cryptoProviderService')>()),
   sendCryptoToWallet: (...args: unknown[]) => mockSendCryptoToWallet(...args),
 }));
 vi.mock('../fraudService', () => ({
@@ -242,6 +246,55 @@ describe('NEW-1: held lifecycle is explicit and asset-tagged', () => {
 
     const reservedFiat = executedSql.some((sql) => sql.includes('reserved_cents ='));
     expect(reservedFiat).toBe(true);
+  });
+});
+
+describe('NEW-6: the on-chain amount is derived from the debited integer', () => {
+  it('passes the exact debited amountCents to the payout provider', async () => {
+    process.env.CRYPTO_AUTO_PAYOUT_ENABLED = 'true';
+    process.env.CRYPTO_AUTO_PAYOUT_MAX_USD = '1000000';
+    const executedSql: string[] = [];
+    installTransaction(executedSql, { balanceCents: 100_00 });
+    mockSendCryptoToWallet.mockResolvedValue({
+      success: true, outcome: 'confirmed_sent', payoutId: 'p1', txHash: '0xabc', status: 'completed',
+    });
+
+    await processWithdrawal({ ...baseReq, amount: 50 });
+
+    expect(mockSendCryptoToWallet).toHaveBeenCalledTimes(1);
+    const sent = mockSendCryptoToWallet.mock.calls[0][0] as any;
+    // 50.00 USDT == 5000 ledger cents. The provider must receive that integer,
+    // not re-derive the amount from the float.
+    expect(sent.amountCents).toBe(5000);
+  });
+
+  it('REFUSES a sub-cent amount before any debit or send', async () => {
+    process.env.CRYPTO_AUTO_PAYOUT_ENABLED = 'true';
+    process.env.CRYPTO_AUTO_PAYOUT_MAX_USD = '1000000';
+    const executedSql: string[] = [];
+    installTransaction(executedSql, { balanceCents: 100_00 });
+
+    // 10.004 previously debited 10.00 but sent 10.004 on chain.
+    await expect(processWithdrawal({ ...baseReq, amount: 10.004 })).rejects.toThrow(/2 decimal places/i);
+
+    expect(mockSendCryptoToWallet).not.toHaveBeenCalled();
+    // No debit either — the refusal happens before the transaction opens.
+    expect(executedSql.some((s) => s.includes('usdt_balance_cents = usdt_balance_cents - $1'))).toBe(false);
+  });
+
+  it('accepts a clean 2-decimal amount', async () => {
+    process.env.CRYPTO_AUTO_PAYOUT_ENABLED = 'true';
+    process.env.CRYPTO_AUTO_PAYOUT_MAX_USD = '1000000';
+    const executedSql: string[] = [];
+    installTransaction(executedSql, { balanceCents: 100_00 });
+    mockSendCryptoToWallet.mockResolvedValue({
+      success: true, outcome: 'confirmed_sent', payoutId: 'p1', txHash: '0xabc', status: 'completed',
+    });
+
+    await processWithdrawal({ ...baseReq, amount: 10.99 });
+
+    const sent = mockSendCryptoToWallet.mock.calls[0][0] as any;
+    expect(sent.amountCents).toBe(1099);
   });
 });
 

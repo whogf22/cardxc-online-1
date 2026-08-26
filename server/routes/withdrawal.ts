@@ -9,6 +9,7 @@ import {
   isCryptoProviderConfigured,
   getCryptoProviderName,
   getCryptoDepositAddresses,
+  parseUsdtAmountToCents,
 } from '../services/cryptoProviderService';
 
 const router = Router();
@@ -96,6 +97,12 @@ router.post('/crypto',
     authenticate,
     financialOpLimiter,
     body('amount').isFloat({ min: 10 }).withMessage('Minimum crypto withdrawal is 10 USDT'),
+    // NEW-6: the USDT ledger unit is 2 dp while the chain is 6 dp. Without a
+    // decimal-place constraint a sub-cent amount reached both scales and the
+    // chain was sent up to ~0.005 USDT more than the wallet was debited. Reject
+    // at the boundary rather than truncating.
+    body('amount').custom((v) => parseUsdtAmountToCents(v) !== null)
+        .withMessage('Amount must have at most 2 decimal places'),
     body('walletAddress').trim().notEmpty().isLength({ min: 20, max: 255 }),
     body('network').isIn(['TRC20', 'ERC20', 'BEP20', 'POLYGON']),
     asyncHandler(async (req: AuthenticatedRequest, res: Response) => {

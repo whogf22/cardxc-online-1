@@ -29,20 +29,105 @@ export type CryptoNetwork = 'TRC20' | 'ERC20' | 'BEP20' | 'POLYGON';
  */
 export type PayoutOutcome = 'not_sent' | 'confirmed_sent' | 'unknown';
 
-// USDT (TRC20) uses 6 decimal places. This is the single canonical conversion
-// from a USDT amount to on-chain minor units ("Sun" for TRC20). Rounding to the
-// nearest minor unit avoids the float-truncation drift of Math.floor (e.g.
-// 0.29 * 1e6 === 289999.9999999999 would floor to 289999, under-sending),
-// while still never over-sending for well-formed 6-dp amounts.
+// USDT (TRC20) uses 6 decimal places on chain ("Sun" for TRC20). The LEDGER,
+// however, stores `wallets.usdt_balance_cents` — 2 decimal places. NEW-6: those
+// two scales must never be derived from the same float independently, or the
+// chain can receive more than the ledger debited.
 export const USDT_DECIMALS = 6;
+/** Decimal places of the ledger unit (`usdt_balance_cents`). */
+export const USDT_LEDGER_DECIMALS = 2;
+
+/**
+ * Raw 6-dp conversion from a USDT amount to on-chain minor units.
+ *
+ * NOTE: this is a unit-conversion helper only. It is deliberately NOT used to
+ * size a payout — see `centsToUsdtMinorUnits`, which derives the chain amount
+ * from the same integer that was debited.
+ *
+ * (A previous comment here claimed `0.29 * 1e6 === 289999.9999999999`. That is
+ * factually wrong: it evaluates to exactly 290000 in IEEE-754 double precision,
+ * so the Math.floor -> Math.round change it justified was a no-op for every
+ * value its own test exercised. The real defect was the debit/send scale
+ * mismatch, fixed below.)
+ */
 export function toUsdtMinorUnits(amount: number): number {
     if (!Number.isFinite(amount) || amount < 0) return 0;
     return Math.round(amount * 10 ** USDT_DECIMALS);
 }
 
+/**
+ * The single canonical scaling from ledger cents to on-chain minor units.
+ *
+ * Pure integer arithmetic (cents * 10^4), so there is no binary-float step and
+ * the chain amount is exactly the debited amount. Fail-safe: returns 0 for
+ * anything that is not a non-negative integer number of cents.
+ */
+export function centsToUsdtMinorUnits(cents: number): number {
+    if (!Number.isInteger(cents) || cents < 0) return 0;
+    return cents * 10 ** (USDT_DECIMALS - USDT_LEDGER_DECIMALS);
+}
+
+/**
+ * Largest ledger amount (in cents) we accept. Scaling this to 6 dp must stay
+ * inside Number.MAX_SAFE_INTEGER so no conversion can silently lose precision.
+ */
+const MAX_USDT_CENTS = Math.floor(
+    Number.MAX_SAFE_INTEGER / 10 ** (USDT_DECIMALS - USDT_LEDGER_DECIMALS),
+);
+
+/**
+ * Parse a caller-supplied USDT amount into the canonical integer ledger unit
+ * (cents), or null if it is not representable.
+ *
+ * Strict by design — it REJECTS rather than truncates, because silently
+ * truncating a sub-cent amount is exactly what let the chain be sent more than
+ * the ledger recorded:
+ *  - at most `USDT_LEDGER_DECIMALS` (2) decimal places
+ *  - plain decimal notation only (no exponent form, no hex, no thousands
+ *    separators)
+ *  - finite, non-negative, within MAX_USDT_CENTS
+ *
+ * Parsing is done on the DIGIT STRING, not via float multiplication, so no
+ * rounding decision is ever made.
+ */
+export function parseUsdtAmountToCents(input: unknown): number | null {
+    let text: string;
+    if (typeof input === 'number') {
+        if (!Number.isFinite(input) || input < 0) return null;
+        // Render without exponent notation so the digit-string path below can
+        // reject sub-cent precision instead of rounding it away.
+        text = input.toFixed(10).replace(/0+$/, '').replace(/\.$/, '');
+    } else if (typeof input === 'string') {
+        text = input.trim();
+    } else {
+        return null;
+    }
+
+    // Plain decimal only: optional integer part, optional fraction of 1-2 digits.
+    const m = /^(\d+)(?:\.(\d{1,2}))?$/.exec(text);
+    if (!m) return null;
+
+    const whole = m[1];
+    const frac = (m[2] ?? '').padEnd(USDT_LEDGER_DECIMALS, '0');
+
+    // Integer maths on the digit string: no float multiplication, no rounding.
+    const cents = Number(whole) * 10 ** USDT_LEDGER_DECIMALS + Number(frac);
+    if (!Number.isSafeInteger(cents) || cents < 0 || cents > MAX_USDT_CENTS) return null;
+    return cents;
+}
+
 interface CryptoPayoutRequest {
     userId: string;
-    amount: number; // Amount in USDT
+    amount: number; // Amount in USDT (display/logging only)
+    /**
+     * NEW-6: the canonical integer ledger amount, in USDT cents, that was
+     * ACTUALLY debited. The on-chain send is derived from this and never from
+     * `amount`, so the chain can never receive more than the ledger recorded.
+     * Optional for backwards compatibility; when absent it is derived from
+     * `amount` via the strict parser and an unrepresentable amount is refused
+     * pre-broadcast.
+     */
+    amountCents?: number;
     walletAddress: string;
     network: CryptoNetwork;
     orderId?: string;
@@ -73,6 +158,22 @@ const USDT_TRC20_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
 const MIN_CRYPTO_PAYOUT_AMOUNT = 10; // $10 USDT
 
 /**
+ * NEW-6: resolve the canonical integer ledger amount (USDT cents) for a payout.
+ * Prefers the explicit `amountCents` supplied by the caller (which is the exact
+ * value debited from the wallet); otherwise derives it strictly from `amount`.
+ * Returns null when the amount is not representable in the ledger unit, which
+ * callers MUST treat as a pre-broadcast refusal.
+ */
+function resolvePayoutCents(request: CryptoPayoutRequest): number | null {
+    if (request.amountCents !== undefined) {
+        return Number.isInteger(request.amountCents) && request.amountCents >= 0
+            ? request.amountCents
+            : null;
+    }
+    return parseUsdtAmountToCents(request.amount);
+}
+
+/**
  * Send USDT to user's crypto wallet address
  */
 export async function sendCryptoToWallet(request: CryptoPayoutRequest): Promise<CryptoPayoutResponse> {
@@ -84,6 +185,22 @@ export async function sendCryptoToWallet(request: CryptoPayoutRequest): Promise<
                 status: 'failed',
                 outcome: 'not_sent',
                 error: `Minimum crypto payout amount is ${MIN_CRYPTO_PAYOUT_AMOUNT} USDT`
+            };
+        }
+
+        // NEW-6: the amount must be exactly representable in the ledger unit
+        // (2 dp). Refusing here — strictly before any broadcast — is what stops a
+        // sub-cent amount reaching the chain and over-sending relative to the
+        // debit. 'not_sent' is accurate: nothing has left custody.
+        if (resolvePayoutCents(request) === null) {
+            logger.warn('Crypto payout refused: amount not representable in ledger units', {
+                userId: request.userId, amount: request.amount, amountCents: request.amountCents,
+            });
+            return {
+                success: false,
+                status: 'failed',
+                outcome: 'not_sent',
+                error: 'Amount must have at most 2 decimal places',
             };
         }
 
@@ -248,7 +365,15 @@ async function sendViaTronGrid(request: CryptoPayoutRequest): Promise<CryptoPayo
             headers: TRONGRID_API_KEY ? { 'TRON-PRO-API-KEY': TRONGRID_API_KEY } : {}
         });
         tronWeb.setPrivateKey(TRON_HOT_WALLET_PRIVATE_KEY);
-        amountSun = toUsdtMinorUnits(request.amount);
+        // NEW-6: derive the chain amount from the SAME integer that was debited
+        // from the ledger, using pure integer scaling. Deriving it independently
+        // from the float `request.amount` is what let the chain receive up to
+        // ~0.005 USDT more than the wallet was debited.
+        const payoutCents = resolvePayoutCents(request);
+        if (payoutCents === null) {
+            throw new Error('Amount must have at most 2 decimal places');
+        }
+        amountSun = centsToUsdtMinorUnits(payoutCents);
         contract = await tronWeb.contract().at(USDT_TRC20_CONTRACT);
         method = contract.transfer(request.walletAddress, amountSun);
     } catch (setupError: any) {

@@ -36,7 +36,10 @@ vi.mock('../../db/pool', () => ({
   transaction: (fn: (client: { query: typeof mockQuery }) => Promise<unknown>) => mockTransaction(fn),
 }));
 vi.mock('../auditService', () => ({ createAuditLog: (...args: unknown[]) => mockCreateAuditLog(...args) }));
-vi.mock('../cryptoProviderService', () => ({
+// Partial mock: only the network send is stubbed, so the real unit-conversion
+// helpers (parseUsdtAmountToCents / centsToUsdtMinorUnits) are exercised.
+vi.mock('../cryptoProviderService', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../cryptoProviderService')>()),
   sendCryptoToWallet: (...args: unknown[]) => mockSendCryptoToWallet(...args),
 }));
 vi.mock('../fraudService', () => ({
