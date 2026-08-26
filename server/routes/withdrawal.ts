@@ -78,7 +78,10 @@ router.post('/bank',
             walletType,
             bankName,
             accountNumber,
-            accountName
+            accountName,
+            // NEW-8: the key was previously accepted by the interface and never
+            // passed, so a double submit created two reserves and two rows.
+            idempotencyKey: extractIdempotencyKey(req)
         });
 
         res.status(201).json({
@@ -155,7 +158,9 @@ router.post('/platform',
             recipientEmail,
             amount,
             walletType,
-            message
+            message,
+            // NEW-8: previously discarded, so a double submit moved the money twice.
+            idempotencyKey: extractIdempotencyKey(req)
         });
 
         res.status(201).json({

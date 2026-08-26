@@ -91,10 +91,33 @@ export async function processWithdrawal(request: WithdrawalRequest): Promise<Wit
 /**
  * 1. Bank Transfer Withdrawal
  */
-async function processBankWithdrawal(request: BankWithdrawalRequest) {
+async function processBankWithdrawal(request: BankWithdrawalRequest): Promise<WithdrawalResult> {
     const amountCents = Math.round(request.amount * 100);
+    const idempotencyKey = request.idempotencyKey?.trim() || null;
 
-    return await transaction(async (client) => {
+    // NEW-8: bank withdrawals honour the same logical idempotency contract as
+    // crypto. Previously the key was accepted by the interface and silently
+    // discarded, so a double submit created two reserves and two withdrawal rows.
+    // This pre-check is only a fast path; the partial unique index on
+    // (user_id, idempotency_key) is the authoritative claim (handled below).
+    if (idempotencyKey) {
+        const prior = await findPriorWithdrawal(request.userId, idempotencyKey);
+        if (prior) {
+            assertIdempotentPayloadMatches(prior, {
+                amountCents, currency: request.currency, withdrawalType: 'bank',
+            });
+            return {
+                success: true,
+                withdrawalId: prior.id,
+                idempotent: true,
+                status: prior.status,
+                message: 'Withdrawal already submitted',
+            };
+        }
+    }
+
+    try {
+        return await transaction(async (client) => {
         // Check balance
         const wallet = await client.query(`
       SELECT balance_cents, usdt_balance_cents, reserved_cents 
@@ -165,17 +188,20 @@ async function processBankWithdrawal(request: BankWithdrawalRequest) {
         //    balance_cents for a withdrawal that had actually taken USDT.
         const assetType = request.walletType === 'usdt' ? 'usdt' : 'fiat';
         const initialStatus = assetType === 'usdt' ? 'held' : 'pending';
+        // NEW-8: persist the idempotency key so a concurrent duplicate collides
+        // on idx_withdrawal_requests_idempotency_unique instead of creating a
+        // second reserve and a second withdrawal row.
         const withdrawalResult = await client.query(`
       INSERT INTO withdrawal_requests (
         user_id, amount_cents, currency, withdrawal_type,
-        bank_name, account_number, account_name, status, asset_type
+        bank_name, account_number, account_name, status, asset_type, idempotency_key
       )
-      VALUES ($1, $2, $3, 'bank', $4, $5, $6, $7, $8)
+      VALUES ($1, $2, $3, 'bank', $4, $5, $6, $7, $8, $9)
       RETURNING id
     `, [
             request.userId, amountCents, request.currency,
             request.bankName, request.accountNumber, request.accountName,
-            initialStatus, assetType
+            initialStatus, assetType, idempotencyKey
         ]);
 
         // Create transaction record
@@ -215,7 +241,28 @@ async function processBankWithdrawal(request: BankWithdrawalRequest) {
             message: 'Withdrawal request submitted. Admin will process within 24 hours.',
             estimatedTime: '1-3 business days'
         };
-    });
+        });
+    } catch (err: any) {
+        // NEW-8: idempotency race — a concurrent duplicate won the unique index.
+        // The reserve taken in THIS transaction rolled back with it, so return
+        // the prior row rather than surfacing a raw 500.
+        if (idempotencyKey && isUniqueViolation(err, 'idx_withdrawal_requests_idempotency_unique')) {
+            const prior = await findPriorWithdrawal(request.userId, idempotencyKey);
+            if (prior) {
+                assertIdempotentPayloadMatches(prior, {
+                    amountCents, currency: request.currency, withdrawalType: 'bank',
+                });
+                return {
+                    success: true,
+                    withdrawalId: prior.id,
+                    idempotent: true,
+                    status: prior.status,
+                    message: 'Withdrawal already submitted',
+                };
+            }
+        }
+        throw err;
+    }
 }
 
 /**
@@ -268,10 +315,71 @@ async function holdForManualReview(withdrawalId: string, request: CryptoWithdraw
  * retry/double-submit returns the prior request instead of moving money twice.
  */
 async function findPriorWithdrawal(userId: string, idempotencyKey: string) {
-    return await queryOne<{ id: string; status: string; tx_hash: string | null }>(`
-    SELECT id, status, tx_hash FROM withdrawal_requests
-    WHERE user_id = $1 AND idempotency_key = $2
+    return await queryOne<{
+        id: string; status: string; tx_hash: string | null;
+        amount_cents: number | string; currency: string;
+        withdrawal_type: string; asset_type: string | null;
+    }>(`
+    SELECT id, status, tx_hash, amount_cents, currency, withdrawal_type, asset_type
+      FROM withdrawal_requests
+     WHERE user_id = $1 AND idempotency_key = $2
   `, [userId, idempotencyKey]);
+}
+
+/**
+ * NEW-8: an idempotency key identifies ONE logical request. Replaying the same
+ * key with a DIFFERENT payload is a client bug (or an attempt to have a small
+ * prior request stand in for a large new one), so it must be rejected rather
+ * than silently returning the prior record.
+ *
+ * The comparison uses columns the row already carries, so no extra schema is
+ * needed.
+ */
+function assertIdempotentPayloadMatches(
+    prior: { amount_cents: number | string; currency: string; withdrawal_type: string },
+    expected: { amountCents: number; currency: string; withdrawalType: string },
+) {
+    const sameAmount = Number(prior.amount_cents) === expected.amountCents;
+    const sameCurrency = String(prior.currency) === expected.currency;
+    const sameType = String(prior.withdrawal_type) === expected.withdrawalType;
+    if (!sameAmount || !sameCurrency || !sameType) {
+        throw new AppError(
+            'This Idempotency-Key was already used for a different withdrawal request',
+            409,
+            'IDEMPOTENCY_KEY_CONFLICT',
+        );
+    }
+}
+
+/**
+ * Look up a prior platform (P2P) transfer. A platform transfer creates no
+ * withdrawal_requests row — it is an instant ledger movement — so its idempotency
+ * anchor is the SENDER's transactions row, which carries a UNIQUE
+ * idempotency_key (idx_transactions_idempotency_unique).
+ */
+async function findPriorPlatformTransfer(userId: string, idempotencyKey: string) {
+    return await queryOne<{
+        id: string; amount_cents: number | string; currency: string; description: string | null;
+    }>(`
+    SELECT id, amount_cents, currency, description
+      FROM transactions
+     WHERE user_id = $1 AND idempotency_key = $2
+  `, [userId, platformTransferKey(idempotencyKey)]);
+}
+
+/** Namespaced ledger key so a platform key cannot collide with another feature. */
+function platformTransferKey(idempotencyKey: string): string {
+    return `platform_withdrawal_${idempotencyKey}`;
+}
+
+/** True when this error is a unique violation on the given constraint name. */
+function isUniqueViolation(err: any, constraint?: string): boolean {
+    if (err?.code !== '23505') return false;
+    if (!constraint) return true;
+    const name = String(err?.constraint ?? '');
+    if (name) return name === constraint;
+    // Some drivers omit `constraint`; fall back to the message.
+    return String(err?.message ?? '').includes(constraint);
 }
 
 /**
@@ -559,10 +667,34 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
 /**
  * 3. Platform User Transfer (Instant P2P)
  */
-async function processPlatformTransfer(request: PlatformWithdrawalRequest) {
+async function processPlatformTransfer(request: PlatformWithdrawalRequest): Promise<WithdrawalResult> {
     const amountCents = Math.round(request.amount * 100);
+    const idempotencyKey = request.idempotencyKey?.trim() || null;
+    const currency = 'USD';
 
-    return await transaction(async (client) => {
+    // NEW-8: a platform transfer creates no withdrawal_requests row (it is an
+    // instant ledger movement), so its idempotency anchor is the SENDER's
+    // transactions row, which carries a UNIQUE idempotency_key. Previously the
+    // key was accepted by the interface and discarded, so a double submit moved
+    // the money twice. This pre-check is a fast path; the unique index below is
+    // the authoritative claim.
+    if (idempotencyKey) {
+        const prior = await findPriorPlatformTransfer(request.userId, idempotencyKey);
+        if (prior) {
+            assertIdempotentPayloadMatches(
+                { amount_cents: prior.amount_cents, currency: prior.currency, withdrawal_type: 'platform' },
+                { amountCents, currency, withdrawalType: 'platform' },
+            );
+            return {
+                success: true,
+                idempotent: true,
+                message: 'Transfer already completed',
+            };
+        }
+    }
+
+    try {
+        return await transaction(async (client) => {
         // Find recipient
         const recipient = await client.query(`
       SELECT id, email, full_name FROM users WHERE email = $1
@@ -578,10 +710,28 @@ async function processPlatformTransfer(request: PlatformWithdrawalRequest) {
             throw new AppError('Cannot transfer to yourself', 400);
         }
 
+        const description = `Transfer to ${recipient.rows[0].full_name || request.recipientEmail}${request.message ? `: ${request.message}` : ''}`;
+
+        // NEW-8: CLAIM the logical request first, before any money moves, by
+        // inserting the sender's ledger row carrying the namespaced idempotency
+        // key. A concurrent duplicate collides on
+        // idx_transactions_idempotency_unique here and rolls back without having
+        // debited anything.
+        await client.query(`
+      INSERT INTO transactions (
+        user_id, idempotency_key, type, status, amount_cents, currency, description
+      )
+      VALUES ($1, $2, 'transfer_out', 'SUCCESS', $3, $4, $5)
+    `, [
+            request.userId,
+            idempotencyKey ? platformTransferKey(idempotencyKey) : null,
+            amountCents, currency, description,
+        ]);
+
         // Check sender balance
         const senderWallet = await client.query(`
-      SELECT balance_cents, usdt_balance_cents, reserved_cents 
-      FROM wallets 
+      SELECT balance_cents, usdt_balance_cents, reserved_cents
+      FROM wallets
       WHERE user_id = $1 AND currency = 'USD'
       FOR UPDATE
     `, [request.userId]);
@@ -591,7 +741,6 @@ async function processPlatformTransfer(request: PlatformWithdrawalRequest) {
         }
 
         let available: number;
-        const currency = 'USD';
 
         if (request.walletType === 'usdt') {
             available = Number(senderWallet.rows[0].usdt_balance_cents || 0);
@@ -643,18 +792,8 @@ async function processPlatformTransfer(request: PlatformWithdrawalRequest) {
       `, [recipientId, currency, amountCents]);
         }
 
-        // Create transaction records
-        const description = `Transfer to ${recipient.rows[0].full_name || request.recipientEmail}${request.message ? `: ${request.message}` : ''}`;
-
-        // Sender transaction
-        await client.query(`
-      INSERT INTO transactions (
-        user_id, type, status, amount_cents, currency, description
-      )
-      VALUES ($1, 'transfer_out', 'SUCCESS', $2, $3, $4)
-    `, [request.userId, amountCents, currency, description]);
-
-        // Recipient transaction
+        // Create the recipient's ledger record. The sender's row was already
+        // inserted above as the idempotency claim.
         await client.query(`
       INSERT INTO transactions (
         user_id, type, status, amount_cents, currency, description
@@ -688,5 +827,25 @@ async function processPlatformTransfer(request: PlatformWithdrawalRequest) {
                 name: recipient.rows[0].full_name
             }
         };
-    });
+        });
+    } catch (err: any) {
+        // NEW-8: idempotency race — a concurrent duplicate won the unique index on
+        // transactions.idempotency_key. The debit and credit in THIS transaction
+        // rolled back with it, so return idempotent success instead of a 500.
+        if (idempotencyKey && isUniqueViolation(err, 'idx_transactions_idempotency_unique')) {
+            const prior = await findPriorPlatformTransfer(request.userId, idempotencyKey);
+            if (prior) {
+                assertIdempotentPayloadMatches(
+                    { amount_cents: prior.amount_cents, currency: prior.currency, withdrawal_type: 'platform' },
+                    { amountCents, currency, withdrawalType: 'platform' },
+                );
+                return {
+                    success: true,
+                    idempotent: true,
+                    message: 'Transfer already completed',
+                };
+            }
+        }
+        throw err;
+    }
 }
