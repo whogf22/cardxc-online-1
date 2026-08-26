@@ -108,7 +108,14 @@ describe('HIGH-3: crypto auto-payout control gate', () => {
     // Marked for manual review.
     const heldForReview = executedSql.some((sql) => sql.includes('UPDATE withdrawal_requests') && sql.includes('admin_notes'));
     expect(heldForReview).toBe(true);
-    expect(result.status).toMatch(/processing|manual/i);
+    // NEW-1: the held state is now EXPLICIT ('held'), not the ambiguous
+    // 'processing' this previously matched. 'processing' meant "broadcast in
+    // flight" AND "awaiting an operator", and because the admin resolvers only
+    // accepted 'pending' the row was unreachable — the user's USDT was debited
+    // with no path to settle or refund it. Asserting the exact state (rather than
+    // the old /processing|manual/ alternation) pins the lifecycle value the
+    // admin USDT resolvers key on.
+    expect(result.status).toBe('held');
   });
 
   it('over the cap: holds for manual review even when enabled', async () => {
@@ -149,6 +156,92 @@ describe('HIGH-3: crypto auto-payout control gate', () => {
     expect(mockSendCryptoToWallet).toHaveBeenCalledTimes(1);
     // Fraud gate must run with the amount in CENTS (5000), matching fraudService's unit.
     expect(mockRunFraudChecks).toHaveBeenCalledWith(expect.objectContaining({ action: 'WITHDRAWAL', amount: 5000 }));
+  });
+});
+
+describe('NEW-1: held lifecycle is explicit and asset-tagged', () => {
+  it('creates the crypto withdrawal in the held state, tagged asset_type usdt', async () => {
+    const executedSql: string[] = [];
+    installTransaction(executedSql);
+
+    const result = await processWithdrawal(baseReq);
+
+    const insert = executedSql.find((sql) => sql.includes('INSERT INTO withdrawal_requests'));
+    expect(insert).toBeDefined();
+    // The row must be resolvable by the admin USDT endpoints, which key on
+    // status = 'held' AND asset_type = 'usdt'.
+    expect(insert).toMatch(/'held'/);
+    expect(insert).toMatch(/asset_type/);
+    expect(insert).toMatch(/'usdt'/);
+    expect(result.status).toBe('held');
+    expect(result.requiresReview).toBe(true);
+  });
+
+  it('the hold marker keeps the row held (never reverts it to processing)', async () => {
+    const executedSql: string[] = [];
+    installTransaction(executedSql);
+
+    await processWithdrawal(baseReq);
+
+    const marker = executedSql.find(
+      (sql) => sql.includes('UPDATE withdrawal_requests') && sql.includes('admin_notes'),
+    );
+    expect(marker).toBeDefined();
+    expect(marker).toMatch(/status\s*=\s*'held'/i);
+    expect(marker).not.toMatch(/status\s*=\s*'processing'/i);
+  });
+
+  it('a USDT-funded BANK withdrawal is also held (funds debited, no fiat reserve)', async () => {
+    const executedSql: string[] = [];
+    mockTransaction.mockImplementation(async (fn: any) => {
+      const client = {
+        query: vi.fn(async (sql: string) => {
+          executedSql.push(sql);
+          if (sql.includes('SELECT balance_cents')) {
+            return { rows: [{ balance_cents: 0, usdt_balance_cents: 100_00, reserved_cents: 0 }] };
+          }
+          if (sql.includes('INSERT INTO withdrawal_requests')) return { rows: [{ id: 'wd-bank-usdt' }], rowCount: 1 };
+          return { rows: [], rowCount: 1 };
+        }),
+      };
+      return fn(client);
+    });
+
+    await processWithdrawal({
+      type: 'bank', userId: 'user-1', amount: 50, currency: 'USD', walletType: 'usdt',
+      bankName: 'Test Bank', accountNumber: '123', accountName: 'A Name',
+    } as any);
+
+    const insert = executedSql.find((sql) => sql.includes('INSERT INTO withdrawal_requests'));
+    expect(insert).toBeDefined();
+    // No fiat reserve was taken, so it must not sit in the fiat 'pending' queue.
+    const reservedFiat = executedSql.some((sql) => sql.includes('reserved_cents ='));
+    expect(reservedFiat).toBe(false);
+  });
+
+  it('a FIAT bank withdrawal stays pending and reserves fiat', async () => {
+    const executedSql: string[] = [];
+    mockTransaction.mockImplementation(async (fn: any) => {
+      const client = {
+        query: vi.fn(async (sql: string) => {
+          executedSql.push(sql);
+          if (sql.includes('SELECT balance_cents')) {
+            return { rows: [{ balance_cents: 100_00, usdt_balance_cents: 0, reserved_cents: 0 }] };
+          }
+          if (sql.includes('INSERT INTO withdrawal_requests')) return { rows: [{ id: 'wd-bank-fiat' }], rowCount: 1 };
+          return { rows: [], rowCount: 1 };
+        }),
+      };
+      return fn(client);
+    });
+
+    await processWithdrawal({
+      type: 'bank', userId: 'user-1', amount: 50, currency: 'USD', walletType: 'fiat',
+      bankName: 'Test Bank', accountNumber: '123', accountName: 'A Name',
+    } as any);
+
+    const reservedFiat = executedSql.some((sql) => sql.includes('reserved_cents ='));
+    expect(reservedFiat).toBe(true);
   });
 });
 

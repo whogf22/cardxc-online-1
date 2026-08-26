@@ -174,7 +174,8 @@ describe('processCryptoWithdrawal — refund safety (CRITICAL-2)', () => {
     // A reconciliation hold must be recorded.
     const heldForReview = executedSql.some((sql) => sql.includes('admin_notes') && sql.includes('UPDATE withdrawal_requests'));
     expect(heldForReview).toBe(true);
-    expect(result.requiresReconciliation ?? result.status).toBeTruthy();
+    expect(result.requiresReconciliation).toBe(true);
+    expect(result.status).toBe('held');
   });
 
   it('does NOT refund when the payout call THROWS after the send (ambiguous) — holds for reconciliation', async () => {
@@ -188,7 +189,8 @@ describe('processCryptoWithdrawal — refund safety (CRITICAL-2)', () => {
       (sql) => sql.includes('usdt_balance_cents = usdt_balance_cents + $1'),
     );
     expect(refundHappened).toBe(false);
-    expect(result.requiresReconciliation ?? result.status).toBeTruthy();
+    expect(result.requiresReconciliation).toBe(true);
+    expect(result.status).toBe('held');
   });
 
   it('rejects before payout when USDT balance is insufficient', async () => {

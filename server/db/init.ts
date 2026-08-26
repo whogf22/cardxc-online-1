@@ -134,7 +134,8 @@ export async function initializeDatabase() {
         crypto_network VARCHAR(50),
         idempotency_key VARCHAR(255),
         tx_hash VARCHAR(255),
-        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'processing', 'completed', 'failed')),
+        asset_type VARCHAR(10) DEFAULT 'fiat' CHECK (asset_type IN ('fiat', 'usdt')),
+        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'held', 'processing', 'completed', 'failed')),
         admin_notes TEXT,
         approved_by UUID REFERENCES users(id),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -148,6 +149,33 @@ export async function initializeDatabase() {
     await client.query(`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS crypto_network VARCHAR(50)`);
     await client.query(`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS tx_hash VARCHAR(255)`);
     await client.query(`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(255)`);
+
+    // NEW-1: record WHICH wallet column funded the withdrawal. Without this the
+    // admin resolvers cannot tell a fiat withdrawal (which reserves
+    // reserved_cents) from a USDT one (which debits usdt_balance_cents outright),
+    // so they mutated the wrong asset. 'fiat' is the safe default because every
+    // pre-existing bank row reserved fiat.
+    await client.query(`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS asset_type VARCHAR(10) DEFAULT 'fiat'`);
+    await client.query(`
+      ALTER TABLE withdrawal_requests DROP CONSTRAINT IF EXISTS withdrawal_requests_asset_type_check;
+      ALTER TABLE withdrawal_requests ADD CONSTRAINT withdrawal_requests_asset_type_check
+        CHECK (asset_type IN ('fiat', 'usdt'));
+    `);
+    // Every crypto payout is USDT-funded, so historical crypto rows can be
+    // back-filled deterministically. Idempotent.
+    await client.query(`
+      UPDATE withdrawal_requests SET asset_type = 'usdt'
+      WHERE withdrawal_type = 'crypto' AND asset_type IS DISTINCT FROM 'usdt'
+    `);
+    // NEW-1: 'held' is the explicit lifecycle state for a withdrawal whose funds
+    // have ALREADY been debited and which is awaiting an operator decision
+    // (settle or refund). It is distinct from 'pending' (fiat, funds only
+    // reserved) and from 'processing' (broadcast attempted / in flight).
+    await client.query(`
+      ALTER TABLE withdrawal_requests DROP CONSTRAINT IF EXISTS withdrawal_requests_status_check;
+      ALTER TABLE withdrawal_requests ADD CONSTRAINT withdrawal_requests_status_check
+        CHECK (status IN ('pending', 'approved', 'rejected', 'held', 'processing', 'completed', 'failed'));
+    `);
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS admin_adjustments (

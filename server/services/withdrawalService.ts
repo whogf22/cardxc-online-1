@@ -140,17 +140,29 @@ async function processBankWithdrawal(request: BankWithdrawalRequest) {
       `, [amountCents, request.userId, request.currency]);
         }
 
-        // Create withdrawal request
+        // Create withdrawal request.
+        //
+        // NEW-1: the lifecycle depends on WHICH asset funded it.
+        //  - fiat: the amount is only RESERVED, so the row enters the normal
+        //    'pending' admin queue and approve/reject settles the reserve.
+        //  - usdt: the amount was debited outright above (there is no USDT
+        //    reserve column), so the row is 'held' — funds are already gone and
+        //    an operator must explicitly settle or refund it. Routing these into
+        //    'pending' is what previously let the fiat approver debit
+        //    balance_cents for a withdrawal that had actually taken USDT.
+        const assetType = request.walletType === 'usdt' ? 'usdt' : 'fiat';
+        const initialStatus = assetType === 'usdt' ? 'held' : 'pending';
         const withdrawalResult = await client.query(`
       INSERT INTO withdrawal_requests (
         user_id, amount_cents, currency, withdrawal_type,
-        bank_name, account_number, account_name, status
+        bank_name, account_number, account_name, status, asset_type
       )
-      VALUES ($1, $2, $3, 'bank', $4, $5, $6, 'pending')
+      VALUES ($1, $2, $3, 'bank', $4, $5, $6, $7, $8)
       RETURNING id
     `, [
             request.userId, amountCents, request.currency,
-            request.bankName, request.accountNumber, request.accountName
+            request.bankName, request.accountNumber, request.accountName,
+            initialStatus, assetType
         ]);
 
         // Create transaction record
@@ -198,18 +210,31 @@ async function processBankWithdrawal(request: BankWithdrawalRequest) {
  * has ALREADY been deducted and is intentionally kept deducted (the funds are
  * held, not refunded). This is used both when the control gate blocks an
  * auto-payout (HIGH-3) and when a broadcast outcome is ambiguous (CRITICAL-2).
+ *
+ * The row is left in the explicit 'held' state, which is the ONLY state the
+ * admin USDT resolvers accept. Keeping it distinct from 'processing' is what
+ * makes a held withdrawal reachable instead of stranded (NEW-1).
+ *
+ * Returns true when the hold marker was persisted. A false return means the row
+ * is still 'held' from creation but carries no reconciliation note, so the caller
+ * must surface that rather than reporting a clean hold (NEW-5 sibling).
  */
-async function holdForManualReview(withdrawalId: string, request: CryptoWithdrawalRequest, note: string) {
+async function holdForManualReview(withdrawalId: string, request: CryptoWithdrawalRequest, note: string): Promise<boolean> {
+    let marked = false;
     try {
         await transaction(async (client) => {
-            await client.query(`
+            const res = await client.query(`
         UPDATE withdrawal_requests
-        SET status = 'processing', admin_notes = $1, updated_at = NOW()
-        WHERE id = $2
+        SET status = 'held', admin_notes = $1, updated_at = NOW()
+        WHERE id = $2 AND asset_type = 'usdt'
       `, [note, withdrawalId]);
+            marked = res.rowCount === 1;
         });
     } catch (e: any) {
         logger.error('Failed to mark crypto withdrawal for manual review', { withdrawalId, error: e?.message });
+    }
+    if (!marked) {
+        logger.error('Crypto withdrawal hold marker NOT persisted — reconciliation note missing', { withdrawalId, note });
     }
     try {
         await createAuditLog({
@@ -217,11 +242,12 @@ async function holdForManualReview(withdrawalId: string, request: CryptoWithdraw
             action: 'CRYPTO_WITHDRAWAL_HELD',
             entityType: 'withdrawal_request',
             entityId: withdrawalId,
-            newValues: { note, amount: request.amount, network: request.network },
+            newValues: { note, amount: request.amount, network: request.network, markerPersisted: marked },
         });
     } catch {
         // Audit logging is best-effort; never let it change the money decision.
     }
+    return marked;
 }
 
 /**
@@ -293,15 +319,19 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
                 throw new AppError('Insufficient USDT balance', 400);
             }
 
-            // Create withdrawal request with processing status. The idempotency
+            // Create withdrawal request in the explicit 'held' state: the USDT has
+            // ALREADY been debited, so the row is awaiting an operator decision
+            // (settle or refund) rather than sitting in the fiat 'pending' queue.
+            // asset_type records WHICH wallet column funded it so the admin
+            // resolvers cannot mutate the wrong asset (NEW-1). The idempotency
             // key is persisted so a concurrent duplicate collides on the unique
             // index instead of creating a second debit.
             const withdrawalResult = await client.query(`
       INSERT INTO withdrawal_requests (
         user_id, amount_cents, currency, withdrawal_type,
-        crypto_address, crypto_network, status, idempotency_key
+        crypto_address, crypto_network, status, asset_type, idempotency_key
       )
-      VALUES ($1, $2, 'USD', 'crypto', $3, $4, 'processing', $5)
+      VALUES ($1, $2, 'USD', 'crypto', $3, $4, 'held', 'usdt', $5)
       RETURNING id
     `, [
                 request.userId, amountCents,
@@ -361,7 +391,7 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
         return {
             success: true,
             withdrawalId,
-            status: 'processing',
+            status: 'held',
             requiresReview: true,
             message: 'Withdrawal received and is pending manual review'
         };
@@ -389,7 +419,7 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
         return {
             success: true,
             withdrawalId,
-            status: 'processing',
+            status: 'held',
             requiresReconciliation: true,
             message: 'Withdrawal is being verified'
         };
@@ -496,7 +526,7 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
     return {
         success: true,
         withdrawalId,
-        status: 'processing',
+        status: 'held',
         requiresReconciliation: true,
         message: 'Withdrawal is being verified'
     };
