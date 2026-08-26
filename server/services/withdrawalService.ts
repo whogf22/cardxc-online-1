@@ -132,12 +132,25 @@ async function processBankWithdrawal(request: BankWithdrawalRequest) {
                 throw new AppError('Insufficient balance', 400);
             }
 
-            // Reserve fiat balance
-            await client.query(`
-        UPDATE wallets 
-        SET reserved_cents = reserved_cents + $1, updated_at = NOW()
+            // Reserve fiat balance. NEW-3: three things matter here.
+            //  - COALESCE on the WRITE: `NULL + n` is NULL in Postgres, so
+            //    without it a wallet whose reserved_cents IS NULL has its reserve
+            //    silently ERASED (and rowCount is still 1, so nothing notices).
+            //  - the availability predicate: the JS pre-read above cannot guard
+            //    this, both because it runs before the write and because
+            //    Number(null) === 0 overstates available funds.
+            //  - rowCount === 1: a 0-row result means the reserve was NOT taken,
+            //    which must abort the withdrawal instead of creating a request
+            //    row backed by nothing. Throwing rolls the transaction back.
+            const reserve = await client.query(`
+        UPDATE wallets
+        SET reserved_cents = COALESCE(reserved_cents, 0) + $1, updated_at = NOW()
         WHERE user_id = $2 AND currency = $3
+          AND balance_cents - COALESCE(reserved_cents, 0) >= $1
       `, [amountCents, request.userId, request.currency]);
+            if (reserve.rowCount !== 1) {
+                throw new AppError('Insufficient balance', 400);
+            }
         }
 
         // Create withdrawal request.
