@@ -118,10 +118,22 @@ describe('FIN-3: documented exceptions (reserve semantics must NOT be applied bl
     // that reserve in the same statement. Subtracting reserved_cents here would
     // make a fully-reserved (and therefore legitimately payable) withdrawal
     // impossible to settle. It must still check rowCount (FIN-4).
+    //
+    // NEW-4 made the reserve release NULL-safe (`COALESCE(reserved_cents, 0)`)
+    // and added a `COALESCE(reserved_cents, 0) >= $1` floor so the release cannot
+    // drive the reserve negative. The invariant this test exists to protect is
+    // unchanged and is re-asserted explicitly below: this path must NOT use the
+    // available-balance form.
     const src = read('server/routes/admin.ts').replace(/\s+/g, ' ');
-    expect(src).toContain('reserved_cents = reserved_cents - $1');
+    expect(src).toMatch(/reserved_cents = (COALESCE\(reserved_cents, 0\)|reserved_cents) - \$1/);
     expect(src).toContain('AND balance_cents >= $1');
     expect(src).toMatch(/debit\.rowCount !== 1/);
+    // The withdrawal-approval debit itself must not subtract the reserve from
+    // the balance it checks — that is the documented exception. Assert the exact
+    // predicate pair instead, which proves the availability form is absent.
+    expect(src).toContain(
+      'WHERE user_id = $2 AND currency = $3 AND balance_cents >= $1 AND COALESCE(reserved_cents, 0) >= $1',
+    );
   });
 
   it('savings_vaults uses its own balance (no reserve concept on that table)', () => {

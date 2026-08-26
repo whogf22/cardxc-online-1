@@ -89,8 +89,12 @@ function wire(opts: WireOpts): Array<{ sql: string; params: unknown[] }> {
         const flat = String(sql).replace(/\s+/g, ' ');
         executed.push({ sql: flat, params: params ?? [] });
         if (flat.includes('INSERT INTO admin_adjustments')) return { rows: [{ id: ADJ_ID }], rowCount: 1 };
-        // Guarded debit: only affects a row when the balance is sufficient.
-        if (flat.includes('UPDATE wallets') && flat.includes('balance_cents >= $1')) {
+        // Guarded debit: only affects a row when the AVAILABLE balance is
+        // sufficient. Matched structurally so the mock keeps working with either
+        // the gross floor (`balance_cents >= $1`) or the stricter available-funds
+        // floor (`balance_cents - COALESCE(reserved_cents, 0) >= $1`) that
+        // NEW-4 introduced. `opts.availableCents` is already the available figure.
+        if (flat.includes('UPDATE wallets') && /balance_cents[^;]*>=\s*\$1/.test(flat)) {
           const amt = Number(params?.[0] ?? 0);
           return { rows: [], rowCount: opts.availableCents >= amt ? 1 : 0 };
         }
@@ -114,7 +118,7 @@ const debitAdd = (ex: Array<{ sql: string }>) =>
   ex.some(e => e.sql.includes('DO UPDATE SET balance_cents = wallets.balance_cents + $3') &&
                 e.sql.includes('INSERT INTO wallets'));
 const guardedDebit = (ex: Array<{ sql: string }>) =>
-  ex.find(e => e.sql.includes('UPDATE wallets') && e.sql.includes('balance_cents >= $1'));
+  ex.find(e => e.sql.includes('UPDATE wallets') && /balance_cents[^;]*>=\s*\$1/.test(e.sql));
 const txInsertRan = (ex: Array<{ sql: string }>) =>
   ex.some(e => e.sql.includes('INSERT INTO transactions'));
 

@@ -492,10 +492,20 @@ router.post('/withdrawals/:withdrawalId/approve',
       // money was never debited — approving anyway would pay out funds the user
       // does not have. Throwing here rolls back the whole approval, so the
       // withdrawal stays 'pending' and its transaction is NOT marked SUCCESS.
+      //
+      // NEW-4: this settles THIS withdrawal's own reserve, so the correct floor
+      // is gross balance AND an existing reserve of at least this amount — not
+      // available balance (the reserve here is the withdrawal itself). COALESCE
+      // stops `NULL - n` from erasing the reserve, which would silently inflate
+      // available balance afterwards.
       const debit = await client.query(`
         UPDATE wallets
-        SET balance_cents = balance_cents - $1, reserved_cents = reserved_cents - $1, updated_at = NOW()
-        WHERE user_id = $2 AND currency = $3 AND balance_cents >= $1
+        SET balance_cents = balance_cents - $1,
+            reserved_cents = COALESCE(reserved_cents, 0) - $1,
+            updated_at = NOW()
+        WHERE user_id = $2 AND currency = $3
+          AND balance_cents >= $1
+          AND COALESCE(reserved_cents, 0) >= $1
       `, [withdrawal.amount_cents, withdrawal.user_id, withdrawal.currency]);
 
       if (debit.rowCount !== 1) {
@@ -806,13 +816,22 @@ router.post('/adjustments',
           // seed a new wallet at a negative balance. A 0-row result aborts the
           // whole transaction, rolling back the APPROVED adjustment and ledger
           // insert with it.
+          // NEW-4: guard on AVAILABLE balance, not gross balance. Guarding only
+          // `balance_cents >= $1` let an admin debit consume funds already
+          // reserved for a pending withdrawal: balance_cents stayed
+          // non-negative, but available (balance - reserved) went negative, which
+          // then starves the withdrawal at approval time. COALESCE keeps a NULL
+          // reserve from blocking a legitimate debit. This matches every other
+          // guarded debit in the tree (payments.ts, transactions.ts, savings.ts,
+          // giftCards.ts).
           const debit = await client.query(`
             UPDATE wallets
             SET balance_cents = balance_cents - $1, updated_at = NOW()
-            WHERE user_id = $2 AND currency = $3 AND balance_cents >= $1
+            WHERE user_id = $2 AND currency = $3
+              AND balance_cents - COALESCE(reserved_cents, 0) >= $1
           `, [amountCents, userId, currency]);
           if (debit.rowCount !== 1) {
-            throw new AppError('Insufficient balance for this debit adjustment', 400, 'INSUFFICIENT_BALANCE');
+            throw new AppError('Insufficient available balance for this debit adjustment', 400, 'INSUFFICIENT_BALANCE');
           }
         }
 
@@ -898,13 +917,17 @@ router.post('/adjustments/:adjustmentId/approve',
         // Guarded debit: only reduces an existing, sufficient balance. A 0-row
         // result aborts the transaction so the adjustment stays PENDING and no
         // negative balance is written.
+        // NEW-4: guard on AVAILABLE balance so approving a debit adjustment
+        // cannot consume funds reserved for a pending withdrawal. A 0-row result
+        // aborts the transaction so the adjustment stays PENDING.
         const debit = await client.query(`
           UPDATE wallets
           SET balance_cents = balance_cents - $1, updated_at = NOW()
-          WHERE user_id = $2 AND currency = $3 AND balance_cents >= $1
+          WHERE user_id = $2 AND currency = $3
+            AND balance_cents - COALESCE(reserved_cents, 0) >= $1
         `, [adjustment.amount_cents, adjustment.user_id, adjustment.currency]);
         if (debit.rowCount !== 1) {
-          throw new AppError('Insufficient balance for this debit adjustment', 400, 'INSUFFICIENT_BALANCE');
+          throw new AppError('Insufficient available balance for this debit adjustment', 400, 'INSUFFICIENT_BALANCE');
         }
       }
 
