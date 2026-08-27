@@ -6,7 +6,12 @@ import fs from "fs/promises";
 import path from "path";
 import pg from "pg";
 import { GoogleGenAI } from "@google/genai";
-import { validateSQL } from "./sql-guard.js";
+import {
+    validateSQL,
+    assertRawSqlPreconditions,
+    runReadOnlyQuery,
+    MAX_RESULT_ROWS,
+} from "./sql-guard.js";
 
 const PROJECT_ROOT = path.resolve(".");
 const BLOCKED_PATHS = [".env", "node_modules/.cache", ".git/objects"];
@@ -190,18 +195,23 @@ async function executeTool(name, toolInput) {
             return results.length > 0 ? results.join("\n") : "No matches found";
         }
         // nosemgrep: javascript.lang.security.audit.sqli.node-postgres-sqli
-        // MCP tool: authenticated admin debug tool. Raw SQL is disabled unless
-        // MCP_ENABLE_RAW_SQL=true and is then restricted to a single read-only
-        // SELECT by the shared validateSQL() allowlist in ./sql-guard.js.
+        // MCP tool: authenticated admin debug tool. R3-1 defence in depth —
+        // raw SQL is disabled unless MCP_ENABLE_RAW_SQL=true, requires a SEPARATE
+        // read-only database identity (MCP_READONLY_DATABASE_URL, distinct from
+        // DATABASE_URL), is validated by the literal-aware shared guard, and runs
+        // inside a READ ONLY transaction with a statement timeout, an idle
+        // timeout, a row cap and an unconditional ROLLBACK.
         case "query_database": {
-            const dbUrl = process.env.DATABASE_URL;
-            if (!dbUrl) return "DATABASE_URL not configured";
+            assertRawSqlPreconditions();
+            const roUrl = process.env.MCP_READONLY_DATABASE_URL;
             validateSQL(toolInput.query);
-            const client = new pg.Client({ connectionString: dbUrl });
+            const client = new pg.Client({ connectionString: roUrl });
             await client.connect();
             try {
-                const result = await client.query(toolInput.query); // validated by validateSQL
-                return result.rows ? JSON.stringify(result.rows, null, 2) : `Rows affected: ${result.rowCount}`;
+                // validated by validateSQL; executed read-only and row-capped
+                const { rows, truncated } = await runReadOnlyQuery(client, toolInput.query);
+                const json = JSON.stringify(rows, null, 2);
+                return truncated ? `${json}\n...[truncated at ${MAX_RESULT_ROWS} rows]` : json;
             } finally { await client.end(); }
         }
         // nosemgrep: javascript.lang.security.audit.sqli.node-postgres-sqli

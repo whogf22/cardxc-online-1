@@ -9,7 +9,14 @@ import { resolveMcpSecret, signMcpToken, verifyMcpToken } from "./mcp-auth.js";
 import { Server } from "@modelcontextprotocol/sdk/server";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { validateSQL, isRawSqlEnabled } from "./sql-guard.js";
+import {
+    validateSQL,
+    isRawSqlEnabled,
+    assertRawSqlPreconditions,
+    runReadOnlyQuery,
+    MAX_RESULT_ROWS,
+} from "./sql-guard.js";
+import { buildPgSslConfig } from "./env.js";
 
 const PROJECT_ROOT = path.resolve(".");
 const BLOCKED_PATHS = [".env", "node_modules/.cache", ".git/objects"];
@@ -487,19 +494,21 @@ const executeToolInternal = async (tool, toolInput) => {
         // single read-only SELECT by the shared validateSQL() allowlist. This
         // is an intentional, JWT-authenticated admin debug tool.
         case "query_database": {
-            const databaseUrl = process.env.DATABASE_URL;
-            if (!databaseUrl) return "Database not configured. DATABASE_URL is missing.";
+            // R3-1 defence in depth: enable gate + a SEPARATE read-only identity +
+            // literal-aware validation + a READ ONLY transaction that is timeout-
+            // bounded, row-capped and always rolled back. The application role is
+            // never used for raw SQL, so a validator bypass has no write authority.
+            assertRawSqlPreconditions();
+            const readOnlyUrl = process.env.MCP_READONLY_DATABASE_URL;
             validateSQL(toolInput.query);
-            const sslConfig = process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : { rejectUnauthorized: false };
-            const client = new pg.Client({ connectionString: databaseUrl, ssl: sslConfig });
+            const client = new pg.Client({ connectionString: readOnlyUrl, ssl: buildPgSslConfig(readOnlyUrl) });
             await client.connect();
             try {
-                const result = await client.query(toolInput.query); // validated by validateSQL, JWT-auth required
-                if (result.rows) {
-                    const json = JSON.stringify(result.rows, null, 2);
-                    return json.length > 50000 ? json.slice(0, 50000) + "\n...[truncated]" : json;
-                }
-                return `Query executed. Rows affected: ${result.rowCount}`;
+                // validated by validateSQL, JWT/API-key auth required
+                const { rows, truncated } = await runReadOnlyQuery(client, toolInput.query);
+                const json = JSON.stringify(rows, null, 2);
+                const capped = truncated ? `${json}\n...[truncated at ${MAX_RESULT_ROWS} rows]` : json;
+                return capped.length > 50000 ? capped.slice(0, 50000) + "\n...[truncated]" : capped;
             } finally {
                 await client.end();
             }
@@ -510,7 +519,9 @@ const executeToolInternal = async (tool, toolInput) => {
         case "get_database_schema": {
             const databaseUrl = process.env.DATABASE_URL;
             if (!databaseUrl) return "Database not configured.";
-            const sslConfig = process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : { rejectUnauthorized: false };
+            // R3-6: fail-closed TLS. Verification is ON unless a development-only opt-in
+            // is set AND the process is not production AND the target is local.
+            const sslConfig = buildPgSslConfig(databaseUrl);
             const client = new pg.Client({ connectionString: databaseUrl, ssl: sslConfig });
             await client.connect();
             try {
