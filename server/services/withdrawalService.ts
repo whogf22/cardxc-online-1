@@ -127,7 +127,7 @@ async function processBankWithdrawal(request: BankWithdrawalRequest): Promise<Wi
     `, [request.userId, request.currency]);
 
         if (!wallet.rows[0]) {
-            throw new AppError('Wallet not found', 404);
+            throw new AppError('Wallet not found', 404, 'WALLET_NOT_FOUND');
         }
 
         let available: number;
@@ -135,7 +135,7 @@ async function processBankWithdrawal(request: BankWithdrawalRequest): Promise<Wi
         if (request.walletType === 'usdt') {
             available = Number(wallet.rows[0].usdt_balance_cents || 0);
             if (available < amountCents) {
-                throw new AppError('Insufficient USDT balance', 400);
+                throw new AppError('Insufficient USDT balance', 400, 'INSUFFICIENT_USDT_BALANCE');
             }
 
             // Deduct from USDT balance (guarded: rowCount 0 aborts the withdrawal
@@ -146,13 +146,13 @@ async function processBankWithdrawal(request: BankWithdrawalRequest): Promise<Wi
         WHERE user_id = $2 AND currency = $3 AND usdt_balance_cents >= $1
       `, [amountCents, request.userId, request.currency]);
             if (usdtWithdrawDebit.rowCount === 0) {
-                throw new AppError('Insufficient USDT balance', 400);
+                throw new AppError('Insufficient USDT balance', 400, 'INSUFFICIENT_USDT_BALANCE');
             }
 
         } else {
             available = Number(wallet.rows[0].balance_cents) - Number(wallet.rows[0].reserved_cents);
             if (available < amountCents) {
-                throw new AppError('Insufficient balance', 400);
+                throw new AppError('Insufficient balance', 400, 'INSUFFICIENT_BALANCE');
             }
 
             // Reserve fiat balance. NEW-3: three things matter here.
@@ -172,7 +172,7 @@ async function processBankWithdrawal(request: BankWithdrawalRequest): Promise<Wi
           AND balance_cents - COALESCE(reserved_cents, 0) >= $1
       `, [amountCents, request.userId, request.currency]);
             if (reserve.rowCount !== 1) {
-                throw new AppError('Insufficient balance', 400);
+                throw new AppError('Insufficient balance', 400, 'INSUFFICIENT_BALANCE');
             }
         }
 
@@ -238,6 +238,12 @@ async function processBankWithdrawal(request: BankWithdrawalRequest): Promise<Wi
         return {
             success: true,
             withdrawalId: withdrawalResult.rows[0].id,
+            // R3-3: report the state the row was actually created in. A USDT-funded
+            // bank withdrawal enters 'held' (funds already debited, operator must
+            // settle or refund), not 'pending'. Callers that echoed a hard-coded
+            // 'pending' told the user their USDT withdrawal was queued for the
+            // normal fiat approval flow, which is not where it lives.
+            status: initialStatus,
             message: 'Withdrawal request submitted. Admin will process within 24 hours.',
             estimatedTime: '1-3 business days'
         };
