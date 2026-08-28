@@ -283,10 +283,16 @@ async function holdForManualReview(withdrawalId: string, request: CryptoWithdraw
     let marked = false;
     try {
         await transaction(async (client) => {
+            // R3-2: the write MUST carry the expected prior status. Without
+            // `AND status = 'held'` this statement was an unconditional
+            // last-writer-wins overwrite: a row an operator had already settled
+            // ('sent') or refunded ('rejected') could be dragged back to 'held'
+            // by a late reconciliation marker, re-exposing it to a second
+            // resolution and a second money movement.
             const res = await client.query(`
         UPDATE withdrawal_requests
         SET status = 'held', admin_notes = $1, updated_at = NOW()
-        WHERE id = $2 AND asset_type = 'usdt'
+        WHERE id = $2 AND asset_type = 'usdt' AND status = 'held'
       `, [note, withdrawalId]);
             marked = res.rowCount === 1;
         });
@@ -303,6 +309,60 @@ async function holdForManualReview(withdrawalId: string, request: CryptoWithdraw
             entityType: 'withdrawal_request',
             entityId: withdrawalId,
             newValues: { note, amount: request.amount, network: request.network, markerPersisted: marked },
+        });
+    } catch {
+        // Audit logging is best-effort; never let it change the money decision.
+    }
+    return marked;
+}
+
+/**
+ * R3-11: persist the OUTCOME of a crypto payout attempt as its own committed
+ * transition, claimed from the 'held' state.
+ *
+ * Two defects motivated this:
+ *  1. The confirmed-sent path wrote `status = 'processing'` inside the same
+ *     transaction as the ledger insert, with no expected-prior-status predicate,
+ *     so a bookkeeping failure rolled the status back too and the row stayed
+ *     'held' after a real broadcast — refundable by an operator.
+ *  2. The ambiguous / threw paths wrote nothing but a 'held' marker, so a row
+ *     whose funds may already be on-chain was indistinguishable from a row that
+ *     never reached the provider.
+ *
+ * `outcome` is a closed internal union, never caller input, so inlining it as a
+ * literal is safe; every attacker-influenced value stays parameterised.
+ */
+async function markSendOutcome(
+    withdrawalId: string,
+    request: CryptoWithdrawalRequest,
+    outcome: 'sent' | 'reconcile',
+    note: string,
+    txHash: string | null = null,
+): Promise<boolean> {
+    let marked = false;
+    try {
+        await transaction(async (client) => {
+            const target = outcome === 'sent' ? "'sent'" : "'reconcile'";
+            const res = await client.query(`
+        UPDATE withdrawal_requests
+        SET status = ${target}, admin_notes = $1, tx_hash = COALESCE($2, tx_hash), updated_at = NOW()
+        WHERE id = $3 AND asset_type = 'usdt' AND status = 'held'
+      `, [note, txHash, withdrawalId]);
+            marked = res.rowCount === 1;
+        });
+    } catch (e: any) {
+        logger.error('Failed to persist crypto payout outcome', { withdrawalId, outcome, error: e?.message });
+    }
+    if (!marked) {
+        logger.error('Crypto payout outcome NOT persisted — MANUAL RECONCILIATION REQUIRED', { withdrawalId, outcome, txHash, note });
+    }
+    try {
+        await createAuditLog({
+            userId: request.userId,
+            action: outcome === 'sent' ? 'CRYPTO_WITHDRAWAL_SENT' : 'CRYPTO_WITHDRAWAL_RECONCILE',
+            entityType: 'withdrawal_request',
+            entityId: withdrawalId,
+            newValues: { note, txHash, amount: request.amount, network: request.network, markerPersisted: marked },
         });
     } catch {
         // Audit logging is best-effort; never let it change the money decision.
@@ -547,11 +607,16 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
         logger.error('Crypto payout call threw — holding for reconciliation (NO refund)', {
             userId: request.userId, withdrawalId, error: sendErr?.message
         });
-        await holdForManualReview(withdrawalId, request, `RECONCILIATION_REQUIRED: payout call threw (${sendErr?.message || 'unknown error'})`);
+        await markSendOutcome(
+            withdrawalId,
+            request,
+            'reconcile',
+            `RECONCILIATION_REQUIRED: payout call threw (${sendErr?.message || 'unknown error'})`,
+        );
         return {
             success: true,
             withdrawalId,
-            status: 'held',
+            status: 'reconcile',
             requiresReconciliation: true,
             message: 'Withdrawal is being verified'
         };
@@ -559,16 +624,22 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
 
     if (payoutResult.outcome === 'confirmed_sent') {
         // The funds have left our custody. From here on we must NOT refund.
-        // Record the successful payout. If bookkeeping fails we log loudly for
-        // manual reconciliation but keep the user's balance deducted.
+        //
+        // R3-11: commit the 'sent' transition FIRST, on its own, claimed from
+        // 'held'. Previously the status write shared a transaction with the ledger
+        // insert, so a bookkeeping failure rolled the status back and left the row
+        // 'held' — i.e. refundable by an operator — after a confirmed broadcast.
+        // Durably recording "this money is gone" outranks bookkeeping.
+        await markSendOutcome(
+            withdrawalId,
+            request,
+            'sent',
+            `SENT: payout ID ${payoutResult.payoutId}`,
+            payoutResult.txHash || null,
+        );
+
         try {
             await transaction(async (client) => {
-                await client.query(`
-          UPDATE withdrawal_requests
-          SET status = 'processing', admin_notes = $1, tx_hash = $2, updated_at = NOW()
-          WHERE id = $3
-        `, [`Payout ID: ${payoutResult.payoutId}`, payoutResult.txHash || null, withdrawalId]);
-
                 // Record crypto ledger entry
                 await client.query(`
           INSERT INTO crypto_ledger_entries (
@@ -624,18 +695,30 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
     if (payoutResult.outcome === 'not_sent') {
         // Definite pre-broadcast failure: the funds never left custody, so it is
         // safe to refund and reject.
+        //
+        // R3-2: claim the row FIRST, scoped to id + usdt + status='held'. The
+        // wallet credit is then conditional on having won that claim, so a replay
+        // (or a concurrent resolver) cannot refund the same debit twice.
         await transaction(async (client) => {
+            const claim = await client.query(`
+        UPDATE withdrawal_requests
+        SET status = 'rejected', admin_notes = $1, updated_at = NOW()
+        WHERE id = $2 AND asset_type = 'usdt' AND status = 'held'
+        RETURNING id
+      `, [payoutResult.error || 'Payout failed before broadcast', withdrawalId]);
+
+            if (claim.rowCount !== 1) {
+                logger.error('Pre-broadcast refund claim lost — NOT crediting wallet', {
+                    userId: request.userId, withdrawalId
+                });
+                return;
+            }
+
             await client.query(`
         UPDATE wallets
         SET usdt_balance_cents = usdt_balance_cents + $1
         WHERE user_id = $2 AND currency = 'USD'
       `, [amountCents, request.userId]);
-
-            await client.query(`
-        UPDATE withdrawal_requests
-        SET status = 'rejected', admin_notes = $1
-        WHERE id = $2
-      `, [payoutResult.error || 'Payout failed before broadcast', withdrawalId]);
         });
 
         logger.error('Crypto withdrawal failed before broadcast — refunded', {
@@ -648,17 +731,23 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
     }
 
     // outcome === 'unknown' (or unrecognized): AMBIGUOUS. The broadcast may have
-    // gone out. NEVER auto-refund — hold for manual reconciliation.
+    // gone out. NEVER auto-refund — move to 'reconcile' so the row is visibly
+    // distinct from one that never reached the provider (R3-11).
     logger.error('Crypto withdrawal outcome UNKNOWN — holding for reconciliation (NO refund)', {
         userId: request.userId,
         withdrawalId,
         error: payoutResult.error
     });
-    await holdForManualReview(withdrawalId, request, `RECONCILIATION_REQUIRED: ambiguous payout outcome (${payoutResult.error || 'no confirmation'})`);
+    await markSendOutcome(
+        withdrawalId,
+        request,
+        'reconcile',
+        `RECONCILIATION_REQUIRED: ambiguous payout outcome (${payoutResult.error || 'no confirmation'})`,
+    );
     return {
         success: true,
         withdrawalId,
-        status: 'held',
+        status: 'reconcile',
         requiresReconciliation: true,
         message: 'Withdrawal is being verified'
     };

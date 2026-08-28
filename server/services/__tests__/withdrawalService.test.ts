@@ -81,20 +81,28 @@ function installTransaction(executedSql: string[], opts: {
   failBookkeeping?: boolean;
 } = {}) {
   const { balanceCents = 100_00, failBookkeeping = false } = opts;
-  mockTransaction.mockImplementation(async (fn: (client: { query: (sql: string, params?: unknown[]) => Promise<{ rows: unknown[] }> }) => Promise<unknown>) => {
+  mockTransaction.mockImplementation(async (fn: (client: { query: (sql: string, params?: unknown[]) => Promise<{ rows: unknown[]; rowCount?: number }> }) => Promise<unknown>) => {
     const client = {
       query: vi.fn(async (sql: string) => {
         executedSql.push(sql);
         if (sql.includes('SELECT usdt_balance_cents')) {
-          return { rows: [{ usdt_balance_cents: balanceCents }] };
+          return { rows: [{ usdt_balance_cents: balanceCents }], rowCount: 1 };
         }
         if (sql.includes('INSERT INTO withdrawal_requests')) {
-          return { rows: [{ id: 'wd-1' }] };
+          return { rows: [{ id: 'wd-1' }], rowCount: 1 };
         }
         if (failBookkeeping && sql.includes('INSERT INTO crypto_ledger_entries')) {
           throw new Error('ledger insert failed');
         }
-        return { rows: [] };
+        // R3-2 made the money-affecting writes conditional claims that inspect
+        // rowCount, so the mock has to model it the way node-postgres does (it is
+        // always present on a QueryResult). Returning a matched row here keeps
+        // these tests exercising the happy claim path; the claim-lost path is
+        // covered in withdrawalHoldStatePredicate.test.ts.
+        if (sql.includes('UPDATE withdrawal_requests') || sql.includes('UPDATE wallets')) {
+          return { rows: [{ id: 'wd-1' }], rowCount: 1 };
+        }
+        return { rows: [], rowCount: 0 };
       }),
     };
     return fn(client);
@@ -178,7 +186,14 @@ describe('processCryptoWithdrawal — refund safety (CRITICAL-2)', () => {
     const heldForReview = executedSql.some((sql) => sql.includes('admin_notes') && sql.includes('UPDATE withdrawal_requests'));
     expect(heldForReview).toBe(true);
     expect(result.requiresReconciliation).toBe(true);
-    expect(result.status).toBe('held');
+    // R3-11: an ambiguous outcome is now recorded as its own state, 'reconcile',
+    // instead of being left at 'held'. 'held' also means "never reached the
+    // provider", so reusing it made a row whose funds may already be on-chain
+    // indistinguishable from one that is safe to refund. The refund-safety
+    // invariant asserted above is unchanged.
+    expect(result.status).toBe('reconcile');
+    const wroteReconcile = executedSql.some((sql) => sql.includes("status = 'reconcile'"));
+    expect(wroteReconcile).toBe(true);
   });
 
   it('does NOT refund when the payout call THROWS after the send (ambiguous) — holds for reconciliation', async () => {
@@ -193,7 +208,10 @@ describe('processCryptoWithdrawal — refund safety (CRITICAL-2)', () => {
     );
     expect(refundHappened).toBe(false);
     expect(result.requiresReconciliation).toBe(true);
-    expect(result.status).toBe('held');
+    // R3-11, as above: a throw is ambiguous, so the row is moved to 'reconcile'.
+    expect(result.status).toBe('reconcile');
+    const wroteReconcile = executedSql.some((sql) => sql.includes("status = 'reconcile'"));
+    expect(wroteReconcile).toBe(true);
   });
 
   it('rejects before payout when USDT balance is insufficient', async () => {

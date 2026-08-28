@@ -135,7 +135,7 @@ export async function initializeDatabase() {
         idempotency_key VARCHAR(255),
         tx_hash VARCHAR(255),
         asset_type VARCHAR(10) DEFAULT 'fiat' CHECK (asset_type IN ('fiat', 'usdt')),
-        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'held', 'processing', 'completed', 'failed')),
+        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'held', 'sent', 'reconcile', 'processing', 'completed', 'failed')),
         admin_notes TEXT,
         approved_by UUID REFERENCES users(id),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -199,10 +199,18 @@ export async function initializeDatabase() {
     // have ALREADY been debited and which is awaiting an operator decision
     // (settle or refund). It is distinct from 'pending' (fiat, funds only
     // reserved) and from 'processing' (broadcast attempted / in flight).
+    //
+    // R3-11: 'sent' and 'reconcile' are the two terminal-ish crypto outcomes the
+    // payout path must be able to persist. 'sent' = provider confirmed the
+    // broadcast. 'reconcile' = the payout call threw or returned an ambiguous
+    // outcome, so an on-chain transfer MAY have happened and the row must NOT be
+    // auto-refunded; an operator has to reconcile it. Without these two values the
+    // CHECK constraint rejected the write and the outcome was silently lost,
+    // leaving a 'held' row that an operator could refund after a real send.
     await client.query(`
       ALTER TABLE withdrawal_requests DROP CONSTRAINT IF EXISTS withdrawal_requests_status_check;
       ALTER TABLE withdrawal_requests ADD CONSTRAINT withdrawal_requests_status_check
-        CHECK (status IN ('pending', 'approved', 'rejected', 'held', 'processing', 'completed', 'failed'));
+        CHECK (status IN ('pending', 'approved', 'rejected', 'held', 'sent', 'reconcile', 'processing', 'completed', 'failed'));
     `);
 
     await client.query(`

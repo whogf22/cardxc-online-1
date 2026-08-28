@@ -186,8 +186,14 @@ describe('NEW-1: USDT settle (operator confirms the payout went out)', () => {
 
     const claim = find(ex, 'UPDATE withdrawal_requests')[0];
     expect(claim).toBeDefined();
-    // Only a HELD row may be settled — the predicate is the real guard.
-    expect(claim.sql).toMatch(/status\s*=\s*'held'/i);
+    // Only a row in a resolvable USDT state may be settled — the predicate is the
+    // real guard. R3-11 widened that set from 'held' alone to the three states the
+    // payout path can leave a row in: 'held' (never sent), 'sent' (provider
+    // confirmed the broadcast) and 'reconcile' (ambiguous, may be on-chain).
+    // Without the widening, 'sent'/'reconcile' rows would be unresolvable — the
+    // same stranding defect NEW-1 fixed for 'held'. It is still a closed list:
+    // 'pending', 'processing', 'completed' and 'rejected' remain refused.
+    expect(claim.sql).toMatch(/status\s+IN\s*\(\s*'held'\s*,\s*'sent'\s*,\s*'reconcile'\s*\)/i);
     expect(claim.sql).toMatch(/asset_type\s*=\s*'usdt'/i);
     // Funds already left the user's balance at request time: settling must not
     // debit again, and must never touch fiat columns.

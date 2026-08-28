@@ -626,15 +626,29 @@ router.post('/withdrawals/:withdrawalId/reject',
  *   settle — the operator confirms the payout went out; the debit stands.
  *   refund — the operator declines; the debit is reversed atomically.
  *
- * Both claim the row with `WHERE status = 'held' AND asset_type = 'usdt'` as the
- * FIRST statement in the transaction, so repeated or concurrent resolution
+ * Both claim the row with `WHERE status IN (<allowed>) AND asset_type = 'usdt'` as
+ * the FIRST statement in the transaction, so repeated or concurrent resolution
  * produces exactly one effect, and neither touches `balance_cents` or
  * `reserved_cents`.
+ *
+ * R3-11: the crypto payout path now records its outcome as 'sent' (provider
+ * confirmed the broadcast) or 'reconcile' (the call threw or returned an
+ * ambiguous outcome, so an on-chain transfer MAY have happened). Both are
+ * resolvable by SETTLE — otherwise those rows would be stranded exactly like the
+ * original 'held' defect. REFUND stays restricted to 'held': crediting a wallet
+ * for a row whose funds may already be on-chain is a double payout, so it is
+ * deliberately not reachable through this endpoint and requires out-of-band
+ * reconciliation instead.
  */
 const USDT_TX_HASH_RE = /^[0-9a-fA-F]{64}$/;
 
-/** Shared pre-flight: the row must exist, be USDT-funded, and be 'held'. */
-async function loadHeldUsdtWithdrawal(withdrawalId: string) {
+/** States a USDT withdrawal may be SETTLED from (debit stands, no balance change). */
+const USDT_SETTLEABLE_STATES = ['held', 'sent', 'reconcile'] as const;
+/** States a USDT withdrawal may be REFUNDED from (wallet is credited back). */
+const USDT_REFUNDABLE_STATES = ['held'] as const;
+
+/** Shared pre-flight: the row must exist, be USDT-funded, and be in an allowed state. */
+async function loadUsdtWithdrawalForResolution(withdrawalId: string, allowed: readonly string[]) {
   const withdrawal = await queryOne<any>(`
     SELECT * FROM withdrawal_requests WHERE id = $1
   `, [withdrawalId]);
@@ -649,9 +663,9 @@ async function loadHeldUsdtWithdrawal(withdrawalId: string) {
       'WRONG_ASSET_TYPE',
     );
   }
-  if (withdrawal.status !== 'held') {
+  if (!allowed.includes(withdrawal.status)) {
     throw new AppError(
-      `Only a held withdrawal can be resolved here (current status: ${withdrawal.status}).`,
+      `This withdrawal cannot be resolved here (current status: ${withdrawal.status}; allowed: ${allowed.join(', ')}).`,
       400,
       'NOT_HELD',
     );
@@ -670,7 +684,7 @@ router.post('/withdrawals/:withdrawalId/usdt/settle',
       throw new AppError('txHash must be a 64-character hex transaction id', 400, 'VALIDATION_ERROR');
     }
 
-    await loadHeldUsdtWithdrawal(withdrawalId as string);
+    const priorWithdrawal = await loadUsdtWithdrawalForResolution(withdrawalId as string, USDT_SETTLEABLE_STATES);
 
     await transaction(async (client) => {
       // Atomic claim FIRST. A concurrent settle/refund that already won leaves
@@ -682,7 +696,8 @@ router.post('/withdrawals/:withdrawalId/usdt/settle',
             admin_notes = $2,
             approved_by = $3,
             updated_at = NOW()
-        WHERE id = $4 AND status = 'held' AND asset_type = 'usdt'
+        WHERE id = $4 AND asset_type = 'usdt'
+          AND status IN ('held', 'sent', 'reconcile')
       `, [txHash || null, notes ?? 'Settled manually by operator', req.user!.id, withdrawalId]);
 
       if (claim.rowCount === 0) {
@@ -702,7 +717,7 @@ router.post('/withdrawals/:withdrawalId/usdt/settle',
       action: 'USDT_WITHDRAWAL_SETTLED',
       entityType: 'withdrawal',
       entityId: withdrawalId as string,
-      oldValues: { status: 'held' },
+      oldValues: { status: priorWithdrawal.status },
       newValues: { status: 'completed', txHash: txHash || null, notes },
     });
 
@@ -721,7 +736,7 @@ router.post('/withdrawals/:withdrawalId/usdt/refund',
       throw new AppError(errors.array()[0].msg, 400, 'VALIDATION_ERROR');
     }
 
-    const withdrawal = await loadHeldUsdtWithdrawal(withdrawalId as string);
+    const withdrawal = await loadUsdtWithdrawalForResolution(withdrawalId as string, USDT_REFUNDABLE_STATES);
 
     await transaction(async (client) => {
       // Atomic claim FIRST, so the refund below can only run for the single
