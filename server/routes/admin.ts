@@ -902,24 +902,43 @@ router.post('/adjustments/:adjustmentId/approve',
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { adjustmentId } = req.params;
 
-    const adjustment = await queryOne<any>(`
-      SELECT * FROM admin_adjustments WHERE id = $1
-    `, [adjustmentId]);
-
-    if (!adjustment) {
-      throw new AppError('Adjustment not found', 404, 'NOT_FOUND');
-    }
-
-    if (adjustment.status !== 'PENDING') {
-      throw new AppError('Adjustment already processed', 400, 'ALREADY_PROCESSED');
-    }
-
+    // R3-7: single-winner claim.
+    //
+    // This handler used to read the adjustment with an UNLOCKED query outside the
+    // transaction, check `status !== 'PENDING'` in application code, and then issue
+    // its terminal UPDATE with neither a status predicate nor a rowCount check. Two
+    // consequences, both money:
+    //   1. two concurrent approvals both passed the check and both ran the additive
+    //      credit upsert, so the user was credited TWICE for one adjustment;
+    //   2. with no predicate, an approval that lost the race to a REJECTION stamped
+    //      APPROVED over the committed REJECTED and paid the money anyway.
+    //
+    // The claim is now the FIRST statement in the transaction, predicated on
+    // PENDING, and it RETURNS the row that every money statement below is driven
+    // from — never a stale pre-read (LOW-1). Exactly one concurrent request can see
+    // rowCount === 1; the loser throws and the transaction rolls back, so it writes
+    // no balance mutation, no ledger row and no audit entry.
     await transaction(async (client) => {
-      await client.query(`
-        UPDATE admin_adjustments 
+      const claim = await client.query(`
+        UPDATE admin_adjustments
         SET status = 'APPROVED', approved_by = $1, updated_at = NOW()
-        WHERE id = $2
+        WHERE id = $2 AND status = 'PENDING'
+        RETURNING id, user_id, type, amount_cents, currency, reason
       `, [req.user!.id, adjustmentId]);
+
+      if (claim.rowCount !== 1) {
+        // A 0-row claim is NOT automatically "already processed": reload the
+        // authoritative row so a missing adjustment is still reported as 404.
+        const current = await client.query(`
+          SELECT status FROM admin_adjustments WHERE id = $1
+        `, [adjustmentId]);
+        if (current.rowCount === 0) {
+          throw new AppError('Adjustment not found', 404, 'NOT_FOUND');
+        }
+        throw new AppError('Adjustment already processed', 400, 'ALREADY_PROCESSED');
+      }
+
+      const adjustment = claim.rows[0];
 
       if (adjustment.type === 'credit') {
         await client.query(`
@@ -972,11 +991,29 @@ router.post('/adjustments/:adjustmentId/reject',
     const { adjustmentId } = req.params;
     const { reason } = req.body;
 
-    await query(`
-      UPDATE admin_adjustments 
+    // LOW-6: the PENDING predicate was already here, but the result was discarded.
+    // A rejection that changed nothing still answered `{ success: true }` and still
+    // wrote an ADJUSTMENT_REJECTED audit entry, so the log showed a rejection that
+    // never happened. Claim with RETURNING and check the result.
+    //
+    // `pool.query()` resolves to `result.rows` — an ARRAY with no `.rowCount` — so
+    // the row count is the array length here, not a `rowCount` property.
+    const claimed = await query<{ id: string }>(`
+      UPDATE admin_adjustments
       SET status = 'REJECTED', approved_by = $1, updated_at = NOW()
       WHERE id = $2 AND status = 'PENDING'
+      RETURNING id
     `, [req.user!.id, adjustmentId]);
+
+    if (claimed.length !== 1) {
+      const current = await queryOne<{ status: string }>(`
+        SELECT status FROM admin_adjustments WHERE id = $1
+      `, [adjustmentId]);
+      if (!current) {
+        throw new AppError('Adjustment not found', 404, 'NOT_FOUND');
+      }
+      throw new AppError('Adjustment already processed', 400, 'ALREADY_PROCESSED');
+    }
 
     await createAuditLog({
       userId: req.user!.id,

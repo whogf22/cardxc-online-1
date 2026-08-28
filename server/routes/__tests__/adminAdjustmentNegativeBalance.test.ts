@@ -65,6 +65,13 @@ interface WireOpts {
   adjustment?: { type: 'credit' | 'debit'; amount_cents: number };
 }
 
+/** The adjustment row this fixture describes, as the DB would hold it. */
+const adjustmentRow = (opts: WireOpts) => ({
+  id: ADJ_ID, user_id: USER_ID, currency: 'USD', status: 'PENDING',
+  reason: 'test reason long enough',
+  ...(opts.adjustment ?? { type: 'debit' as const, amount_cents: 0 }),
+});
+
 /**
  * Wire db mocks. The transaction client models the guarded debit
  * (`UPDATE wallets ... WHERE balance_cents >= $1`) by matching 1 row only when
@@ -76,9 +83,7 @@ function wire(opts: WireOpts): Array<{ sql: string; params: unknown[] }> {
 
   mockQueryOne.mockImplementation(async (sql: string) => {
     if (sql.includes('FROM users')) return { id: USER_ID };
-    if (sql.includes('FROM admin_adjustments')) {
-      return { id: ADJ_ID, user_id: USER_ID, currency: 'USD', status: 'PENDING', reason: 'test reason long enough', ...(opts.adjustment ?? { type: 'debit', amount_cents: 0 }) };
-    }
+    if (sql.includes('FROM admin_adjustments')) return adjustmentRow(opts);
     return null;
   });
   mockQuery.mockResolvedValue({ rows: [], rowCount: 1 });
@@ -89,6 +94,13 @@ function wire(opts: WireOpts): Array<{ sql: string; params: unknown[] }> {
         const flat = String(sql).replace(/\s+/g, ' ');
         executed.push({ sql: flat, params: params ?? [] });
         if (flat.includes('INSERT INTO admin_adjustments')) return { rows: [{ id: ADJ_ID }], rowCount: 1 };
+        // R3-7: the approve path now claims the adjustment atomically with
+        // `UPDATE admin_adjustments ... WHERE status = 'PENDING' RETURNING ...` and
+        // drives every money statement from the RETURNED row. Model the claim as
+        // won so the debit-floor assertions below still see this fixture's amount.
+        if (flat.includes('UPDATE admin_adjustments')) {
+          return { rows: [{ ...adjustmentRow(opts), status: 'APPROVED' }], rowCount: 1 };
+        }
         // Guarded debit: only affects a row when the AVAILABLE balance is
         // sufficient. Matched structurally so the mock keeps working with either
         // the gross floor (`balance_cents >= $1`) or the stricter available-funds

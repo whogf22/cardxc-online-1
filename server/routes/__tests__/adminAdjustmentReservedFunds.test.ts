@@ -72,17 +72,16 @@ const ADJ_ID = '22222222-2222-4222-8222-222222222222';
  */
 function wire(balanceCents: number, reservedCents: number | null, pendingAdjustment = false) {
   const executed: Array<{ sql: string; params: unknown[] }> = [];
+  const adjustmentRow = {
+    id: ADJ_ID, user_id: USER_ID, type: 'debit', amount_cents: 20_000,
+    currency: 'USD', status: 'PENDING', reason: 'test debit adjustment',
+  };
 
   mockQuery.mockResolvedValue({ rows: [], rowCount: 1 });
   mockQueryOne.mockImplementation(async (sql: string) => {
     const s = String(sql);
     if (s.includes('FROM admin_adjustments')) {
-      return pendingAdjustment
-        ? {
-          id: ADJ_ID, user_id: USER_ID, type: 'debit', amount_cents: 20_000,
-          currency: 'USD', status: 'PENDING', reason: 'test debit adjustment',
-        }
-        : null;
+      return pendingAdjustment ? { ...adjustmentRow } : null;
     }
     if (s.includes('FROM users')) return { id: USER_ID, email: 'u@test.com', role: 'USER' };
     if (s.includes('FROM wallets')) return { balance_cents: balanceCents, reserved_cents: reservedCents };
@@ -105,6 +104,15 @@ function wire(balanceCents: number, reservedCents: number | null, pendingAdjustm
           return { rows: [], rowCount: usable >= amt ? 1 : 0 };
         }
         if (flat.includes('INSERT INTO admin_adjustments')) return { rows: [{ id: ADJ_ID }], rowCount: 1 };
+        // R3-7: the approve path claims the adjustment atomically
+        // (`UPDATE admin_adjustments ... WHERE status = 'PENDING' RETURNING ...`) and
+        // takes the debit amount from the RETURNED row. Model the claim as won when
+        // this fixture has a pending adjustment, and as lost when it has none.
+        if (flat.includes('UPDATE admin_adjustments')) {
+          return pendingAdjustment
+            ? { rows: [{ ...adjustmentRow, status: 'APPROVED' }], rowCount: 1 }
+            : { rows: [], rowCount: 0 };
+        }
         return { rows: [], rowCount: 1 };
       }),
     };
