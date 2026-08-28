@@ -164,7 +164,13 @@ describe('processIncomingTransaction confirmation gate', () => {
     stubSolidity({ blockNumber: 1000, headNumber: 1019 }); // 20
     mockPending();
     mockTransaction.mockImplementation(async (fn: (c: unknown) => Promise<unknown>) =>
-      fn({ query: vi.fn().mockResolvedValue({ rows: [], rowCount: 1 }) }));
+      fn({ query: vi.fn(async (sql: string) => (
+        // The transactions row is the FK parent of the crypto ledger entry, so
+        // `RETURNING id` must yield one (NEW-R4-2).
+        String(sql).includes('INSERT INTO transactions')
+          ? { rows: [{ id: 'txn-conf-2' }], rowCount: 1 }
+          : { rows: [], rowCount: 1 }
+      )) }));
     const { processIncomingTransaction } = await import('../tronDepositMonitor');
     await processIncomingTransaction(makeTx());
     expect(mockTransaction).toHaveBeenCalled();
@@ -201,6 +207,11 @@ describe('creditUserDeposit safety', () => {
         }
         if (throwOnWallet && sql.includes('INSERT INTO wallets')) {
           throw new Error('DB_WRITE_FAILED');
+        }
+        // `INSERT INTO transactions ... RETURNING id` returns the row whose id
+        // anchors the crypto ledger entry's FK (NEW-R4-2).
+        if (sql.includes('INSERT INTO transactions')) {
+          return { rows: [{ id: 'txn-conf-1' }], rowCount: 1 };
         }
         return { rows: [], rowCount: 1 };
       }),

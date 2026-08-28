@@ -94,6 +94,11 @@ function wire(balanceCents = 1_000_000) {
         if (flat.includes('INSERT INTO gift_card_requests')) {
           return { rows: [{ id: 'gcr-1' }], rowCount: 1 };
         }
+        // `INSERT INTO transactions ... RETURNING id` returns the row whose id
+        // anchors the crypto ledger entry's FK (NEW-R4-1).
+        if (flat.includes('INSERT INTO transactions')) {
+          return { rows: [{ id: 'txn-1' }], rowCount: 1 };
+        }
         return { rows: [], rowCount: 1 };
       }),
     };

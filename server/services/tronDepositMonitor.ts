@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { query, queryOne, transaction } from '../db/pool';
 import { logger } from '../middleware/logger';
 import { baseUnitsToExactDecimal } from '../lib/tokenAmount';
+import { isDepositIntentAmountViolation } from '../lib/pgErrors';
 
 const TRONGRID_BASE = 'https://api.trongrid.io';
 const TRONGRID_API_KEY = process.env.TRONGRID_API_KEY || '';
@@ -336,17 +337,32 @@ export async function creditUserDeposit(
             [userId, amountCents]
         );
 
-        await client.query(
+        // The user-visible ledger row is the FK PARENT of the crypto ledger
+        // entry, so it must be created FIRST and its id captured. Anchoring the
+        // entry to `cryptoTxId` (a `crypto_transactions.id`) is a 23503 against
+        // `crypto_ledger_entries.source_transaction_id REFERENCES transactions(id)`
+        // — raised inside this transaction, it rolled back the entire credit for
+        // a fully-confirmed on-chain deposit, and every retry failed identically.
+        const txInsert = await client.query(
             `INSERT INTO transactions (user_id, type, status, amount_cents, currency, description, reference)
-             VALUES ($1, 'deposit', 'SUCCESS', $2, 'USD', $3, $4)`,
+             VALUES ($1, 'deposit', 'SUCCESS', $2, 'USD', $3, $4)
+             RETURNING id`,
             [userId, amountCents, `USDT TRC-20 deposit: ${amount} USDT`, txHash]
         );
+        const canonicalTxId = txInsert.rows[0]?.id;
+        if (!canonicalTxId) {
+            // Never write an unanchored ledger entry: a NULL FK is accepted by
+            // both the constraint and the unique index (NULLs are distinct), so
+            // it would silently produce an unreconcilable orphan row.
+            throw new Error('DEPOSIT_TRANSACTION_ROW_MISSING');
+        }
 
         await client.query(
             `INSERT INTO crypto_ledger_entries (
                 user_id, source_transaction_id, crypto_type, amount_cents, exchange_rate, usd_equivalent_cents, description
-            ) VALUES ($1, $2, 'USDT', $3, 1.0, $4, $5)`,
-            [userId, cryptoTxId, amountCents, amountCents, `USDT TRC-20 deposit from ${fromAddress.substring(0, 10)}...`]
+            ) VALUES ($1, $2, 'USDT', $3, 1.0, $4, $5)
+            ON CONFLICT (source_transaction_id) DO NOTHING`,
+            [userId, canonicalTxId, amountCents, amountCents, `USDT TRC-20 deposit from ${fromAddress.substring(0, 10)}...`]
         );
         });
     } catch (err: any) {
@@ -408,9 +424,13 @@ export async function createDepositIntent(userId: string, amount: number, fromAd
                 expiresAt: result[0].expires_at ?? expiresAt,
             };
         } catch (err: any) {
-            // 23505 = unique_violation → this expected_amount is already claimed
-            // by another active intent; retry with a new discriminator.
-            if (err?.code === '23505') {
+            // Retry ONLY when the collision is on the amount-attribution index:
+            // this expected_amount is already claimed by another active intent, so
+            // a fresh discriminator can succeed. A bare `code === '23505'` also
+            // swallowed unrelated unique violations (e.g. the tx_hash index),
+            // burning the retry budget and reporting an allocation failure instead
+            // of the real integrity error.
+            if (isDepositIntentAmountViolation(err)) {
                 continue;
             }
             throw err;

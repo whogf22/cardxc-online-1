@@ -142,15 +142,6 @@ router.post('/requests',
                     if (debit.rowCount === 0) {
                         throw new AppError('Insufficient USDT balance. Add funds via Card Checkout first.', 400, 'INSUFFICIENT_USDT_BALANCE');
                     }
-
-                    // Record crypto ledger entry
-                    await client.query(`
-                        INSERT INTO crypto_ledger_entries (
-                            user_id, source_transaction_id, crypto_type, amount_cents,
-                            exchange_rate, usd_equivalent_cents, description
-                        )
-                        VALUES ($1, $2, 'USDT', $3, 1.0, $4, $5)
-                    `, [req.user!.id, rId, -totalCostCents, -totalCostCents, `USDT payment for ${brand} gift card`]);
                 } else {
                     const debit = await client.query(`
                         UPDATE wallets SET balance_cents = balance_cents - $1, updated_at = NOW()
@@ -161,15 +152,38 @@ router.post('/requests',
                     }
                 }
 
-                // 4. Create internal Transaction record
-                await client.query(`
+                // 4. Create the ONE canonical user-visible Transaction record. It
+                //    is the FK parent of the crypto ledger entry below, so it must
+                //    be created BEFORE it and its id captured.
+                const txInsert = await client.query(`
                     INSERT INTO transactions (user_id, type, status, amount_cents, currency, description, reference)
                     VALUES ($1, 'payment', 'SUCCESS', $2, $3, $4, $5)
+                    RETURNING id
                 `, [
                     req.user!.id, totalCostCents, currency,
                     `Card Purchase: ${brand}${paymentMethod === 'usdt' ? ' (USDT)' : ''}`,
                     rId
                 ]);
+                const canonicalTxId = txInsert.rows[0]?.id;
+                if (!canonicalTxId) {
+                    throw new AppError('Failed to record this purchase.', 500, 'TRANSACTION_RECORD_FAILED');
+                }
+
+                // 5. Record the crypto ledger entry for a USDT payment, anchored
+                //    to the transaction above. Anchoring it to `rId` (a
+                //    `gift_card_requests.id`) is a 23503 against
+                //    `crypto_ledger_entries.source_transaction_id REFERENCES
+                //    transactions(id)`, which rolled back every USDT purchase.
+                if (paymentMethod === 'usdt') {
+                    await client.query(`
+                        INSERT INTO crypto_ledger_entries (
+                            user_id, source_transaction_id, crypto_type, amount_cents,
+                            exchange_rate, usd_equivalent_cents, description
+                        )
+                        VALUES ($1, $2, 'USDT', $3, 1.0, $4, $5)
+                        ON CONFLICT (source_transaction_id) DO NOTHING
+                    `, [req.user!.id, canonicalTxId, -totalCostCents, -totalCostCents, `USDT payment for ${brand} gift card`]);
+                }
 
                 return rId;
             });

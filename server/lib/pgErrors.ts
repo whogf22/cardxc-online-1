@@ -51,6 +51,21 @@ export const WITHDRAWAL_IDEMPOTENCY_CONSTRAINTS = [
 ] as const;
 
 /**
+ * Unique constraint on the active pending deposit intent's `expected_amount`.
+ *
+ * Because every user deposits to one shared hot wallet, the exact amount is the
+ * attribution key (FIN-1), and `createDepositIntent` retries with a fresh random
+ * discriminator when it collides. Any OTHER unique violation on
+ * `crypto_transactions` — notably `uniq_crypto_transactions_tx_hash` — means
+ * something unrelated went wrong, and retrying with a new amount would neither fix
+ * it nor surface it; it would burn the retry budget and report
+ * DEPOSIT_INTENT_ALLOCATION_FAILED instead of the real integrity failure.
+ */
+export const DEPOSIT_INTENT_AMOUNT_CONSTRAINTS = [
+  'uniq_crypto_deposit_expected_amount',
+] as const;
+
+/**
  * True when `err` is a Postgres unique violation on one of `constraints`.
  *
  * Deliberately strict: when the driver reports a constraint name that is not in
@@ -98,4 +113,13 @@ export function isWithdrawalIdempotencyViolation(err: unknown): boolean {
  */
 export function isTransactionIdempotencyViolation(err: unknown): boolean {
   return isUniqueViolationOn(err, TRANSACTION_IDEMPOTENCY_CONSTRAINTS);
+}
+
+/**
+ * True when `err` is the duplicate-key that means "this server-generated deposit
+ * `expected_amount` is already claimed by another active pending intent", i.e. the
+ * caller may safely retry with a fresh discriminator.
+ */
+export function isDepositIntentAmountViolation(err: unknown): boolean {
+  return isUniqueViolationOn(err, DEPOSIT_INTENT_AMOUNT_CONSTRAINTS);
 }

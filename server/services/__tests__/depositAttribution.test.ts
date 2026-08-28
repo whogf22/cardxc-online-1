@@ -81,7 +81,15 @@ function mockDb(candidates: Array<{ id: string; user_id: string }>, opts: { exis
     return [];
   });
   mockTransaction.mockImplementation(async (fn: (c: unknown) => Promise<unknown>) =>
-    fn({ query: vi.fn().mockResolvedValue({ rows: [], rowCount: 1 }) }));
+    fn({ query: vi.fn(async (sql: string) => {
+      // `INSERT INTO transactions ... RETURNING id` really does return a row, and
+      // its id is the FK parent of the crypto ledger entry, so the fixture must
+      // supply one or the credit fails closed (NEW-R4-2).
+      if (String(sql).includes('INSERT INTO transactions')) {
+        return { rows: [{ id: 'txn-attr-1' }], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 1 };
+    }) }));
 }
 
 /** True when a wallet credit actually happened. */
@@ -224,6 +232,11 @@ describe('FIN-1 attribution: one transaction credits at most one user, once', ()
             return { rows: [], rowCount: claims === 1 ? 1 : 0 };
           }
           if (String(sql).includes('INSERT INTO wallets')) walletWrites.push(String(sql));
+          // The transactions row is the FK parent of the crypto ledger entry, so
+          // `RETURNING id` must yield one (NEW-R4-2).
+          if (String(sql).includes('INSERT INTO transactions')) {
+            return { rows: [{ id: `txn-race-${claims}` }], rowCount: 1 };
+          }
           return { rows: [], rowCount: 1 };
         }),
       }));
@@ -260,8 +273,15 @@ describe('FIN-1: server-generated expected_amount (client cannot choose it)', ()
     mockQuery.mockImplementation(async () => {
       calls += 1;
       if (calls === 1) {
-        const e: any = new Error('duplicate key value violates unique constraint');
+        // A real node-postgres unique violation NAMES the constraint it violated,
+        // and the retry is only correct for the amount-attribution index: any
+        // other unique violation on `crypto_transactions` cannot be fixed by a
+        // fresh discriminator (NEW-R4-4 / LOW-5).
+        const e: any = new Error(
+          'duplicate key value violates unique constraint "uniq_crypto_deposit_expected_amount"',
+        );
         e.code = '23505';
+        e.constraint = 'uniq_crypto_deposit_expected_amount';
         throw e;
       }
       return [{ id: 'dep-2', expires_at: '2030-01-01T00:00:00Z' }];
