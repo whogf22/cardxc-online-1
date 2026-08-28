@@ -60,13 +60,22 @@ describe('resolveUsdtRate', () => {
   });
 
   it('REFUSES an out-of-band rate that would silently multiply the credit', () => {
-    // 0.5 would DOUBLE every credit; 2.0 is the upper bound; beyond is refused.
+    // 0.5 would DOUBLE every credit; 2.0 would HALVE it; beyond either is refused.
     expect(resolveUsdtRate(env('0.49'))).toBeNull();
     expect(resolveUsdtRate(env('2.01'))).toBeNull();
     expect(resolveUsdtRate(env('100'))).toBeNull();
-    // The boundaries themselves are accepted.
-    expect(resolveUsdtRate(env(String(MIN_USDT_RATE)))).toBe(MIN_USDT_RATE);
-    expect(resolveUsdtRate(env(String(MAX_USDT_RATE)))).toBe(MAX_USDT_RATE);
+    // R3-5: these two lines previously read `.toBe(MIN_USDT_RATE)` /
+    // `.toBe(MAX_USDT_RATE)` under the comment "The boundaries themselves are
+    // accepted." That assertion PINNED a confirmed money defect: it required
+    // `resolveUsdtRate` to accept exactly 0.5, the value this module's own header
+    // names as silently doubling every stablecoin credit. The band is now the open
+    // interval (0.5, 2.0) and a rate sitting on either sanity limit fails closed.
+    // Full boundary matrix in usdtRateBoundary.test.ts.
+    expect(resolveUsdtRate(env(String(MIN_USDT_RATE)))).toBeNull();
+    expect(resolveUsdtRate(env(String(MAX_USDT_RATE)))).toBeNull();
+    // The band is still non-empty: a rate strictly inside it is accepted.
+    expect(resolveUsdtRate(env('0.51'))).toBe(0.51);
+    expect(resolveUsdtRate(env('1.99'))).toBe(1.99);
   });
 });
 

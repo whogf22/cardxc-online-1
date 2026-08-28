@@ -19,14 +19,21 @@
  * Policy here is fail-closed: an absent rate defaults to 1.0 (USDT is a
  * dollar-pegged stablecoin, so parity is the only safe default), and anything
  * non-finite, non-positive, or outside a sane band is REFUSED rather than used.
+ *
+ * R3-5: the band is the OPEN interval (MIN_USDT_RATE, MAX_USDT_RATE). It was
+ * written `rate < MIN || rate > MAX`, which accepted exactly 0.5 — the very value
+ * named above as silently doubling every credit. Each edge is a 2x peg error in
+ * one direction (0.5 credits twice the order, 2.0 credits half), so a value
+ * sitting exactly on a sanity limit is refused rather than used.
  */
 
 /** Default parity rate when USDT_RATE is unset. */
 export const DEFAULT_USDT_RATE = 1.0;
 
 /**
- * Accepted band for a USD/USDT rate. A dollar-pegged stablecoin trading outside
- * this range indicates a configuration error, not a market move.
+ * EXCLUSIVE bounds for a USD/USDT rate: the accepted band is (0.5, 2.0). A
+ * dollar-pegged stablecoin quoted at or beyond either edge indicates a
+ * configuration error, not a market move — both edges are a 2x money error.
  */
 export const MIN_USDT_RATE = 0.5;
 export const MAX_USDT_RATE = 2.0;
@@ -49,7 +56,9 @@ export function resolveUsdtRate(env: NodeJS.ProcessEnv = process.env): number | 
 
   const rate = Number(text);
   if (!Number.isFinite(rate) || rate <= 0) return null;
-  if (rate < MIN_USDT_RATE || rate > MAX_USDT_RATE) return null;
+  // Open interval: a rate ON either sanity limit is refused, not used. `>=`/`<=`
+  // rather than `>`/`<` is the whole of R3-5.
+  if (rate <= MIN_USDT_RATE || rate >= MAX_USDT_RATE) return null;
   return rate;
 }
 
