@@ -13,11 +13,34 @@
  * abort when the guarded UPDATE affects 0 rows.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { readdirSync, readFileSync, statSync } from 'fs';
+import { join, relative, sep } from 'path';
 
 const ROOT = join(__dirname, '..', '..', '..');
 const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
+
+/**
+ * Every non-test TypeScript source file under `server/`, as repo-relative
+ * POSIX-ish paths. Used by the discovery sweeps below so a debit introduced in
+ * a file nobody remembered to add to a list is still checked.
+ */
+const serverSources = (): string[] => {
+  const out: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir)) {
+      const abs = join(dir, entry);
+      if (statSync(abs).isDirectory()) {
+        if (entry === '__tests__' || entry === 'node_modules') continue;
+        walk(abs);
+        continue;
+      }
+      if (!entry.endsWith('.ts') || entry.endsWith('.test.ts')) continue;
+      out.push(relative(ROOT, abs).split(sep).join('/'));
+    }
+  };
+  walk(join(ROOT, 'server'));
+  return out.sort();
+};
 
 /** Every fiat (`balance_cents`) debit statement in the codebase. */
 const FIAT_DEBIT_RE = /UPDATE wallets\s+SET balance_cents = balance_cents - \$1[\s\S]{0,400}?(?=`)/g;
@@ -39,7 +62,11 @@ const FIAT_DEBIT_FILES = [
 
 const USDT_DEBIT_FILES = [
   'server/routes/giftCards.ts',
-  'server/routes/user.ts',
+  // `server/routes/user.ts` used to debit `usdt_balance_cents` inline. R3-3
+  // routed POST /api/user/withdraw through processWithdrawal(), so the debit now
+  // lives in withdrawalService.ts (asserted below) and the route holds no money
+  // movement at all — pinned by the delegation test in this file. A debit
+  // reappearing there is caught by the discovery sweep, not by this list.
   'server/services/swapService.ts',
   'server/services/withdrawalService.ts',
 ];
@@ -90,6 +117,38 @@ describe('FIN-3: every USDT debit is guarded', () => {
       }
     });
   }
+
+  // The list above pins the paths that must KEEP a guarded debit. This sweep
+  // needs no list: it discovers every USDT debit under server/ so one added to a
+  // file (or moved to a new one) cannot escape the guard requirement — which is
+  // how the invariant would otherwise rot when a route is refactored.
+  it('no USDT debit anywhere under server/ is unguarded', () => {
+    let found = 0;
+    for (const file of serverSources()) {
+      for (const stmt of read(file).match(USDT_DEBIT_RE) ?? []) {
+        found += 1;
+        const normalized = stmt.replace(/\s+/g, ' ');
+        expect(
+          /usdt_balance_cents >= \$1/.test(normalized),
+          `Unguarded USDT debit in ${file}: ${normalized}`,
+        ).toBe(true);
+      }
+    }
+    // A regex that silently stops matching would make this suite vacuously
+    // green, so assert the sweep actually saw the known debit sites.
+    expect(found).toBeGreaterThanOrEqual(4);
+  });
+
+  it('POST /api/user/withdraw moves no money in the route (R3-3 delegation)', () => {
+    const src = read('server/routes/user.ts');
+    // No wallet write of any kind: the route must not debit, credit or reserve.
+    expect(src).not.toMatch(/UPDATE\s+wallets/i);
+    // ...and no withdrawal row of its own, which is what let the route file a
+    // USDT-funded withdrawal with the 'fiat'/'pending' column defaults.
+    expect(src).not.toMatch(/INSERT\s+INTO\s+withdrawal_requests/i);
+    // It delegates to the one canonical state machine instead.
+    expect(src).toContain('processWithdrawal');
+  });
 });
 
 describe('FIN-3: guarded debits abort when they affect no row', () => {
