@@ -21,11 +21,16 @@
  *  - the message-only fallback (drivers that omit `constraint`) is still narrow
  */
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import {
   PG_UNIQUE_VIOLATION,
   TRANSACTION_IDEMPOTENCY_CONSTRAINTS,
+  WITHDRAWAL_IDEMPOTENCY_CONSTRAINTS,
   isUniqueViolationOn,
   isDepositIdempotencyViolation,
+  isTransactionIdempotencyViolation,
+  isWithdrawalIdempotencyViolation,
 } from '../pgErrors';
 
 const pgErr = (over: Record<string, unknown> = {}) => ({
@@ -131,5 +136,96 @@ describe('isUniqueViolationOn — the generic form', () => {
   it('exposes the deposit constraint list used by the fulfillment paths', () => {
     expect(TRANSACTION_IDEMPOTENCY_CONSTRAINTS).toContain('idx_transactions_idempotency_unique');
     expect(TRANSACTION_IDEMPOTENCY_CONSTRAINTS).toContain('transactions_idempotency_key_key');
+  });
+});
+
+/**
+ * R3-4 — the withdrawal claim is a DIFFERENT table with a DIFFERENT constraint set.
+ *
+ * The withdrawal paths must not accept a `transactions` violation and the platform
+ * transfer must not accept a `withdrawal_requests` one: they are separate claims, and
+ * a violation of the other table's constraint means something unrelated failed.
+ */
+describe('isWithdrawalIdempotencyViolation — scoped to withdrawal_requests', () => {
+  const wdErr = (constraint: string) => ({
+    code: PG_UNIQUE_VIOLATION,
+    constraint,
+    message: `duplicate key value violates unique constraint "${constraint}"`,
+  });
+
+  it('accepts the withdrawal_requests partial unique index', () => {
+    expect(isWithdrawalIdempotencyViolation(wdErr('idx_withdrawal_requests_idempotency_unique'))).toBe(true);
+  });
+
+  it('REJECTS both transactions idempotency constraints', () => {
+    // Wrong table: a transactions collision cannot mean "this withdrawal was
+    // already submitted".
+    expect(isWithdrawalIdempotencyViolation(wdErr('idx_transactions_idempotency_unique'))).toBe(false);
+    expect(isWithdrawalIdempotencyViolation(wdErr('transactions_idempotency_key_key'))).toBe(false);
+  });
+
+  it('REJECTS an unrelated unique violation', () => {
+    expect(isWithdrawalIdempotencyViolation(wdErr('users_email_key'))).toBe(false);
+  });
+
+  it('REJECTS a bare duplicate-key with no identifiable constraint', () => {
+    expect(isWithdrawalIdempotencyViolation({
+      code: PG_UNIQUE_VIOLATION,
+      message: 'duplicate key value violates unique constraint',
+    })).toBe(false);
+  });
+
+  it('the transaction form REJECTS the withdrawal constraint (the mirror case)', () => {
+    expect(isTransactionIdempotencyViolation(wdErr('idx_withdrawal_requests_idempotency_unique'))).toBe(false);
+    expect(isTransactionIdempotencyViolation(wdErr('transactions_idempotency_key_key'))).toBe(true);
+    expect(isTransactionIdempotencyViolation(wdErr('idx_transactions_idempotency_unique'))).toBe(true);
+  });
+
+  it('the two lists are disjoint', () => {
+    for (const c of WITHDRAWAL_IDEMPOTENCY_CONSTRAINTS) {
+      expect(TRANSACTION_IDEMPOTENCY_CONSTRAINTS as readonly string[]).not.toContain(c);
+    }
+  });
+});
+
+/**
+ * The constraint lists are hard-coded strings, so they can silently drift from the
+ * schema. These read `server/db/init.ts` and pin the facts each list depends on. If
+ * a future migration adds or removes a unique constraint on either idempotency
+ * column, the corresponding assertion fails and the list has to be updated with it.
+ */
+describe('R3-4: the constraint lists match the schema in db/init.ts', () => {
+  const schema = readFileSync(
+    join(__dirname, '..', '..', 'db', 'init.ts'),
+    'utf8',
+  ).replace(/\s+/g, ' ');
+
+  it('transactions.idempotency_key is declared UNIQUE inline (hence the _key name)', () => {
+    // This inline UNIQUE is why `transactions_idempotency_key_key` must be in the
+    // accepted list: Postgres may report it instead of the partial index.
+    expect(schema).toContain('idempotency_key VARCHAR(255) UNIQUE');
+  });
+
+  it('the transactions partial unique index exists under the expected name', () => {
+    expect(schema).toContain(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_idempotency_unique ON transactions(idempotency_key)',
+    );
+  });
+
+  it('the withdrawal_requests partial unique index exists under the expected name', () => {
+    expect(schema).toContain(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_withdrawal_requests_idempotency_unique ON withdrawal_requests(user_id, idempotency_key)',
+    );
+  });
+
+  it('withdrawal_requests.idempotency_key has NO inline UNIQUE', () => {
+    // If one were added, Postgres could report `withdrawal_requests_idempotency_key_key`
+    // and WITHDRAWAL_IDEMPOTENCY_CONSTRAINTS would have to grow to match — the exact
+    // omission that caused R3-4 on the transactions side.
+    expect(schema).not.toContain('withdrawal_requests_idempotency_key_key');
+    // The column and the ALTER TABLE that backfills it are both plain VARCHARs.
+    expect(schema).toContain(
+      'ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(255)`',
+    );
   });
 });

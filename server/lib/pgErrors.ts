@@ -35,6 +35,22 @@ export const TRANSACTION_IDEMPOTENCY_CONSTRAINTS = [
 ] as const;
 
 /**
+ * Unique constraints on the `withdrawal_requests` idempotency claim.
+ *
+ * Unlike `transactions`, this column is NOT declared UNIQUE inline (server/db/init.ts
+ * declares it as a plain VARCHAR, and the later ALTER TABLE adds it the same way),
+ * so the only unique constraint is the explicit partial index over
+ * `(user_id, idempotency_key)`. The list is kept explicit — rather than reusing the
+ * transactions list — because the two claims live on different tables: a
+ * `transactions` violation raised while inserting a withdrawal row means something
+ * other than a duplicate withdrawal went wrong, and must not be reported as
+ * idempotent success.
+ */
+export const WITHDRAWAL_IDEMPOTENCY_CONSTRAINTS = [
+  'idx_withdrawal_requests_idempotency_unique',
+] as const;
+
+/**
  * True when `err` is a Postgres unique violation on one of `constraints`.
  *
  * Deliberately strict: when the driver reports a constraint name that is not in
@@ -61,5 +77,25 @@ export function isUniqueViolationOn(err: unknown, constraints: readonly string[]
  * fulfilled exactly once and the caller may report idempotent success.
  */
 export function isDepositIdempotencyViolation(err: unknown): boolean {
+  return isUniqueViolationOn(err, TRANSACTION_IDEMPOTENCY_CONSTRAINTS);
+}
+
+/**
+ * True when `err` is the duplicate-key that means "a concurrent duplicate of this
+ * logical withdrawal request already claimed this idempotency key". The caller's
+ * own transaction (including any balance debit or reserve it took) rolled back with
+ * the violation, so it may report the prior row — after confirming the replayed
+ * payload matches.
+ */
+export function isWithdrawalIdempotencyViolation(err: unknown): boolean {
+  return isUniqueViolationOn(err, WITHDRAWAL_IDEMPOTENCY_CONSTRAINTS);
+}
+
+/**
+ * True when `err` is the duplicate-key on the `transactions.idempotency_key` claim,
+ * i.e. a concurrent duplicate of a ledger-anchored request (platform P2P transfer,
+ * card deposit) already committed.
+ */
+export function isTransactionIdempotencyViolation(err: unknown): boolean {
   return isUniqueViolationOn(err, TRANSACTION_IDEMPOTENCY_CONSTRAINTS);
 }

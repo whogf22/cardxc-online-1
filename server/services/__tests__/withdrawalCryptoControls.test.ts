@@ -304,10 +304,16 @@ describe('HIGH-4: withdrawal idempotency', () => {
     process.env.CRYPTO_AUTO_PAYOUT_MAX_USD = '1000000';
     const executedSql: string[] = [];
     installTransaction(executedSql, { insertThrowsDuplicate: true });
-    // The prior withdrawal (created by the first submit) is found by key.
+    // The prior withdrawal (created by the first submit) is found by key. The row
+    // carries the payload columns because LOW-10 makes the crypto path compare the
+    // replayed payload against the prior one before reporting idempotent success —
+    // 50 USDT is `baseReq.amount`, booked in USD cents with asset_type 'usdt'.
     mockQueryOne.mockImplementation(async (sql: string) => {
       if (sql.includes('FROM withdrawal_requests') && sql.includes('idempotency_key')) {
-        return { id: 'wd-prior', status: 'processing', tx_hash: '0xprior' };
+        return {
+          id: 'wd-prior', status: 'processing', tx_hash: '0xprior',
+          amount_cents: 5000, currency: 'USD', withdrawal_type: 'crypto', asset_type: 'usdt',
+        };
       }
       return null;
     });

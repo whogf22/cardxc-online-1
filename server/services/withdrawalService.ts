@@ -9,6 +9,10 @@
 import { query, queryOne, transaction } from '../db/pool';
 import { AppError } from '../middleware/errorHandler';
 import { logger } from '../middleware/logger';
+import {
+    isTransactionIdempotencyViolation,
+    isWithdrawalIdempotencyViolation,
+} from '../lib/pgErrors';
 import { createAuditLog } from './auditService';
 import { sendCryptoToWallet, parseUsdtAmountToCents } from './cryptoProviderService';
 import { runFraudChecks } from './fraudService';
@@ -68,6 +72,18 @@ interface PlatformWithdrawalRequest {
 }
 
 type WithdrawalRequest = BankWithdrawalRequest | CryptoWithdrawalRequest | PlatformWithdrawalRequest;
+
+/**
+ * Ledger currency recorded on a crypto (USDT) withdrawal row. The USDT balance
+ * lives on the user's USD wallet row as `usdt_balance_cents`, so that is the
+ * currency the withdrawal is booked under; `asset_type = 'usdt'` is what records
+ * WHICH column funded it.
+ *
+ * Named because the idempotency payload comparison (LOW-10) must check the same
+ * value the INSERT writes — a drift between the two would make every crypto replay
+ * look like a payload conflict.
+ */
+const CRYPTO_WITHDRAWAL_CURRENCY = 'USD';
 
 /**
  * Process withdrawal request based on type
@@ -252,7 +268,11 @@ async function processBankWithdrawal(request: BankWithdrawalRequest): Promise<Wi
         // NEW-8: idempotency race — a concurrent duplicate won the unique index.
         // The reserve taken in THIS transaction rolled back with it, so return
         // the prior row rather than surfacing a raw 500.
-        if (idempotencyKey && isUniqueViolation(err, 'idx_withdrawal_requests_idempotency_unique')) {
+        //
+        // R3-4: the accepted constraint list is the withdrawal_requests one ONLY.
+        // A `transactions` unique violation raised while inserting a withdrawal row
+        // is a different failure and must surface as an error.
+        if (idempotencyKey && isWithdrawalIdempotencyViolation(err)) {
             const prior = await findPriorWithdrawal(request.userId, idempotencyKey);
             if (prior) {
                 assertIdempotentPayloadMatches(prior, {
@@ -438,15 +458,23 @@ function platformTransferKey(idempotencyKey: string): string {
     return `platform_withdrawal_${idempotencyKey}`;
 }
 
-/** True when this error is a unique violation on the given constraint name. */
-function isUniqueViolation(err: any, constraint?: string): boolean {
-    if (err?.code !== '23505') return false;
-    if (!constraint) return true;
-    const name = String(err?.constraint ?? '');
-    if (name) return name === constraint;
-    // Some drivers omit `constraint`; fall back to the message.
-    return String(err?.message ?? '').includes(constraint);
-}
+/**
+ * R3-4: idempotency-race classification is delegated to the shared, constraint-aware
+ * helpers in `server/lib/pgErrors.ts`.
+ *
+ * A local helper used to live here with an `if (!constraint) return true` branch and
+ * single-name matching. Both halves were wrong:
+ *  - the permissive branch treated ANY unique violation as an idempotent replay;
+ *  - `transactions.idempotency_key` carries TWO unique constraints (the inline
+ *    UNIQUE `transactions_idempotency_key_key` and the partial index
+ *    `idx_transactions_idempotency_unique`). Postgres reports whichever one the
+ *    insert actually violated, so matching one name rejected genuine retries that
+ *    happened to collide on the other — a 500 for a request that had succeeded.
+ *
+ * The shared helpers take the full accepted list per table and trust `err.constraint`
+ * over message text, so an unrelated integrity failure can never be laundered into
+ * idempotent success.
+ */
 
 /**
  * 2. Crypto Transfer (USDT to external wallet)
@@ -470,9 +498,17 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
 
     // HIGH-4: idempotency. If this logical request was already submitted, return
     // the prior withdrawal rather than deducting or broadcasting a second time.
+    //
+    // LOW-10: the replayed payload must MATCH the prior one. Without this check the
+    // crypto path — alone among the three — let one key stand in for a different
+    // request, so a 10 USDT prior withdrawal could answer a 10,000 USDT retry and
+    // the larger request would silently never happen.
     if (idempotencyKey) {
         const prior = await findPriorWithdrawal(request.userId, idempotencyKey);
         if (prior) {
+            assertIdempotentPayloadMatches(prior, {
+                amountCents, currency: CRYPTO_WITHDRAWAL_CURRENCY, withdrawalType: 'crypto',
+            });
             return {
                 success: true,
                 withdrawalId: prior.id,
@@ -526,11 +562,12 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
         user_id, amount_cents, currency, withdrawal_type,
         crypto_address, crypto_network, status, asset_type, idempotency_key
       )
-      VALUES ($1, $2, 'USD', 'crypto', $3, $4, 'held', 'usdt', $5)
+      VALUES ($1, $2, $6, 'crypto', $3, $4, 'held', 'usdt', $5)
       RETURNING id
     `, [
                 request.userId, amountCents,
-                request.walletAddress, request.network, idempotencyKey
+                request.walletAddress, request.network, idempotencyKey,
+                CRYPTO_WITHDRAWAL_CURRENCY
             ]);
 
             withdrawalId = withdrawalResult.rows[0].id;
@@ -538,9 +575,18 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
     } catch (err: any) {
         // Idempotency race: a concurrent duplicate won the unique index. The
         // deduction in THIS transaction was rolled back, so return the prior row.
-        if (err?.code === '23505' && idempotencyKey) {
+        //
+        // LOW-5: this used to classify on the bare unique-violation SQLSTATE alone,
+        // so ANY unique violation inside the debit+insert transaction was reported as
+        // a successful idempotent withdrawal — including one where the USDT debit had
+        // rolled back and no withdrawal row existed at all.
+        if (idempotencyKey && isWithdrawalIdempotencyViolation(err)) {
             const prior = await findPriorWithdrawal(request.userId, idempotencyKey);
             if (prior) {
+                // LOW-10: the winner must be the same logical request as this one.
+                assertIdempotentPayloadMatches(prior, {
+                    amountCents, currency: CRYPTO_WITHDRAWAL_CURRENCY, withdrawalType: 'crypto',
+                });
                 return {
                     success: true,
                     withdrawalId: prior.id,
@@ -927,7 +973,13 @@ async function processPlatformTransfer(request: PlatformWithdrawalRequest): Prom
         // NEW-8: idempotency race — a concurrent duplicate won the unique index on
         // transactions.idempotency_key. The debit and credit in THIS transaction
         // rolled back with it, so return idempotent success instead of a 500.
-        if (idempotencyKey && isUniqueViolation(err, 'idx_transactions_idempotency_unique')) {
+        //
+        // R3-4: the claim column carries TWO unique constraints (the inline UNIQUE in
+        // CREATE TABLE and the explicit partial index) and Postgres reports whichever
+        // one the insert violated. Matching a single name meant a genuine retry that
+        // collided on the other constraint fell through to `throw err` — a 500 on a
+        // transfer that had already been made.
+        if (idempotencyKey && isTransactionIdempotencyViolation(err)) {
             const prior = await findPriorPlatformTransfer(request.userId, idempotencyKey);
             if (prior) {
                 assertIdempotentPayloadMatches(
