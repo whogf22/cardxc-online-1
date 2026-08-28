@@ -521,6 +521,11 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
     }
 
     let withdrawalId: string = '';
+    // R3-8: the id of the canonical user-visible ledger row for this withdrawal.
+    // `crypto_ledger_entries.source_transaction_id` is `UUID REFERENCES
+    // transactions(id)`, so the bookkeeping entry must be anchored to THIS id —
+    // never to `withdrawalId`, which belongs to a different table.
+    let transactionId: string = '';
 
     // Step 1: Deduct balance and create withdrawal request in a transaction.
     try {
@@ -571,6 +576,26 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
             ]);
 
             withdrawalId = withdrawalResult.rows[0].id;
+
+            // R3-8: create the ONE canonical user-visible transaction for this
+            // withdrawal, in the same atomic unit as the debit and the request
+            // row. The bank path has always done this; the crypto path did not,
+            // so USDT left the wallet with no ledger identity at all — invisible
+            // in transaction history, and unreachable by the admin resolvers,
+            // which finalise with `WHERE reference = $1 AND type = 'withdrawal'`.
+            // `reference` is that join key, so it must be the withdrawal id.
+            const txResult = await client.query(`
+      INSERT INTO transactions (
+        user_id, type, status, amount_cents, currency, reference, description
+      )
+      VALUES ($1, 'withdrawal', 'PENDING', $2, $3, $4, $5)
+      RETURNING id
+    `, [
+                request.userId, amountCents, CRYPTO_WITHDRAWAL_CURRENCY, withdrawalId,
+                `USDT withdrawal to ${request.walletAddress.substring(0, 10)}...`
+            ]);
+
+            transactionId = txResult.rows[0].id;
         });
     } catch (err: any) {
         // Idempotency race: a concurrent duplicate won the unique index. The
@@ -692,15 +717,27 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
 
         try {
             await transaction(async (client) => {
-                // Record crypto ledger entry
+                // Record crypto ledger entry against the CANONICAL transaction
+                // (R3-8). This previously passed `withdrawalId` — a
+                // `withdrawal_requests.id` — into a column that is
+                // `UUID REFERENCES transactions(id)`, so on a real Postgres the
+                // insert raised FK violation 23503 and the catch below swallowed
+                // it: every confirmed payout silently produced no ledger row.
+                //
+                // ON CONFLICT makes a replayed bookkeeping write benign. The
+                // unique index on `source_transaction_id` (server/db/init.ts) is
+                // the actual guard — `UNIQUE(source_order_id, user_id)` cannot
+                // help because `source_order_id` is NULL for withdrawals and
+                // NULLs never collide in a Postgres unique index.
                 await client.query(`
           INSERT INTO crypto_ledger_entries (
             user_id, source_transaction_id, crypto_type,
             amount_cents, exchange_rate, usd_equivalent_cents, description
           )
           VALUES ($1, $2, 'USDT', $3, 1.0, $4, $5)
+          ON CONFLICT (source_transaction_id) DO NOTHING
         `, [
-                    request.userId, withdrawalId, -amountCents, -amountCents,
+                    request.userId, transactionId, -amountCents, -amountCents,
                     `USDT withdrawal to ${request.walletAddress.substring(0, 10)}...`
                 ]);
             });
@@ -771,6 +808,25 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
         SET usdt_balance_cents = usdt_balance_cents + $1
         WHERE user_id = $2 AND currency = 'USD'
       `, [amountCents, request.userId]);
+
+            // R3-8: the canonical transaction row must not stay PENDING forever
+            // behind a rejected withdrawal. Same transaction as the claim and the
+            // credit, so withdrawal state and ledger state cannot diverge. The
+            // rowCount is checked rather than discarded: a refunded withdrawal
+            // whose ledger row was never finalised is a silent inconsistency, but
+            // it must not block returning the user's funds, so it is reported
+            // loudly instead of aborting the refund.
+            const finalise = await client.query(`
+        UPDATE transactions
+        SET status = 'FAILED', updated_at = NOW()
+        WHERE reference = $1 AND type = 'withdrawal' AND status = 'PENDING'
+      `, [withdrawalId]);
+
+            if (finalise.rowCount !== 1) {
+                logger.error('Pre-broadcast refund could not finalise the canonical transaction row', {
+                    userId: request.userId, withdrawalId, rowCount: finalise.rowCount,
+                });
+            }
         });
 
         logger.error('Crypto withdrawal failed before broadcast — refunded', {

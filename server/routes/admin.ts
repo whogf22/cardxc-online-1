@@ -673,6 +673,55 @@ async function loadUsdtWithdrawalForResolution(withdrawalId: string, allowed: re
   return withdrawal;
 }
 
+/**
+ * R3-8: the two statements that finalise the ONE canonical user-visible
+ * `transactions` row for a withdrawal.
+ *
+ * `reference` is the join key both withdrawal paths write (the withdrawal id),
+ * and `status = 'PENDING'` scopes the write to a still-unresolved ledger row, so
+ * a late resolver cannot stamp SUCCESS over a committed FAILED or vice versa.
+ * Held as two literals rather than one interpolated string: nothing here is
+ * built from a value, so there is no way for the status to become dynamic.
+ */
+const FINALISE_WITHDRAWAL_TX_SQL = {
+  SUCCESS: `
+    UPDATE transactions SET status = 'SUCCESS', updated_at = NOW()
+    WHERE reference = $1 AND type = 'withdrawal' AND status = 'PENDING'
+  `,
+  FAILED: `
+    UPDATE transactions SET status = 'FAILED', updated_at = NOW()
+    WHERE reference = $1 AND type = 'withdrawal' AND status = 'PENDING'
+  `,
+} as const;
+
+/**
+ * Finalise a withdrawal's canonical transaction row inside the caller's already
+ * claimed transaction.
+ *
+ * The rowCount is CHECKED rather than discarded: silently finalising nothing is
+ * how withdrawal state and ledger state diverged permanently — the request
+ * reached 'completed'/'rejected' while the user-visible entry stayed PENDING,
+ * and a 0-row UPDATE is not an error, so nothing could notice.
+ *
+ * It is deliberately NOT fatal. A crypto withdrawal created before R3-8 has no
+ * canonical row at all, and neither settling funds that already left custody nor
+ * returning money the user is owed may be blocked by a missing bookkeeping row —
+ * that is exactly how the original defect stranded withdrawals.
+ */
+async function finaliseWithdrawalTransaction(
+  client: { query: (sql: string, params?: unknown[]) => Promise<{ rowCount: number | null }> },
+  withdrawalId: string,
+  intendedStatus: keyof typeof FINALISE_WITHDRAWAL_TX_SQL,
+): Promise<void> {
+  const finalise = await client.query(FINALISE_WITHDRAWAL_TX_SQL[intendedStatus], [withdrawalId]);
+
+  if (finalise.rowCount !== 1) {
+    logger.error('[Admin] USDT resolution finalised no canonical transaction row', {
+      withdrawalId, intendedStatus, rowCount: finalise.rowCount,
+    });
+  }
+}
+
 router.post('/withdrawals/:withdrawalId/usdt/settle',
   body('txHash').optional().trim(),
   body('notes').optional().trim(),
@@ -706,10 +755,7 @@ router.post('/withdrawals/:withdrawalId/usdt/settle',
 
       // The USDT was debited when the request was created, so settling makes no
       // balance change. Only the withdrawal transaction record is finalised.
-      await client.query(`
-        UPDATE transactions SET status = 'SUCCESS', updated_at = NOW()
-        WHERE reference = $1 AND type = 'withdrawal'
-      `, [withdrawalId]);
+      await finaliseWithdrawalTransaction(client, withdrawalId as string, 'SUCCESS');
     });
 
     await createAuditLog({
@@ -767,10 +813,7 @@ router.post('/withdrawals/:withdrawalId/usdt/refund',
         throw new AppError('Wallet not found for refund', 400, 'WALLET_NOT_FOUND');
       }
 
-      await client.query(`
-        UPDATE transactions SET status = 'FAILED', updated_at = NOW()
-        WHERE reference = $1 AND type = 'withdrawal'
-      `, [withdrawalId]);
+      await finaliseWithdrawalTransaction(client, withdrawalId as string, 'FAILED');
     });
 
     await createAuditLog({

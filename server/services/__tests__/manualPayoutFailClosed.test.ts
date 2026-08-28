@@ -158,6 +158,11 @@ describe('NEW-7: the withdrawal service resolves it safely (user is not left deb
           executed.push(String(sql).replace(/\s+/g, ' '));
           if (sql.includes('SELECT usdt_balance_cents')) return { rows: [{ usdt_balance_cents: 100_00 }], rowCount: 1 };
           if (sql.includes('INSERT INTO withdrawal_requests')) return { rows: [{ id: 'wd-1' }], rowCount: 1 };
+          // R3-8: the crypto hold now also inserts the ONE canonical user-visible
+          // `transactions` row (`RETURNING id`) in the same transaction as the
+          // debit, so the withdrawal has a ledger identity the admin resolvers can
+          // finalise. Model its returned id; both assertions below are unchanged.
+          if (sql.includes('INSERT INTO transactions')) return { rows: [{ id: 'tx-1' }], rowCount: 1 };
           return { rows: [], rowCount: 1 };
         }),
       };

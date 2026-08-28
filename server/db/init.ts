@@ -683,6 +683,25 @@ export async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_crypto_ledger_entries_source_order_id ON crypto_ledger_entries(source_order_id);
       CREATE INDEX IF NOT EXISTS idx_crypto_ledger_entries_created_at ON crypto_ledger_entries(created_at);
     `);
+    // R3-8: one crypto ledger entry per canonical transaction. The table's inline
+    // `UNIQUE(source_order_id, user_id)` cannot enforce this for anything that is
+    // not a card order: `source_order_id` is NULL for withdrawals, gift-card
+    // payments and on-chain deposits, and NULLs never collide in a Postgres
+    // unique index — so replayed bookkeeping could insert a duplicate ledger row
+    // for the same money movement.
+    //
+    // Deliberately NOT a partial index: NULLs are already distinct in a Postgres
+    // unique index, so rows without a source transaction are unaffected either
+    // way, and a plain index is what `ON CONFLICT (source_transaction_id)` can
+    // infer without the caller having to restate an index predicate.
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS uniq_crypto_ledger_source_transaction
+        ON crypto_ledger_entries(source_transaction_id)
+    `).catch((e: unknown) => {
+      // A pre-existing install may already contain duplicates; log and continue
+      // rather than blocking startup on a historical data issue.
+      logger.warn('[DB] Could not create unique crypto ledger source_transaction_id index (existing duplicates?)', { error: e instanceof Error ? e.message : String(e) });
+    });
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS crypto_transactions (

@@ -104,6 +104,16 @@ function installTransaction(executed: Executed[], row: { status: string }, opts:
         if (flat.includes('INSERT INTO withdrawal_requests')) {
           return { rows: [{ id: 'wd-1' }], rowCount: 1 };
         }
+        // R3-8: the crypto hold now also inserts the ONE canonical user-visible
+        // `transactions` row (`RETURNING id`) in the same transaction as the
+        // debit, and the pre-broadcast refund finalises that same row. Model both
+        // so the predicate/outcome assertions below are unaffected.
+        if (flat.includes('INSERT INTO transactions')) {
+          return { rows: [{ id: 'tx-1' }], rowCount: 1 };
+        }
+        if (flat.includes('UPDATE transactions')) {
+          return { rows: [{ id: 'tx-1' }], rowCount: 1 };
+        }
         if (flat.includes('INSERT INTO crypto_ledger_entries')) {
           if (ledgerInsertThrows) throw new Error('ledger insert failed');
           return { rows: [], rowCount: 1 };

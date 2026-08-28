@@ -82,6 +82,13 @@ function installTransaction(executedSql: string[], opts: {
           }
           return { rows: [{ id: 'wd-1' }] };
         }
+        // R3-8: the crypto hold now also inserts the ONE canonical user-visible
+        // `transactions` row (`RETURNING id`), in the same transaction as the
+        // debit, so the withdrawal has a ledger identity the admin resolvers can
+        // finalise. Model its returned id; every assertion below is unchanged.
+        if (sql.includes('INSERT INTO transactions')) {
+          return { rows: [{ id: 'tx-1' }] };
+        }
         return { rows: [] };
       }),
     };

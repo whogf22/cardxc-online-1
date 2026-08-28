@@ -91,6 +91,13 @@ function installTransaction(executedSql: string[], opts: {
         if (sql.includes('INSERT INTO withdrawal_requests')) {
           return { rows: [{ id: 'wd-1' }], rowCount: 1 };
         }
+        // R3-8: the crypto hold now also inserts the ONE canonical user-visible
+        // `transactions` row (`RETURNING id`) in the same transaction as the
+        // debit, and the pre-broadcast refund finalises that same row. Model both;
+        // the refund-safety assertions below are unchanged.
+        if (sql.includes('INSERT INTO transactions') || sql.includes('UPDATE transactions')) {
+          return { rows: [{ id: 'tx-1' }], rowCount: 1 };
+        }
         if (failBookkeeping && sql.includes('INSERT INTO crypto_ledger_entries')) {
           throw new Error('ledger insert failed');
         }
