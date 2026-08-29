@@ -130,7 +130,7 @@ describe('FIN-4: POST /api/admin/withdrawals/:id/approve', () => {
     const debit = executed.find(e => e.sql.includes('UPDATE wallets'));
     expect(debit).toBeDefined();
     expect(debit!.sql).toContain('balance_cents = balance_cents - $1');
-    expect(debit!.sql).toContain('reserved_cents = reserved_cents - $1');
+    expect(debit!.sql).toMatch(/reserved_cents = (COALESCE\(reserved_cents, 0\)|reserved_cents) - \$1/);
     expect(debit!.sql).toContain('balance_cents >= $1'); // guard present
   });
 

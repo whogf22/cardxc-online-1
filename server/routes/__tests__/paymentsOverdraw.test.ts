@@ -93,7 +93,7 @@ describe('POST /api/payments/p2p/transfer guarded debit', () => {
 
     const debitSql = executedSql.find((s) => s.includes('UPDATE wallets') && s.includes('balance_cents = balance_cents - $1'));
     expect(debitSql).toBeDefined();
-    expect(debitSql).toContain('reserved_cents >= $1');
+    expect(debitSql).toMatch(/balance_cents\s*-\s*COALESCE\(reserved_cents,\s*0\)\s*>=\s*\$1/);
   });
 
   it('rejects with 400 when the guarded debit affects 0 rows (lost race)', async () => {
