@@ -468,6 +468,10 @@ router.post('/withdrawals/:withdrawalId/approve',
       );
     }
 
+    // Fail closed: a legacy-flagged row has unknown funding provenance and must
+    // be manually reconciled before any money moves. (See assertNotLegacyUnverified.)
+    assertNotLegacyUnverified(withdrawal);
+
     if (withdrawal.status !== 'pending') {
       throw new AppError('Withdrawal already processed', 400, 'ALREADY_PROCESSED');
     }
@@ -560,6 +564,10 @@ router.post('/withdrawals/:withdrawalId/reject',
       );
     }
 
+    // Fail closed: never release a reserve on a legacy row whose funding source
+    // was never recorded. (See assertNotLegacyUnverified.)
+    assertNotLegacyUnverified(withdrawal);
+
     if (withdrawal.status !== 'pending') {
       throw new AppError('Withdrawal already processed', 400, 'ALREADY_PROCESSED');
     }
@@ -647,6 +655,31 @@ const USDT_SETTLEABLE_STATES = ['held', 'sent', 'reconcile'] as const;
 /** States a USDT withdrawal may be REFUNDED from (wallet is credited back). */
 const USDT_REFUNDABLE_STATES = ['held'] as const;
 
+/**
+ * Legacy-flag marker. A row carrying this in admin_notes was created before the
+ * `asset_type` column existed and the funding wallet was never persisted, so it
+ * is genuinely ambiguous (fiat-funded vs USDT-funded). The one-time migration
+ * flags it for human triage rather than guessing.
+ *
+ * The runtime contract is FAIL-CLOSED: no money may move — approve, reject,
+ * settle or refund — for a flagged row until an operator has manually reconciled
+ * its provenance. Otherwise approve could settle a USDT-funded legacy row against
+ * a fiat reserve (debit balance_cents on money that came from usdt_balance_cents).
+ */
+const LEGACY_UNVERIFIED_MARKER = 'LEGACY_ASSET_TYPE_UNVERIFIED';
+
+/** Refuse to move money on a legacy-flagged withdrawal. Fail closed, before any
+ *  balance/status mutation. */
+function assertNotLegacyUnverified(withdrawal: { admin_notes?: string | null } | null) {
+  if (withdrawal?.admin_notes?.includes(LEGACY_UNVERIFIED_MARKER)) {
+    throw new AppError(
+      'This withdrawal predates asset-type tracking and its funding wallet is unverified. Reconcile it manually before resolving.',
+      400,
+      'LEGACY_ASSET_TYPE_UNVERIFIED',
+    );
+  }
+}
+
 /** Shared pre-flight: the row must exist, be USDT-funded, and be in an allowed state. */
 async function loadUsdtWithdrawalForResolution(withdrawalId: string, allowed: readonly string[]) {
   const withdrawal = await queryOne<any>(`
@@ -656,6 +689,9 @@ async function loadUsdtWithdrawalForResolution(withdrawalId: string, allowed: re
   if (!withdrawal) {
     throw new AppError('Withdrawal not found', 404, 'NOT_FOUND');
   }
+  // Fail closed on a legacy-flagged row even on the USDT path (defense-in-depth;
+  // flagged rows are fiat-defaulted today, but no money may move either way).
+  assertNotLegacyUnverified(withdrawal);
   if ((withdrawal.asset_type ?? 'fiat') !== 'usdt') {
     throw new AppError(
       'This is a fiat withdrawal. Resolve it via /withdrawals/:id/approve or /reject.',

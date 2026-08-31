@@ -130,4 +130,28 @@ describe('legacy USDT-funded BANK rows are flagged, not guessed', () => {
   it('preserves any existing admin_notes rather than overwriting them', () => {
     expect(flat).toContain("COALESCE(admin_notes || ' | ', '')");
   });
+
+  it('RED — flagging is NOT gated on a `created_at` timing boundary', () => {
+    // The original heuristic flagged rows with
+    //   created_at < (SELECT MIN(created_at) FROM withdrawal_requests WHERE asset_type = 'usdt')
+    // That is a correctness bug, not merely a heuristic limitation. A legacy
+    // USDT-funded BANK withdrawal created AFTER a genuine USDT row (T1 > T0) has
+    // an unflagged at-risk row: the timing boundary skips it, yet it is exactly
+    // the kind of ambiguous row that must be surfaced to an operator. Flagging
+    // must therefore depend on the one-time marker alone — never on the relative
+    // age of some other row.
+    const start = flat.indexOf('UPDATE withdrawal_requests SET admin_notes');
+    expect(start).toBeGreaterThan(-1);
+    const text = flat.slice(start, flat.indexOf('`', start));
+    expect(text).not.toMatch(/created_at\s*</);
+  });
+
+  it('flagging is guarded by a one-time migration marker, not by row age', () => {
+    // The timing heuristic was dropped in favour of a persistent marker so the
+    // annotation runs exactly once on the historical population, and post-
+    // migration rows (created with the column already present) are never wrongly
+    // flagged on a later startup. The marker must exist and gate the UPDATE.
+    expect(flat).toContain('CREATE TABLE IF NOT EXISTS migrations');
+    expect(flat).toContain("ON CONFLICT (name) DO NOTHING");
+  });
 });

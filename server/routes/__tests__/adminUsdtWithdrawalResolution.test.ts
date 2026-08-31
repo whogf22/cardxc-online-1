@@ -75,6 +75,7 @@ interface Row {
   withdrawal_type: string;
   asset_type: string;
   status: string;
+  admin_notes?: string | null;
 }
 
 const HELD_CRYPTO: Row = {
@@ -290,5 +291,59 @@ describe('NEW-1: USDT refund (operator declines — funds must come back)', () =
     expect(res.status).toBe(400);
     expect(res.body?.error?.code).toBe('WRONG_ASSET_TYPE');
     expect(usdtRestores(ex).length).toBe(0);
+  });
+});
+
+describe('legacy-flagged rows fail closed (LEGACY_ASSET_TYPE_UNVERIFIED)', () => {
+  const LEGACY = {
+    ...HELD_CRYPTO,
+    withdrawal_type: 'bank',
+    asset_type: 'fiat',
+    status: 'pending',
+    admin_notes: 'LEGACY_ASSET_TYPE_UNVERIFIED: confirm funding wallet before resolving',
+  };
+
+  it('approve refuses the row BEFORE any wallet mutation', async () => {
+    const ex = wire(LEGACY);
+    const res = await invokeRouter(await loadRouter(), 'POST', `/withdrawals/${LEGACY.id}/approve`, {
+      body: { notes: 'ok' },
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body?.error?.code).toBe('LEGACY_ASSET_TYPE_UNVERIFIED');
+    expect(find(ex, 'UPDATE wallets').length).toBe(0);
+    expect(find(ex, 'UPDATE withdrawal_requests').length).toBe(0);
+  });
+
+  it('reject refuses the row BEFORE any reserve release', async () => {
+    const ex = wire(LEGACY);
+    const res = await invokeRouter(await loadRouter(), 'POST', `/withdrawals/${LEGACY.id}/reject`, {
+      body: { reason: 'triage' },
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body?.error?.code).toBe('LEGACY_ASSET_TYPE_UNVERIFIED');
+    expect(find(ex, 'UPDATE wallets').length).toBe(0);
+  });
+
+  it('settle refuses a flagged row (defense-in-depth on the USDT path)', async () => {
+    const ex = wire({ ...LEGACY, status: 'held', asset_type: 'usdt' });
+    const res = await invokeRouter(await loadRouter(), 'POST', `/withdrawals/${LEGACY.id}/usdt/settle`, {
+      body: { txHash: 'd'.repeat(64) },
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body?.error?.code).toBe('LEGACY_ASSET_TYPE_UNVERIFIED');
+    expect(find(ex, 'UPDATE wallets').length).toBe(0);
+  });
+
+  it('a normal un-flagged fiat pending row is NOT blocked (guard must not over-trigger)', async () => {
+    const ex = wire({ ...LEGACY, status: 'pending', admin_notes: null });
+    const res = await invokeRouter(await loadRouter(), 'POST', `/withdrawals/${LEGACY.id}/approve`, {
+      body: { notes: 'ok' },
+    });
+    // Row is viable (fiat, pending, un-flagged): the handler proceeds into the
+    // transaction. It may still fail on debit (mocked 1 row → success here).
+    expect(res.status).not.toBe(400);
   });
 });

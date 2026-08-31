@@ -182,19 +182,53 @@ export async function initializeDatabase() {
     //
     // We deliberately do NOT guess a classification and do NOT change any status
     // or balance. Instead every at-risk legacy row is FLAGGED in admin_notes for
-    // human triage. Idempotent, non-destructive, and reversible.
+    // human triage. Idempotent, non-destructive, reversible, and run EXACTLY ONCE.
+    //
+    // The one-time marker is a persistent `migrations` row. The earlier design
+    // gated flagging on `created_at < (SELECT MIN(created_at) WHERE asset_type =
+    // 'usdt')`, but that boundary is a correctness bug: a legacy USDT-funded BANK
+    // row created AFTER the first genuine USDT row has a later timestamp, so the
+    // bound skips it and the at-risk row stays unflagged. The safe trigger is the
+    // marker alone — the annotation runs once on the historical population and is
+    // never re-run, so post-migration rows (created with the column present) are
+    // never wrongly flagged on a later startup, and no timing comparison can miss
+    // an at-risk legacy row.
+    //
+    // The marker INSERT and the annotation UPDATE share one transaction: if the
+    // process dies mid-flight the marker rolls back and the next startup retries
+    // the annotation, so a marked-but-never-flagged state cannot persist. Under
+    // concurrency (two booting processes) the losing INSERT is the blocked ON
+    // CONFLICT one; it returns 0 rows and only the winner annotates.
     await client.query(`
-      UPDATE withdrawal_requests
-      SET admin_notes = COALESCE(admin_notes || ' | ', '') || 'LEGACY_ASSET_TYPE_UNVERIFIED: created before asset_type existed; confirm whether this was funded from the fiat or USDT balance before resolving'
-      WHERE withdrawal_type = 'bank'
-        AND status = 'pending'
-        AND asset_type = 'fiat'
-        AND (admin_notes IS NULL OR admin_notes NOT LIKE '%LEGACY_ASSET_TYPE_UNVERIFIED%')
-        AND created_at < (
-          SELECT COALESCE(MIN(created_at), NOW())
-          FROM withdrawal_requests WHERE asset_type = 'usdt'
-        )
+      CREATE TABLE IF NOT EXISTS migrations (
+        name TEXT PRIMARY KEY,
+        applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
     `);
+
+    await client.query('BEGIN');
+    try {
+      const marker = await client.query(`
+        INSERT INTO migrations (name) VALUES ('legacy_asset_type_flagging_v1')
+        ON CONFLICT (name) DO NOTHING
+        RETURNING name
+      `);
+
+      if (marker.rowCount === 1) {
+        await client.query(`
+          UPDATE withdrawal_requests
+          SET admin_notes = COALESCE(admin_notes || ' | ', '') || 'LEGACY_ASSET_TYPE_UNVERIFIED: created before asset_type existed; confirm whether this was funded from the fiat or USDT balance before resolving'
+          WHERE withdrawal_type = 'bank'
+            AND status = 'pending'
+            AND asset_type = 'fiat'
+            AND (admin_notes IS NULL OR admin_notes NOT LIKE '%LEGACY_ASSET_TYPE_UNVERIFIED%')
+        `);
+      }
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    }
     // NEW-1: 'held' is the explicit lifecycle state for a withdrawal whose funds
     // have ALREADY been debited and which is awaiting an operator decision
     // (settle or refund). It is distinct from 'pending' (fiat, funds only
