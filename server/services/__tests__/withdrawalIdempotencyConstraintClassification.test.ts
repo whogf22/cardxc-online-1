@@ -169,10 +169,12 @@ const PLATFORM_WINNER = {
 const BANK_WINNER = {
   id: 'wd-winner', status: 'pending', tx_hash: null,
   amount_cents: 5000, currency: 'USD', withdrawal_type: 'bank', asset_type: 'fiat',
+  bank_name: 'Test Bank', account_number: '123456', account_name: 'A Name',
 };
 const CRYPTO_WINNER = {
   id: 'wd-crypto-winner', status: 'held', tx_hash: null,
   amount_cents: 5000, currency: 'USD', withdrawal_type: 'crypto', asset_type: 'usdt',
+  crypto_address: 'TXtestaddress0000000000000000000000', crypto_network: 'TRC20',
 };
 
 describe('R3-4: platform transfer accepts EITHER transactions idempotency constraint', () => {
@@ -336,6 +338,91 @@ describe('LOW-10: crypto idempotency compares the payload, like bank and platfor
     });
 
     await expect(processWithdrawal(cryptoReq())).rejects.toThrow(/idempotency/i);
+  });
+});
+
+describe('MEDIUM-5: idempotency key is bound to destination identity', () => {
+  it('crypto: same key + exact same amount/address/network => idempotent replay succeeds', async () => {
+    const { moneyWrites } = wire({ prior: CRYPTO_WINNER });
+
+    const result = await processWithdrawal(cryptoReq());
+
+    expect(result.idempotent).toBe(true);
+    expect(result.withdrawalId).toBe('wd-crypto-winner');
+    expect(moneyWrites().length).toBe(0);
+  });
+
+  it('crypto: same key + same amount but DIFFERENT wallet address => IDEMPOTENCY_KEY_CONFLICT', async () => {
+    const { moneyWrites } = wire({
+      prior: { ...CRYPTO_WINNER, crypto_address: 'TXdifferentaddress0000000000000000' },
+    });
+
+    await expect(processWithdrawal(cryptoReq())).rejects.toThrow(/idempotency/i);
+    expect(moneyWrites().length).toBe(0);
+  });
+
+  it('crypto: same key + same address but DIFFERENT network => IDEMPOTENCY_KEY_CONFLICT', async () => {
+    const { moneyWrites } = wire({
+      prior: { ...CRYPTO_WINNER, crypto_network: 'ERC20' },
+    });
+
+    await expect(processWithdrawal(cryptoReq())).rejects.toThrow(/idempotency/i);
+    expect(moneyWrites().length).toBe(0);
+  });
+
+  it('bank: same key + exact same bank destination => idempotent replay succeeds', async () => {
+    const { moneyWrites } = wire({ prior: BANK_WINNER });
+
+    const result = await processWithdrawal(bankReq());
+
+    expect(result.idempotent).toBe(true);
+    expect(result.withdrawalId).toBe('wd-winner');
+    expect(moneyWrites().length).toBe(0);
+  });
+
+  it('bank: same key + different account number => IDEMPOTENCY_KEY_CONFLICT', async () => {
+    const { moneyWrites } = wire({
+      prior: { ...BANK_WINNER, account_number: '999999' },
+    });
+
+    await expect(processWithdrawal(bankReq())).rejects.toThrow(/idempotency/i);
+    expect(moneyWrites().length).toBe(0);
+  });
+
+  it('bank: same key + different materially relevant bank destination => IDEMPOTENCY_KEY_CONFLICT', async () => {
+    const { moneyWrites } = wire({
+      prior: { ...BANK_WINNER, bank_name: 'Other Bank', account_name: 'Other Name' },
+    });
+
+    await expect(processWithdrawal(bankReq())).rejects.toThrow(/idempotency/i);
+    expect(moneyWrites().length).toBe(0);
+  });
+
+  it('bank: same destination but different funding asset (fiat vs usdt) => IDEMPOTENCY_KEY_CONFLICT', async () => {
+    const { moneyWrites } = wire({
+      prior: { ...BANK_WINNER, asset_type: 'usdt' },
+    });
+
+    await expect(processWithdrawal(bankReq({ walletType: 'fiat' }))).rejects.toThrow(/idempotency/i);
+    expect(moneyWrites().length).toBe(0);
+  });
+
+  it('crypto post-collision: winner must also match the destination', async () => {
+    wire({
+      insertError: pgUniqueViolation({ constraint: 'idx_withdrawal_requests_idempotency_unique' }),
+      winner: { ...CRYPTO_WINNER, crypto_address: 'TXdifferentaddress0000000000000000' },
+    });
+
+    await expect(processWithdrawal(cryptoReq())).rejects.toThrow(/idempotency/i);
+  });
+
+  it('bank post-collision: winner must also match the destination', async () => {
+    wire({
+      insertError: pgUniqueViolation({ constraint: 'idx_withdrawal_requests_idempotency_unique' }),
+      winner: { ...BANK_WINNER, account_number: '999999' },
+    });
+
+    await expect(processWithdrawal(bankReq())).rejects.toThrow(/idempotency/i);
   });
 });
 

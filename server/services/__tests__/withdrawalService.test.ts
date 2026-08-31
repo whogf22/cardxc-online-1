@@ -228,4 +228,62 @@ describe('processCryptoWithdrawal — refund safety (CRITICAL-2)', () => {
     await expect(processWithdrawal(baseReq)).rejects.toThrow(/Insufficient USDT balance/);
     expect(mockSendCryptoToWallet).not.toHaveBeenCalled();
   });
+
+  it('does NOT refund or finalise when the wallet row is missing (UPDATE returns 0)', async () => {
+    // MEDIUM-4: the pre-broadcast refund path previously credited
+    // wallets.usdt_balance_cents without checking rowCount. If the wallet row is
+    // missing, the UPDATE returns 0 and the whole transaction must abort: the
+    // withdrawal must stay in its prior state and the canonical transactions row
+    // must not be falsely finalised as FAILED.
+    const executedSql: string[] = [];
+    mockTransaction.mockImplementation(async (fn: (client: { query: (sql: string, params?: unknown[]) => Promise<{ rows: unknown[]; rowCount?: number }> }) => Promise<unknown>) => {
+      const client = {
+        query: vi.fn(async (sql: string) => {
+          executedSql.push(sql);
+          if (sql.includes('SELECT usdt_balance_cents')) {
+            return { rows: [{ usdt_balance_cents: 100_00 }], rowCount: 1 };
+          }
+          if (sql.includes('INSERT INTO withdrawal_requests') || sql.includes('INSERT INTO transactions')) {
+            return { rows: [{ id: 'wd-1' }], rowCount: 1 };
+          }
+          // Claim succeeded, refund failed because no wallet row matched.
+          if (sql.includes('UPDATE withdrawal_requests')) {
+            return { rows: [{ id: 'wd-1' }], rowCount: 1 };
+          }
+          if (sql.includes('UPDATE wallets')) {
+            // The initial guarded debit must succeed, but the later refund credit
+            // (same column, plus sign) sees 0 affected rows because the wallet is gone.
+            return sql.includes('usdt_balance_cents = usdt_balance_cents - $1')
+              ? { rows: [{ id: 'wd-1' }], rowCount: 1 }
+              : { rows: [], rowCount: 0 };
+          }
+          if (sql.includes('UPDATE transactions')) {
+            return { rows: [{ id: 'tx-1' }], rowCount: 1 };
+          }
+          return { rows: [], rowCount: 0 };
+        }),
+      };
+      return fn(client);
+    });
+    mockSendCryptoToWallet.mockResolvedValue({
+      success: false,
+      outcome: 'not_sent',
+      status: 'failed',
+      error: 'provider rejected before broadcast',
+    });
+
+    await expect(processWithdrawal(baseReq)).rejects.toThrow(/Crypto withdrawal failed/);
+
+    // The credit was attempted but failed; the transaction should have rolled
+    // back before finalising the canonical row.
+    const creditAttempted = executedSql.some(
+      (sql) => sql.includes('usdt_balance_cents = usdt_balance_cents + $1'),
+    );
+    expect(creditAttempted).toBe(true);
+    const finalised = executedSql.some(
+      (sql) => sql.includes('UPDATE transactions') && sql.includes("status = 'FAILED'"),
+    );
+    expect(finalised).toBe(false);
+    // No successful result was returned (rejects above).
+  });
 });

@@ -223,6 +223,7 @@ describe('R3-3: idempotency is persisted on the withdrawal row', () => {
     state.prior = {
       id: 'wd-prior-1', status: 'held', tx_hash: null,
       amount_cents: 5000, currency: 'USD', withdrawal_type: 'bank', asset_type: 'usdt',
+      bank_name: 'Test Bank', account_number: '1234567890', account_name: 'Test User',
     };
 
     const res = await post(body({ idempotencyKey: KEY }));
@@ -241,6 +242,7 @@ describe('R3-3: idempotency is persisted on the withdrawal row', () => {
     state.prior = {
       id: 'wd-prior-1', status: 'held', tx_hash: null,
       amount_cents: 5000, currency: 'USD', withdrawal_type: 'bank', asset_type: 'usdt',
+      bank_name: 'Test Bank', account_number: '1234567890', account_name: 'Test User',
     };
 
     const res = await post(body({ amount: 75, idempotencyKey: KEY }));

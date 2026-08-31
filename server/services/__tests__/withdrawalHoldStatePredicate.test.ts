@@ -84,8 +84,9 @@ type Executed = { sql: string; params: unknown[]; txn: number };
 function installTransaction(executed: Executed[], row: { status: string }, opts: {
   balanceCents?: number;
   ledgerInsertThrows?: boolean;
+  afterCommit?: (txn: number) => Promise<void> | void;
 } = {}) {
-  const { balanceCents = 100_00, ledgerInsertThrows = false } = opts;
+  const { balanceCents = 100_00, ledgerInsertThrows = false, afterCommit } = opts;
   let txn = 0;
 
   mockTransaction.mockImplementation(async (fn: (client: { query: (sql: string, params?: unknown[]) => Promise<any> }) => Promise<unknown>) => {
@@ -140,7 +141,9 @@ function installTransaction(executed: Executed[], row: { status: string }, opts:
         return { rows: [], rowCount: 0 };
       }),
     };
-    return fn(client);
+    const out = await fn(client);
+    if (afterCommit) await afterCommit(current);
+    return out;
   });
 }
 
@@ -175,14 +178,20 @@ describe('R3-2: money-affecting withdrawal writes carry an expected-prior-status
 
     const marker = withdrawalUpdates(executed).find((e) => /admin_notes/.test(e.sql) && !/INSERT/.test(e.sql));
     expect(marker).toBeDefined();
-    expect(marker!.sql).toMatch(/WHERE id = \$\d+ AND asset_type = 'usdt' AND status = 'held'/i);
+    expect(marker!.sql).toMatch(/WHERE id = \$\d+ AND asset_type = 'usdt' AND status = 'sending'/i);
   });
 
   it('a late marker cannot drag an already-settled row back out of its resolved state', async () => {
     const executed: Executed[] = [];
     // The operator settled it while the payout call was still hanging.
-    const row = { status: 'completed' };
-    installTransaction(executed, row);
+    // HIGH-1: the mock must allow the held -> sending claim to win, then
+    // interleave the concurrent settle to 'completed' before the provider answer.
+    const row = { status: 'held' };
+    installTransaction(executed, row, {
+      afterCommit: (txn) => {
+        if (txn === 2) row.status = 'completed';
+      },
+    });
     mockSendCryptoToWallet.mockRejectedValue(new Error('socket hang up'));
 
     await processWithdrawal(baseReq);
@@ -193,8 +202,14 @@ describe('R3-2: money-affecting withdrawal writes carry an expected-prior-status
 
   it('a late marker cannot resurrect a refunded row', async () => {
     const executed: Executed[] = [];
-    const row = { status: 'rejected' };
-    installTransaction(executed, row);
+    // HIGH-1: the mock must allow the held -> sending claim to win, then
+    // interleave a concurrent refund to 'rejected' before the provider answer.
+    const row = { status: 'held' };
+    installTransaction(executed, row, {
+      afterCommit: (txn) => {
+        if (txn === 2) row.status = 'rejected';
+      },
+    });
     mockSendCryptoToWallet.mockResolvedValue({ success: false, outcome: 'unknown', error: 'no confirmation' });
 
     await processWithdrawal(baseReq);
@@ -216,7 +231,7 @@ describe('R3-2: money-affecting withdrawal writes carry an expected-prior-status
     const creditIdx = refundTxn.findIndex((e) => /usdt_balance_cents = usdt_balance_cents \+ \$1/.test(e.sql));
     expect(claimIdx).toBeGreaterThanOrEqual(0);
     expect(creditIdx).toBeGreaterThan(claimIdx);
-    expect(refundTxn[claimIdx].sql).toMatch(/AND asset_type = 'usdt' AND status = 'held'/i);
+    expect(refundTxn[claimIdx].sql).toMatch(/AND asset_type = 'usdt' AND status = 'sending'/i);
   });
 
   it('pre-broadcast refund does NOT credit the wallet when the claim is lost', async () => {

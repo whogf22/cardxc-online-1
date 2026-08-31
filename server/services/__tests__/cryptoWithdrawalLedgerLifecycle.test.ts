@@ -383,10 +383,13 @@ describe('R3-8: the schema enforces one ledger row per canonical transaction', (
     );
   });
 
-  it('does not block startup when historical duplicates exist', () => {
-    // Same tolerance the other retro-fitted unique indexes use.
-    const idx = initSql.indexOf('ON crypto_ledger_entries(source_transaction_id)');
+  it('fails startup loudly when historical duplicates prevent the arbiter index', () => {
+    // HIGH-2: this index is a mandatory money invariant. The schema initializer
+    // must NOT silently swallow a duplicate-driven unique-index failure.
+    const idx = initSql.indexOf('CREATE UNIQUE INDEX IF NOT EXISTS uniq_crypto_ledger_source_transaction');
     expect(idx).toBeGreaterThan(-1);
-    expect(initSql.slice(idx, idx + 400)).toMatch(/\.catch\(/);
+    const snippet = initSql.slice(idx, idx + 1500);
+    expect(snippet).not.toMatch(/\.catch\(\s*\(e: unknown\)\s*=>/);
+    expect(snippet).toMatch(/throw e/);
   });
 });

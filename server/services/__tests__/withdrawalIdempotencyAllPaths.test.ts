@@ -186,6 +186,7 @@ describe('NEW-8: bank withdrawal honours the idempotency key', () => {
       prior: {
         id: 'wd-prior', status: 'pending', tx_hash: null,
         amount_cents: 5000, currency: 'USD', withdrawal_type: 'bank', asset_type: 'fiat',
+        bank_name: 'Test Bank', account_number: '123456', account_name: 'A Name',
       },
     });
 
@@ -207,6 +208,7 @@ describe('NEW-8: bank withdrawal honours the idempotency key', () => {
         return call === 1 ? null : {
           id: 'wd-winner', status: 'pending', tx_hash: null,
           amount_cents: 5000, currency: 'USD', withdrawal_type: 'bank', asset_type: 'fiat',
+          bank_name: 'Test Bank', account_number: '123456', account_name: 'A Name',
         };
       }
       return null;
@@ -220,6 +222,7 @@ describe('NEW-8: bank withdrawal honours the idempotency key', () => {
         return call === 1 ? null : {
           id: 'wd-winner', status: 'pending', tx_hash: null,
           amount_cents: 5000, currency: 'USD', withdrawal_type: 'bank', asset_type: 'fiat',
+          bank_name: 'Test Bank', account_number: '123456', account_name: 'A Name',
         };
       }
       return null;
@@ -239,6 +242,7 @@ describe('NEW-8: bank withdrawal honours the idempotency key', () => {
       prior: {
         id: 'wd-prior', status: 'pending', tx_hash: null,
         amount_cents: 5000, currency: 'USD', withdrawal_type: 'bank', asset_type: 'fiat',
+        bank_name: 'Test Bank', account_number: '123456', account_name: 'A Name',
       },
     });
 

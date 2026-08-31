@@ -12,6 +12,7 @@ import { logger } from '../middleware/logger';
 import {
     isTransactionIdempotencyViolation,
     isWithdrawalIdempotencyViolation,
+    PG_UNIQUE_VIOLATION,
 } from '../lib/pgErrors';
 import { createAuditLog } from './auditService';
 import { sendCryptoToWallet, parseUsdtAmountToCents } from './cryptoProviderService';
@@ -119,8 +120,10 @@ async function processBankWithdrawal(request: BankWithdrawalRequest): Promise<Wi
     if (idempotencyKey) {
         const prior = await findPriorWithdrawal(request.userId, idempotencyKey);
         if (prior) {
+            const assetType = request.walletType === 'usdt' ? 'usdt' : 'fiat';
             assertIdempotentPayloadMatches(prior, {
-                amountCents, currency: request.currency, withdrawalType: 'bank',
+                amountCents, currency: request.currency, withdrawalType: 'bank', assetType,
+                bankName: request.bankName, accountNumber: request.accountNumber, accountName: request.accountName,
             });
             return {
                 success: true,
@@ -275,8 +278,10 @@ async function processBankWithdrawal(request: BankWithdrawalRequest): Promise<Wi
         if (idempotencyKey && isWithdrawalIdempotencyViolation(err)) {
             const prior = await findPriorWithdrawal(request.userId, idempotencyKey);
             if (prior) {
+                const assetType = request.walletType === 'usdt' ? 'usdt' : 'fiat';
                 assertIdempotentPayloadMatches(prior, {
-                    amountCents, currency: request.currency, withdrawalType: 'bank',
+                    amountCents, currency: request.currency, withdrawalType: 'bank', assetType,
+                    bankName: request.bankName, accountNumber: request.accountNumber, accountName: request.accountName,
                 });
                 return {
                     success: true,
@@ -343,8 +348,37 @@ async function holdForManualReview(withdrawalId: string, request: CryptoWithdraw
 }
 
 /**
+ * HIGH-1: claim the in-flight state BEFORE the external payout is attempted.
+ *
+ * The 'sending' state is the only state the external send is allowed to run
+ * from. Moving the row from 'held' to 'sending' atomically means the admin
+ * refund endpoint (which only refunds 'held') cannot race a payout that is
+ * already in flight. If the claim is lost — the row has already been resolved
+ * by another actor — the provider must not be called.
+ */
+async function claimHeldToSending(withdrawalId: string): Promise<boolean> {
+    let claimed = false;
+    try {
+        await transaction(async (client) => {
+            const res = await client.query(`
+        UPDATE withdrawal_requests
+        SET status = 'sending', updated_at = NOW()
+        WHERE id = $1 AND asset_type = 'usdt' AND status = 'held'
+      `, [withdrawalId]);
+            claimed = res.rowCount === 1;
+        });
+    } catch (e: any) {
+        logger.error('Failed to claim crypto withdrawal for broadcast', { withdrawalId, error: e?.message });
+    }
+    if (!claimed) {
+        logger.error('Crypto withdrawal broadcast claim NOT persisted — provider will NOT be called', { withdrawalId });
+    }
+    return claimed;
+}
+
+/**
  * R3-11: persist the OUTCOME of a crypto payout attempt as its own committed
- * transition, claimed from the 'held' state.
+ * transition, claimed from the 'sending' state.
  *
  * Two defects motivated this:
  *  1. The confirmed-sent path wrote `status = 'processing'` inside the same
@@ -372,7 +406,7 @@ async function markSendOutcome(
             const res = await client.query(`
         UPDATE withdrawal_requests
         SET status = ${target}, admin_notes = $1, tx_hash = COALESCE($2, tx_hash), updated_at = NOW()
-        WHERE id = $3 AND asset_type = 'usdt' AND status = 'held'
+        WHERE id = $3 AND asset_type = 'usdt' AND status = 'sending'
       `, [note, txHash, withdrawalId]);
             marked = res.rowCount === 1;
         });
@@ -405,8 +439,11 @@ async function findPriorWithdrawal(userId: string, idempotencyKey: string) {
         id: string; status: string; tx_hash: string | null;
         amount_cents: number | string; currency: string;
         withdrawal_type: string; asset_type: string | null;
+        crypto_address: string | null; crypto_network: string | null;
+        bank_name: string | null; account_number: string | null; account_name: string | null;
     }>(`
-    SELECT id, status, tx_hash, amount_cents, currency, withdrawal_type, asset_type
+    SELECT id, status, tx_hash, amount_cents, currency, withdrawal_type, asset_type,
+           crypto_address, crypto_network, bank_name, account_number, account_name
       FROM withdrawal_requests
      WHERE user_id = $1 AND idempotency_key = $2
   `, [userId, idempotencyKey]);
@@ -418,17 +455,38 @@ async function findPriorWithdrawal(userId: string, idempotencyKey: string) {
  * prior request stand in for a large new one), so it must be rejected rather
  * than silently returning the prior record.
  *
- * The comparison uses columns the row already carries, so no extra schema is
- * needed.
+ * MEDIUM-5: a different destination is a different logical withdrawal. The
+ * comparison now covers the persisted destination identity (crypto address/
+ * network or bank name/account number/account name) and the funding asset.
  */
-function assertIdempotentPayloadMatches(
-    prior: { amount_cents: number | string; currency: string; withdrawal_type: string },
-    expected: { amountCents: number; currency: string; withdrawalType: string },
-) {
+interface PriorWithdrawalPayload {
+    amount_cents: number | string; currency: string; withdrawal_type: string;
+    asset_type?: string | null;
+    crypto_address?: string | null; crypto_network?: string | null;
+    bank_name?: string | null; account_number?: string | null; account_name?: string | null;
+}
+
+interface ExpectedWithdrawalPayload {
+    amountCents: number; currency: string; withdrawalType: string;
+    assetType?: string;
+    cryptoAddress?: string; cryptoNetwork?: string;
+    bankName?: string; accountNumber?: string; accountName?: string;
+}
+
+function assertIdempotentPayloadMatches(prior: PriorWithdrawalPayload, expected: ExpectedWithdrawalPayload) {
     const sameAmount = Number(prior.amount_cents) === expected.amountCents;
     const sameCurrency = String(prior.currency) === expected.currency;
     const sameType = String(prior.withdrawal_type) === expected.withdrawalType;
-    if (!sameAmount || !sameCurrency || !sameType) {
+    const sameAsset = expected.assetType === undefined || String(prior.asset_type) === expected.assetType;
+    const sameCryptoAddress = expected.cryptoAddress === undefined || prior.crypto_address === expected.cryptoAddress;
+    const sameCryptoNetwork = expected.cryptoNetwork === undefined || prior.crypto_network === expected.cryptoNetwork;
+    const sameBankName = expected.bankName === undefined || prior.bank_name === expected.bankName;
+    const sameAccountNumber = expected.accountNumber === undefined || prior.account_number === expected.accountNumber;
+    const sameAccountName = expected.accountName === undefined || prior.account_name === expected.accountName;
+
+    if (!sameAmount || !sameCurrency || !sameType || !sameAsset ||
+        !sameCryptoAddress || !sameCryptoNetwork ||
+        !sameBankName || !sameAccountNumber || !sameAccountName) {
         throw new AppError(
             'This Idempotency-Key was already used for a different withdrawal request',
             409,
@@ -507,7 +565,8 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
         const prior = await findPriorWithdrawal(request.userId, idempotencyKey);
         if (prior) {
             assertIdempotentPayloadMatches(prior, {
-                amountCents, currency: CRYPTO_WITHDRAWAL_CURRENCY, withdrawalType: 'crypto',
+                amountCents, currency: CRYPTO_WITHDRAWAL_CURRENCY, withdrawalType: 'crypto', assetType: 'usdt',
+                cryptoAddress: request.walletAddress, cryptoNetwork: request.network,
             });
             return {
                 success: true,
@@ -610,7 +669,8 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
             if (prior) {
                 // LOW-10: the winner must be the same logical request as this one.
                 assertIdempotentPayloadMatches(prior, {
-                    amountCents, currency: CRYPTO_WITHDRAWAL_CURRENCY, withdrawalType: 'crypto',
+                    amountCents, currency: CRYPTO_WITHDRAWAL_CURRENCY, withdrawalType: 'crypto', assetType: 'usdt',
+                    cryptoAddress: request.walletAddress, cryptoNetwork: request.network,
                 });
                 return {
                     success: true,
@@ -661,6 +721,17 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
             requiresReview: true,
             message: 'Withdrawal received and is pending manual review'
         };
+    }
+
+    // Step 1.75: HIGH-1 — atomically claim the 'sending' state BEFORE the
+    // provider is contacted. A row that is 'sending' is no longer refundable by
+    // an admin, so the in-flight window cannot be double-spent with a refund.
+    const broadcastClaimed = await claimHeldToSending(withdrawalId);
+    if (!broadcastClaimed) {
+        logger.error('Crypto withdrawal broadcast claim lost — provider will NOT be called', {
+            userId: request.userId, withdrawalId,
+        });
+        throw new AppError('Crypto withdrawal failed: broadcast claim lost', 500, 'PAYOUT_FAILED');
     }
 
     // Step 2: Initiate the external payout and interpret its BROADCAST outcome.
@@ -742,6 +813,25 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
                 ]);
             });
         } catch (bookkeepingError: any) {
+            // HIGH-2: 42P10 (no matching unique/exclusion constraint) means the
+            // arbiter index is missing — this is a schema/invariant failure, not
+            // a replay. PG_UNIQUE_VIOLATION here is an unrelated unique
+            // constraint that ON CONFLICT (source_transaction_id) did not catch.
+            // Both must NOT be treated as idempotent success: the payout already
+            // left custody and the ledger is in an inconsistent state, so we fail
+            // closed.
+            const code = bookkeepingError?.code;
+            if (code === '42P10' || code === PG_UNIQUE_VIOLATION) {
+                logger.error('Crypto withdrawal ledger invariant failed - schema arbiter missing or unique violation', {
+                    userId: request.userId,
+                    withdrawalId,
+                    payoutId: payoutResult.payoutId,
+                    txHash: payoutResult.txHash || null,
+                    error: bookkeepingError?.message,
+                    sqlState: code,
+                });
+                throw bookkeepingError;
+            }
             logger.error('Crypto withdrawal payout succeeded but bookkeeping failed - MANUAL RECONCILIATION REQUIRED', {
                 userId: request.userId,
                 withdrawalId,
@@ -785,49 +875,52 @@ async function processCryptoWithdrawal(request: CryptoWithdrawalRequest) {
         // Definite pre-broadcast failure: the funds never left custody, so it is
         // safe to refund and reject.
         //
-        // R3-2: claim the row FIRST, scoped to id + usdt + status='held'. The
-        // wallet credit is then conditional on having won that claim, so a replay
-        // (or a concurrent resolver) cannot refund the same debit twice.
-        await transaction(async (client) => {
-            const claim = await client.query(`
+        // HIGH-1 / R3-2: claim the row FIRST, scoped to id + usdt + status='sending'.
+        // The wallet credit and canonical transaction finalisation are then
+        // conditional on having won that claim, so a replay (or a concurrent
+        // resolver) cannot refund the same debit twice.
+        try {
+            await transaction(async (client) => {
+                const claim = await client.query(`
         UPDATE withdrawal_requests
         SET status = 'rejected', admin_notes = $1, updated_at = NOW()
-        WHERE id = $2 AND asset_type = 'usdt' AND status = 'held'
+        WHERE id = $2 AND asset_type = 'usdt' AND status = 'sending'
         RETURNING id
       `, [payoutResult.error || 'Payout failed before broadcast', withdrawalId]);
 
-            if (claim.rowCount !== 1) {
-                logger.error('Pre-broadcast refund claim lost — NOT crediting wallet', {
-                    userId: request.userId, withdrawalId
-                });
-                return;
-            }
+                if (claim.rowCount !== 1) {
+                    throw new Error('Pre-broadcast refund claim lost');
+                }
 
-            await client.query(`
+                const refund = await client.query(`
         UPDATE wallets
         SET usdt_balance_cents = usdt_balance_cents + $1
-        WHERE user_id = $2 AND currency = 'USD'
-      `, [amountCents, request.userId]);
+        WHERE user_id = $2 AND currency = $3
+      `, [amountCents, request.userId, CRYPTO_WITHDRAWAL_CURRENCY]);
 
-            // R3-8: the canonical transaction row must not stay PENDING forever
-            // behind a rejected withdrawal. Same transaction as the claim and the
-            // credit, so withdrawal state and ledger state cannot diverge. The
-            // rowCount is checked rather than discarded: a refunded withdrawal
-            // whose ledger row was never finalised is a silent inconsistency, but
-            // it must not block returning the user's funds, so it is reported
-            // loudly instead of aborting the refund.
-            const finalise = await client.query(`
+                if (refund.rowCount !== 1) {
+                    throw new Error('Pre-broadcast refund wallet credit failed');
+                }
+
+                // R3-8: the canonical transaction row must not stay PENDING forever
+                // behind a rejected withdrawal. Same transaction as the claim and the
+                // credit, so withdrawal state and ledger state cannot diverge.
+                const finalise = await client.query(`
         UPDATE transactions
         SET status = 'FAILED', updated_at = NOW()
         WHERE reference = $1 AND type = 'withdrawal' AND status = 'PENDING'
       `, [withdrawalId]);
 
-            if (finalise.rowCount !== 1) {
-                logger.error('Pre-broadcast refund could not finalise the canonical transaction row', {
-                    userId: request.userId, withdrawalId, rowCount: finalise.rowCount,
-                });
-            }
-        });
+                if (finalise.rowCount !== 1) {
+                    throw new Error('Pre-broadcast refund could not finalise the canonical transaction row');
+                }
+            });
+        } catch (e: any) {
+            logger.error('Pre-broadcast refund could not be applied atomically', {
+                userId: request.userId, withdrawalId, error: e?.message,
+            });
+            throw new AppError('Crypto withdrawal failed: ' + (payoutResult.error || 'payout failed'), 500);
+        }
 
         logger.error('Crypto withdrawal failed before broadcast — refunded', {
             userId: request.userId,

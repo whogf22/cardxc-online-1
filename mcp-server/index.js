@@ -12,6 +12,7 @@ import {
     runReadOnlyQuery,
     MAX_RESULT_ROWS,
 } from "./sql-guard.js";
+import { buildPgSslConfig } from "./env.js";
 
 const PROJECT_ROOT = path.resolve(".");
 const BLOCKED_PATHS = [".env", "node_modules/.cache", ".git/objects"];
@@ -205,7 +206,7 @@ async function executeTool(name, toolInput) {
             assertRawSqlPreconditions();
             const roUrl = process.env.MCP_READONLY_DATABASE_URL;
             validateSQL(toolInput.query);
-            const client = new pg.Client({ connectionString: roUrl });
+            const client = new pg.Client({ connectionString: roUrl, ssl: buildPgSslConfig(roUrl) });
             await client.connect();
             try {
                 // validated by validateSQL; executed read-only and row-capped
@@ -219,7 +220,7 @@ async function executeTool(name, toolInput) {
         case "get_database_schema": {
             const dbUrl = process.env.DATABASE_URL;
             if (!dbUrl) return "DATABASE_URL not configured";
-            const client = new pg.Client({ connectionString: dbUrl });
+            const client = new pg.Client({ connectionString: dbUrl, ssl: buildPgSslConfig(dbUrl) });
             await client.connect();
             try {
                 const tables = await client.query(`SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name`); // hardcoded SQL

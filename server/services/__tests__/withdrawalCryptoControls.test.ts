@@ -67,29 +67,59 @@ function installTransaction(executedSql: string[], opts: {
   insertThrowsDuplicate?: boolean;
 } = {}) {
   const { balanceCents = 100_00, insertThrowsDuplicate = false } = opts;
-  mockTransaction.mockImplementation(async (fn: (client: { query: (sql: string, params?: unknown[]) => Promise<{ rows: unknown[] }> }) => Promise<unknown>) => {
+  // HIGH-1: this mock must model the new held -> sending -> sent/reconcile
+  // state machine so legitimate claims win and the provider can run.
+  let currentStatus = 'held';
+  mockTransaction.mockImplementation(async (fn: (client: { query: (sql: string, params?: unknown[]) => Promise<{ rows: unknown[]; rowCount?: number }> }) => Promise<unknown>) => {
     const client = {
       query: vi.fn(async (sql: string) => {
         executedSql.push(sql);
-        if (sql.includes('SELECT usdt_balance_cents')) {
-          return { rows: [{ usdt_balance_cents: balanceCents }] };
+        const flat = sql.replace(/\s+/g, ' ').trim();
+        if (flat.includes('SELECT usdt_balance_cents')) {
+          return { rows: [{ usdt_balance_cents: balanceCents }], rowCount: 1 };
         }
-        if (sql.includes('INSERT INTO withdrawal_requests')) {
+        if (flat.includes('INSERT INTO withdrawal_requests')) {
           if (insertThrowsDuplicate) {
             const err: any = new Error('duplicate key value violates unique constraint');
             err.code = '23505';
             throw err;
           }
-          return { rows: [{ id: 'wd-1' }] };
+          currentStatus = 'held';
+          return { rows: [{ id: 'wd-1' }], rowCount: 1 };
         }
         // R3-8: the crypto hold now also inserts the ONE canonical user-visible
         // `transactions` row (`RETURNING id`), in the same transaction as the
         // debit, so the withdrawal has a ledger identity the admin resolvers can
         // finalise. Model its returned id; every assertion below is unchanged.
-        if (sql.includes('INSERT INTO transactions')) {
-          return { rows: [{ id: 'tx-1' }] };
+        if (flat.includes('INSERT INTO transactions')) {
+          return { rows: [{ id: 'tx-1' }], rowCount: 1 };
         }
-        return { rows: [] };
+        if (flat.includes('INSERT INTO crypto_ledger_entries')) {
+          return { rows: [{ id: 'cle-1' }], rowCount: 1 };
+        }
+        if (flat.includes('UPDATE wallets') || flat.includes('UPDATE transactions')) {
+          return { rows: [{ id: 'wd-1' }], rowCount: 1 };
+        }
+        if (flat.includes('UPDATE withdrawal_requests')) {
+          // Split SET from WHERE so the two `status = '...'` occurrences are
+          // never confused for one another.
+          const wi = flat.search(/\sWHERE\s/i);
+          const setPart = wi === -1 ? flat : flat.slice(0, wi);
+          const wherePart = wi === -1 ? '' : flat.slice(wi);
+
+          const wants = /status\s*=\s*'(\w+)'/.exec(wherePart);
+          const wantsIn = /status\s+IN\s*\(([^)]*)\)/i.exec(wherePart);
+          if (wants && wants[1] !== currentStatus) return { rows: [], rowCount: 0 };
+          if (wantsIn) {
+            const allowed = wantsIn[1].split(',').map((s) => s.trim().replace(/'/g, ''));
+            if (!allowed.includes(currentStatus)) return { rows: [], rowCount: 0 };
+          }
+
+          const target = /status\s*=\s*'(\w+)'/.exec(setPart);
+          if (target) currentStatus = target[1];
+          return { rows: [{ id: 'wd-1' }], rowCount: 1 };
+        }
+        return { rows: [], rowCount: 0 };
       }),
     };
     return fn(client);
@@ -320,6 +350,7 @@ describe('HIGH-4: withdrawal idempotency', () => {
         return {
           id: 'wd-prior', status: 'processing', tx_hash: '0xprior',
           amount_cents: 5000, currency: 'USD', withdrawal_type: 'crypto', asset_type: 'usdt',
+          crypto_address: 'TxxxxxxxxxxxxxxxxxxxxxxxxxxxxxYYYY', crypto_network: 'TRC20',
         };
       }
       return null;

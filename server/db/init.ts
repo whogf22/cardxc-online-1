@@ -135,7 +135,7 @@ export async function initializeDatabase() {
         idempotency_key VARCHAR(255),
         tx_hash VARCHAR(255),
         asset_type VARCHAR(10) DEFAULT 'fiat' CHECK (asset_type IN ('fiat', 'usdt')),
-        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'held', 'sent', 'reconcile', 'processing', 'completed', 'failed')),
+        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'held', 'sending', 'sent', 'reconcile', 'processing', 'completed', 'failed')),
         admin_notes TEXT,
         approved_by UUID REFERENCES users(id),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -244,7 +244,7 @@ export async function initializeDatabase() {
     await client.query(`
       ALTER TABLE withdrawal_requests DROP CONSTRAINT IF EXISTS withdrawal_requests_status_check;
       ALTER TABLE withdrawal_requests ADD CONSTRAINT withdrawal_requests_status_check
-        CHECK (status IN ('pending', 'approved', 'rejected', 'held', 'sent', 'reconcile', 'processing', 'completed', 'failed'));
+        CHECK (status IN ('pending', 'approved', 'rejected', 'held', 'sending', 'sent', 'reconcile', 'processing', 'completed', 'failed'));
     `);
 
     await client.query(`
@@ -717,7 +717,7 @@ export async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_crypto_ledger_entries_source_order_id ON crypto_ledger_entries(source_order_id);
       CREATE INDEX IF NOT EXISTS idx_crypto_ledger_entries_created_at ON crypto_ledger_entries(created_at);
     `);
-    // R3-8: one crypto ledger entry per canonical transaction. The table's inline
+    // HIGH-2: one crypto ledger entry per canonical transaction. The table's inline
     // `UNIQUE(source_order_id, user_id)` cannot enforce this for anything that is
     // not a card order: `source_order_id` is NULL for withdrawals, gift-card
     // payments and on-chain deposits, and NULLs never collide in a Postgres
@@ -728,14 +728,40 @@ export async function initializeDatabase() {
     // unique index, so rows without a source transaction are unaffected either
     // way, and a plain index is what `ON CONFLICT (source_transaction_id)` can
     // infer without the caller having to restate an index predicate.
-    await client.query(`
-      CREATE UNIQUE INDEX IF NOT EXISTS uniq_crypto_ledger_source_transaction
-        ON crypto_ledger_entries(source_transaction_id)
-    `).catch((e: unknown) => {
-      // A pre-existing install may already contain duplicates; log and continue
-      // rather than blocking startup on a historical data issue.
-      logger.warn('[DB] Could not create unique crypto ledger source_transaction_id index (existing duplicates?)', { error: e instanceof Error ? e.message : String(e) });
-    });
+    //
+    // This index is a mandatory financial invariant. If it cannot be created,
+    // startup must fail loudly — the money paths depend on it for safe replay.
+    try {
+      await client.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS uniq_crypto_ledger_source_transaction
+          ON crypto_ledger_entries(source_transaction_id)
+      `);
+    } catch (e: any) {
+      if (e?.code === '23505') {
+        const dupes = await client.query(`
+          SELECT source_transaction_id, COUNT(*) as count
+          FROM crypto_ledger_entries
+          WHERE source_transaction_id IS NOT NULL
+          GROUP BY source_transaction_id
+          HAVING COUNT(*) > 1
+          ORDER BY count DESC, source_transaction_id
+          LIMIT 50
+        `);
+        logger.error(
+          '[DB] Cannot create unique index uniq_crypto_ledger_source_transaction: duplicate source_transaction_id values exist. Manual reconciliation required. Application startup aborted.',
+          {
+            error: e instanceof Error ? e.message : String(e),
+            duplicateSourceTransactionCount: dupes.rows.length,
+            samples: dupes.rows.slice(0, 5),
+          },
+        );
+      } else {
+        logger.error('[DB] Cannot create unique index uniq_crypto_ledger_source_transaction. Application startup aborted.', {
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+      throw e;
+    }
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS crypto_transactions (
