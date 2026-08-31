@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import NetworkSelector from './NetworkSelector';
 import AddressBook, { SavedAddress } from '../../../components/AddressBook';
+import {
+  isValidUsdtAmount,
+  formatUsdt,
+  USDT_AMOUNT_STEP,
+  USDT_LEDGER_DECIMALS,
+} from '../../../lib/usdtAmount';
 
 interface CryptoWithdrawModalProps {
   initialAsset?: string;
@@ -179,6 +185,13 @@ export default function CryptoWithdrawModal({ initialAsset, cryptoBalances, onCl
       setError('Please enter a valid amount');
       return false;
     }
+    // The USDT ledger stores whole cents, and the server refuses anything finer
+    // (otherwise the on-chain send can exceed what the wallet was debited).
+    // Reject here so the user gets a clear message instead of an opaque 400.
+    if (!isValidUsdtAmount(amount)) {
+      setError(`Amount can have at most ${USDT_LEDGER_DECIMALS} decimal places`);
+      return false;
+    }
     if (parseFloat(amount) > balance) {
       setError('Insufficient balance');
       return false;
@@ -319,7 +332,7 @@ export default function CryptoWithdrawModal({ initialAsset, cryptoBalances, onCl
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-white">{assetBalance.toFixed(8)}</p>
+                      <p className="font-bold text-white">{formatUsdt(assetBalance)}</p>
                       <p className="text-xs text-white/50">{asset.symbol}</p>
                     </div>
                   </button>
@@ -334,7 +347,7 @@ export default function CryptoWithdrawModal({ initialAsset, cryptoBalances, onCl
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-white/60">Available Balance</span>
                   <span className="text-lg font-bold text-white">
-                    {balance.toFixed(8)} {selectedAsset}
+                    {formatUsdt(balance)} {selectedAsset}
                   </span>
                 </div>
               </div>
@@ -356,8 +369,8 @@ export default function CryptoWithdrawModal({ initialAsset, cryptoBalances, onCl
                     type="number"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    placeholder="0.00000000"
-                    step="0.00000001"
+                    placeholder="0.00"
+                    step={USDT_AMOUNT_STEP}
                     className="w-full px-4 py-4 pr-20 text-lg font-bold border border-white/[0.08] rounded-xl bg-white/[0.04] text-white focus:border-lime-500 focus:outline-none transition-colors"
                   />
                   <button
@@ -404,7 +417,7 @@ export default function CryptoWithdrawModal({ initialAsset, cryptoBalances, onCl
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-white/60">You will receive</span>
                     <span className="text-sm font-semibold text-lime-400">
-                      {amount ? `~${parseFloat(amount).toFixed(8)} ${selectedAsset}` : '--'}
+                      {amount ? `~${formatUsdt(parseFloat(amount))} ${selectedAsset}` : '--'}
                     </span>
                   </div>
                 </div>

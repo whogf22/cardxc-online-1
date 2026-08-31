@@ -82,6 +82,13 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+# Scratch/tool output (has held DB schema dumps) — never commit
+tmp/
+
+# Local audit artifacts: these have historically contained real credentials
+# pasted into the repo. Keep findings out of the tracked tree.
+AUDIT_*.md
+ROTATION_LIST.md
 
 # Coverage
 coverage/
@@ -109,3 +116,4 @@ Applications/
 .dev.vars*
 !.dev.vars.example
 !.env.example
+.gstack/

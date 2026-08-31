@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS withdrawal_requests (
   bank_name VARCHAR(255),
   account_number VARCHAR(100),
   account_name VARCHAR(255),
-  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'processing', 'completed')),
+  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'sending', 'processing', 'completed')),
   admin_notes TEXT,
   approved_by UUID REFERENCES users(id),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

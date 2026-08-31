@@ -36,6 +36,11 @@ function makeClient(executed: string[], claimRowCount: number) {
       if (sql.includes('UPDATE crypto_transactions') && sql.includes("status = 'completed'")) {
         return { rows: [], rowCount: claimRowCount };
       }
+      // `INSERT INTO transactions ... RETURNING id` returns the row whose id
+      // anchors the crypto ledger entry's FK (NEW-R4-2).
+      if (sql.includes('INSERT INTO transactions')) {
+        return { rows: [{ id: 'txn-mon-1' }], rowCount: 1 };
+      }
       return { rows: [], rowCount: 1 };
     }),
   };

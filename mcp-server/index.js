@@ -6,11 +6,17 @@ import fs from "fs/promises";
 import path from "path";
 import pg from "pg";
 import { GoogleGenAI } from "@google/genai";
+import {
+    validateSQL,
+    assertRawSqlPreconditions,
+    runReadOnlyQuery,
+    MAX_RESULT_ROWS,
+} from "./sql-guard.js";
+import { buildPgSslConfig } from "./env.js";
 
 const PROJECT_ROOT = path.resolve(".");
 const BLOCKED_PATHS = [".env", "node_modules/.cache", ".git/objects"];
 const BLOCKED_COMMANDS = ["rm -rf /", "mkfs", "dd if=", ":(){ :|:& };:", "shutdown", "reboot", "halt", "poweroff"];
-const DANGEROUS_SQL = /^\s*(DROP\s+(DATABASE|SCHEMA)|TRUNCATE\s+ALL|DELETE\s+FROM\s+\w+\s*;?\s*$)/i;
 
 let genAI = null;
 try {
@@ -43,11 +49,6 @@ function validateCommand(command) {
         throw new Error("Suspicious command pattern blocked");
     }
     return command;
-}
-
-function validateSQL(query) {
-    if (DANGEROUS_SQL.test(query)) throw new Error("Destructive SQL blocked");
-    return query;
 }
 
 const toolDefs = [
@@ -195,16 +196,23 @@ async function executeTool(name, toolInput) {
             return results.length > 0 ? results.join("\n") : "No matches found";
         }
         // nosemgrep: javascript.lang.security.audit.sqli.node-postgres-sqli
-        // MCP tool: authenticated admin debug tool, dangerous SQL blocked by validateSQL()
+        // MCP tool: authenticated admin debug tool. R3-1 defence in depth —
+        // raw SQL is disabled unless MCP_ENABLE_RAW_SQL=true, requires a SEPARATE
+        // read-only database identity (MCP_READONLY_DATABASE_URL, distinct from
+        // DATABASE_URL), is validated by the literal-aware shared guard, and runs
+        // inside a READ ONLY transaction with a statement timeout, an idle
+        // timeout, a row cap and an unconditional ROLLBACK.
         case "query_database": {
-            const dbUrl = process.env.DATABASE_URL;
-            if (!dbUrl) return "DATABASE_URL not configured";
+            assertRawSqlPreconditions();
+            const roUrl = process.env.MCP_READONLY_DATABASE_URL;
             validateSQL(toolInput.query);
-            const client = new pg.Client({ connectionString: dbUrl });
+            const client = new pg.Client({ connectionString: roUrl, ssl: buildPgSslConfig(roUrl) });
             await client.connect();
             try {
-                const result = await client.query(toolInput.query); // validated by validateSQL
-                return result.rows ? JSON.stringify(result.rows, null, 2) : `Rows affected: ${result.rowCount}`;
+                // validated by validateSQL; executed read-only and row-capped
+                const { rows, truncated } = await runReadOnlyQuery(client, toolInput.query);
+                const json = JSON.stringify(rows, null, 2);
+                return truncated ? `${json}\n...[truncated at ${MAX_RESULT_ROWS} rows]` : json;
             } finally { await client.end(); }
         }
         // nosemgrep: javascript.lang.security.audit.sqli.node-postgres-sqli
@@ -212,7 +220,7 @@ async function executeTool(name, toolInput) {
         case "get_database_schema": {
             const dbUrl = process.env.DATABASE_URL;
             if (!dbUrl) return "DATABASE_URL not configured";
-            const client = new pg.Client({ connectionString: dbUrl });
+            const client = new pg.Client({ connectionString: dbUrl, ssl: buildPgSslConfig(dbUrl) });
             await client.connect();
             try {
                 const tables = await client.query(`SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name`); // hardcoded SQL

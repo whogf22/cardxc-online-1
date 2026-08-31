@@ -4,16 +4,28 @@ import { spawn } from "child_process";
 import fs from "fs/promises";
 import path from "path";
 import pg from "pg";
-import jwt from "jsonwebtoken";
 import { GoogleGenAI } from "@google/genai";
+import { resolveMcpSecret, signMcpToken, verifyMcpToken } from "./mcp-auth.js";
 import { Server } from "@modelcontextprotocol/sdk/server";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import {
+    validateSQL,
+    isRawSqlEnabled,
+    assertRawSqlPreconditions,
+    runReadOnlyQuery,
+    MAX_RESULT_ROWS,
+} from "./sql-guard.js";
+import { buildPgSslConfig } from "./env.js";
 
 const PROJECT_ROOT = path.resolve(".");
 const BLOCKED_PATHS = [".env", "node_modules/.cache", ".git/objects"];
 const BLOCKED_COMMANDS = ["rm -rf /", "mkfs", "dd if=", ":(){ :|:& };:", "shutdown", "reboot", "halt", "poweroff", "wget", "chmod", "chown", "pkill", "kill", "printenv"];
-const DANGEROUS_SQL = /^\s*(DROP\s+(DATABASE|SCHEMA)|TRUNCATE\s+ALL|DELETE\s+FROM\s+\w+\s*;?\s*$)/i;
+// SEC-4 / HIGH-5: raw SQL over the MCP surface is OFF unless explicitly enabled,
+// and when enabled is restricted to a SINGLE read-only SELECT/WITH statement.
+// The guard is shared with the stdio server via ./sql-guard.js so the two
+// entrypoints cannot diverge; a blocklist is not sufficient — anything not
+// provably read-only is rejected.
 
 const app = express();
 app.use(cors({
@@ -34,13 +46,23 @@ app.use(cors({
 }));
 app.use(express.json({ limit: "50mb" }));
 
-if (process.env.NODE_ENV === 'production' && !process.env.MCP_SECRET && !process.env.SESSION_SECRET) {
-    throw new Error("MCP_SECRET or SESSION_SECRET must be set in production");
+// SEC-4 (fail closed, in EVERY environment): no hardcoded fallback signing key.
+// A guessable default would let anyone mint an 8h admin-capable MCP token.
+//
+// CSO #2: this used to fall back to SESSION_SECRET. That is the key the main app
+// signs end-user auth_token cookies with, so every ordinary user held a
+// signature-valid MCP token. resolveMcpSecret now demands a dedicated
+// MCP_SECRET and rejects one that merely duplicates SESSION_SECRET.
+const JWT_SECRET = resolveMcpSecret(process.env);
+
+// SEC-4: the API key likewise has no default. Without it the server cannot
+// authenticate callers, so it must not start.
+const MCP_API_KEY = process.env.MCP_API_KEY;
+if (!MCP_API_KEY) {
+    throw new Error(
+        "FATAL: MCP_API_KEY must be set — the MCP server refuses to start without a configured API key.",
+    );
 }
-if (!process.env.MCP_SECRET && !process.env.SESSION_SECRET) {
-    console.warn("[MCP] Warning: MCP_SECRET not set. Using development fallback.");
-}
-const JWT_SECRET = process.env.MCP_SECRET || process.env.SESSION_SECRET || "dev-mcp-secret-do-not-use-in-production";
 
 let genAI = null;
 try {
@@ -109,12 +131,15 @@ function validateCommand(command) {
     return command;
 }
 
-function validateSQL(query) {
-    if (DANGEROUS_SQL.test(query)) {
-        throw new Error("Destructive SQL blocked. Use targeted DELETE with WHERE clause or ask an admin.");
-    }
-    return query;
-}
+/**
+ * SEC-4 / HIGH-5 — raw SQL guard.
+ *
+ * validateSQL and isRawSqlEnabled are imported from ./sql-guard.js, the single
+ * allowlist shared with the stdio MCP server. Raw SQL is disabled unless
+ * MCP_ENABLE_RAW_SQL=true; when enabled, only a single read-only SELECT/WITH
+ * statement is permitted (no multiple statements, no writes, no DDL/DCL, no
+ * comment-smuggled payloads).
+ */
 
 const authenticateToken = (req, res, next) => {
     const clientKey = req.ip || req.connection.remoteAddress || "unknown";
@@ -123,10 +148,7 @@ const authenticateToken = (req, res, next) => {
     }
 
     const apiKeyHeader = (req.headers["x-api-key"] || "").toString().trim();
-    if (process.env.NODE_ENV === 'production' && !process.env.MCP_API_KEY) {
-        return res.status(500).json({ error: "MCP_API_KEY must be set in production" });
-    }
-    const configuredApiKey = (process.env.MCP_API_KEY || "cardxc-mcp-dev-key").toString().trim();
+    const configuredApiKey = MCP_API_KEY.toString().trim();
     if (apiKeyHeader) {
         if (apiKeyHeader !== configuredApiKey) {
             return res.status(401).json({ error: "Invalid API key" });
@@ -142,7 +164,10 @@ const authenticateToken = (req, res, next) => {
     }
 
     try {
-        req.user = jwt.verify(token, JWT_SECRET);
+        // CSO #2: verifyMcpToken pins HS256 and asserts iss/aud. The previous
+        // unconstrained verification call accepted ANY correctly-signed token,
+        // including an end-user auth_token.
+        req.user = verifyMcpToken(token, JWT_SECRET);
         next();
     } catch (_error) {
         return res.status(403).json({ error: "Invalid or expired token" });
@@ -151,21 +176,14 @@ const authenticateToken = (req, res, next) => {
 
 app.post("/auth/token", (req, res) => {
     const { apiKey, username } = req.body;
-    if (process.env.NODE_ENV === 'production' && !process.env.MCP_API_KEY) {
-        return res.status(500).json({ error: "MCP_API_KEY must be set in production" });
-    }
-    const expectedKey = process.env.MCP_API_KEY || "cardxc-mcp-dev-key";
+    const expectedKey = MCP_API_KEY;
 
     if (!apiKey || apiKey !== expectedKey) {
         return res.status(401).json({ error: "Invalid API key" });
     }
 
     const sanitizedUsername = (username || "mcp-client").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 50);
-    const token = jwt.sign(
-        { username: sanitizedUsername, role: "ai-assistant", iss: "cardxc-mcp", aud: "cardxc-mcp-client" },
-        JWT_SECRET,
-        { expiresIn: "8h" }
-    );
+    const token = signMcpToken(sanitizedUsername, JWT_SECRET);
 
     res.json({ success: true, token, expiresIn: "8h", message: "Use this token in Authorization header: Bearer <token>" });
 });
@@ -472,21 +490,25 @@ const executeToolInternal = async (tool, toolInput) => {
 
         // nosemgrep: javascript.lang.security.audit.sqli.node-postgres-sqli
         // MCP tool: query_database accepts SQL from authenticated MCP clients (JWT-protected).
-        // Dangerous SQL is blocked by validateSQL(). This is an intentional admin debug tool.
+        // Raw SQL is disabled by default and, when enabled, restricted to a
+        // single read-only SELECT by the shared validateSQL() allowlist. This
+        // is an intentional, JWT-authenticated admin debug tool.
         case "query_database": {
-            const databaseUrl = process.env.DATABASE_URL;
-            if (!databaseUrl) return "Database not configured. DATABASE_URL is missing.";
+            // R3-1 defence in depth: enable gate + a SEPARATE read-only identity +
+            // literal-aware validation + a READ ONLY transaction that is timeout-
+            // bounded, row-capped and always rolled back. The application role is
+            // never used for raw SQL, so a validator bypass has no write authority.
+            assertRawSqlPreconditions();
+            const readOnlyUrl = process.env.MCP_READONLY_DATABASE_URL;
             validateSQL(toolInput.query);
-            const sslConfig = process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : { rejectUnauthorized: false };
-            const client = new pg.Client({ connectionString: databaseUrl, ssl: sslConfig });
+            const client = new pg.Client({ connectionString: readOnlyUrl, ssl: buildPgSslConfig(readOnlyUrl) });
             await client.connect();
             try {
-                const result = await client.query(toolInput.query); // validated by validateSQL, JWT-auth required
-                if (result.rows) {
-                    const json = JSON.stringify(result.rows, null, 2);
-                    return json.length > 50000 ? json.slice(0, 50000) + "\n...[truncated]" : json;
-                }
-                return `Query executed. Rows affected: ${result.rowCount}`;
+                // validated by validateSQL, JWT/API-key auth required
+                const { rows, truncated } = await runReadOnlyQuery(client, toolInput.query);
+                const json = JSON.stringify(rows, null, 2);
+                const capped = truncated ? `${json}\n...[truncated at ${MAX_RESULT_ROWS} rows]` : json;
+                return capped.length > 50000 ? capped.slice(0, 50000) + "\n...[truncated]" : capped;
             } finally {
                 await client.end();
             }
@@ -497,7 +519,9 @@ const executeToolInternal = async (tool, toolInput) => {
         case "get_database_schema": {
             const databaseUrl = process.env.DATABASE_URL;
             if (!databaseUrl) return "Database not configured.";
-            const sslConfig = process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : { rejectUnauthorized: false };
+            // R3-6: fail-closed TLS. Verification is ON unless a development-only opt-in
+            // is set AND the process is not production AND the target is local.
+            const sslConfig = buildPgSslConfig(databaseUrl);
             const client = new pg.Client({ connectionString: databaseUrl, ssl: sslConfig });
             await client.connect();
             try {
@@ -699,7 +723,7 @@ const mcpManifest = {
     name: "cardxc-mcp",
     version: "2.1.0",
     description: "CardXC MCP Server — AI-powered debugging, code editing, database access, and development tools for the CardXC fintech platform.",
-    author: "GameNova Vault LLC",
+    author: "CARDXC LLC",
     homepage: "https://cardxc.online",
     protocol: "mcp",
     capabilities: { tools: true, resources: false, prompts: false },
@@ -845,7 +869,7 @@ app.get("/", (req, res) => {
 <div class="wrap">
   <div class="badge"><div class="dot"></div> Server Online</div>
   <h1>CardXC MCP Server</h1>
-  <p class="sub">Model Context Protocol Server v2.1.0 &mdash; by GameNova Vault LLC</p>
+  <p class="sub">Model Context Protocol Server v2.1.0 &mdash; by CARDXC LLC</p>
 
   <div class="card">
     <h3>Capabilities</h3>
@@ -949,7 +973,7 @@ curl -X POST https://${host}/execute \\
   </div>
 
   <div class="footer">
-    &copy; ${new Date().getFullYear()} CardXC &mdash; a digital wallet and payments platform operated by GameNova Vault LLC.
+    &copy; ${new Date().getFullYear()} CardXC &mdash; a digital wallet and payments platform operated by CARDXC LLC.
   </div>
 </div>
 <script>
@@ -965,12 +989,20 @@ function showTab(id){
 });
 
 const PORT = process.env.MCP_PORT || 8080;
+// SEC-4: this is an INTERNAL administrative surface. Bind loopback by default so
+// it is never exposed to the network by accident; a non-loopback bind must be an
+// explicit, deliberate operator decision via MCP_BIND_HOST.
+const BIND_HOST = process.env.MCP_BIND_HOST || "127.0.0.1";
 (async () => {
     await setupMcpStreamableHttp();
-    app.listen(PORT, "0.0.0.0", () => {
-        console.log("MCP HTTP Server running on port " + PORT);
+    app.listen(PORT, BIND_HOST, () => {
+        console.log("MCP HTTP Server running on " + BIND_HOST + ":" + PORT);
         console.log("Features: JWT Auth, API Key Auth, Gemini AI, Database, File Ops, Rate Limiting");
+        console.log("Raw SQL: " + (isRawSqlEnabled() ? "ENABLED (read-only SELECT)" : "disabled"));
         console.log("Tools: " + tools.length + " available");
         console.log("Cursor MCP: use URL http://localhost:" + PORT + "/mcp (Streamable HTTP)");
+        if (BIND_HOST !== "127.0.0.1" && BIND_HOST !== "localhost") {
+            console.warn("[MCP] WARNING: bound to " + BIND_HOST + " — this administrative server should not be publicly reachable.");
+        }
     });
 })();

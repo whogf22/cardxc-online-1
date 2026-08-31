@@ -67,9 +67,17 @@ describe('payment webhook', () => {
       return null;
     });
     mockQuery.mockResolvedValue({ rows: [], rowCount: 0 });
-    mockTransaction.mockImplementation(async (fn: (client: { query: (a: string, b?: unknown[]) => Promise<{ rows: { id: string }[] }> }) => Promise<void>) => {
+    mockTransaction.mockImplementation(async (fn: (client: { query: (a: string, b?: unknown[]) => Promise<{ rows: unknown[]; rowCount: number }> }) => Promise<void>) => {
       const client = {
-        query: vi.fn().mockResolvedValueOnce({ rows: [{ id: 'tx-id-1' }] }).mockResolvedValue({ rows: [], rowCount: 1 }),
+        query: vi.fn(async (sql: string) => {
+          if (sql.includes('UPDATE card_orders') && sql.includes('RETURNING')) {
+            return { rows: [{ amount_cents: 1000, currency: 'USD' }], rowCount: 1 };
+          }
+          if (sql.includes('INSERT INTO transactions')) {
+            return { rows: [{ id: 'tx-id-1' }], rowCount: 1 };
+          }
+          return { rows: [], rowCount: 1 };
+        }),
       };
       await fn(client);
     });

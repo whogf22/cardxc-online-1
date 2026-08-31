@@ -132,7 +132,10 @@ export async function initializeDatabase() {
         account_name VARCHAR(255),
         crypto_address VARCHAR(255),
         crypto_network VARCHAR(50),
-        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'processing', 'completed', 'failed')),
+        idempotency_key VARCHAR(255),
+        tx_hash VARCHAR(255),
+        asset_type VARCHAR(10) DEFAULT 'fiat' CHECK (asset_type IN ('fiat', 'usdt')),
+        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'held', 'sending', 'sent', 'reconcile', 'processing', 'completed', 'failed')),
         admin_notes TEXT,
         approved_by UUID REFERENCES users(id),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -145,6 +148,104 @@ export async function initializeDatabase() {
     await client.query(`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS crypto_address VARCHAR(255)`);
     await client.query(`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS crypto_network VARCHAR(50)`);
     await client.query(`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS tx_hash VARCHAR(255)`);
+    await client.query(`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(255)`);
+
+    // NEW-1: record WHICH wallet column funded the withdrawal. Without this the
+    // admin resolvers cannot tell a fiat withdrawal (which reserves
+    // reserved_cents) from a USDT one (which debits usdt_balance_cents outright),
+    // so they mutated the wrong asset.
+    await client.query(`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS asset_type VARCHAR(10) DEFAULT 'fiat'`);
+    await client.query(`
+      ALTER TABLE withdrawal_requests DROP CONSTRAINT IF EXISTS withdrawal_requests_asset_type_check;
+      ALTER TABLE withdrawal_requests ADD CONSTRAINT withdrawal_requests_asset_type_check
+        CHECK (asset_type IN ('fiat', 'usdt'));
+    `);
+    // Every crypto payout is USDT-funded, so historical crypto rows can be
+    // back-filled deterministically. Idempotent.
+    await client.query(`
+      UPDATE withdrawal_requests SET asset_type = 'usdt'
+      WHERE withdrawal_type = 'crypto' AND asset_type IS DISTINCT FROM 'usdt'
+    `);
+    // MIGRATION COVERAGE GAP (independently confirmed, flagged rather than
+    // guessed). A BANK withdrawal could also be USDT-funded before this column
+    // existed: the pre-change bank path with walletType='usdt' debited
+    // usdt_balance_cents and inserted withdrawal_type='bank', status='pending'.
+    // Those rows are indistinguishable from genuine fiat bank rows using the
+    // schema alone — the funding wallet was never persisted — so the back-fill
+    // above CANNOT classify them and they inherit the 'fiat' default.
+    //
+    // Consequence for an unresolved one: /approve and /reject both require a fiat
+    // reserve that was never taken, so they correctly refuse (INSUFFICIENT_BALANCE
+    // / RESERVE_MISMATCH) and the row cannot be resolved; and if the same user
+    // holds another pending fiat withdrawal whose reserve covers this amount,
+    // /approve could settle THIS row against THAT reserve.
+    //
+    // We deliberately do NOT guess a classification and do NOT change any status
+    // or balance. Instead every at-risk legacy row is FLAGGED in admin_notes for
+    // human triage. Idempotent, non-destructive, reversible, and run EXACTLY ONCE.
+    //
+    // The one-time marker is a persistent `migrations` row. The earlier design
+    // gated flagging on `created_at < (SELECT MIN(created_at) WHERE asset_type =
+    // 'usdt')`, but that boundary is a correctness bug: a legacy USDT-funded BANK
+    // row created AFTER the first genuine USDT row has a later timestamp, so the
+    // bound skips it and the at-risk row stays unflagged. The safe trigger is the
+    // marker alone — the annotation runs once on the historical population and is
+    // never re-run, so post-migration rows (created with the column present) are
+    // never wrongly flagged on a later startup, and no timing comparison can miss
+    // an at-risk legacy row.
+    //
+    // The marker INSERT and the annotation UPDATE share one transaction: if the
+    // process dies mid-flight the marker rolls back and the next startup retries
+    // the annotation, so a marked-but-never-flagged state cannot persist. Under
+    // concurrency (two booting processes) the losing INSERT is the blocked ON
+    // CONFLICT one; it returns 0 rows and only the winner annotates.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS migrations (
+        name TEXT PRIMARY KEY,
+        applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await client.query('BEGIN');
+    try {
+      const marker = await client.query(`
+        INSERT INTO migrations (name) VALUES ('legacy_asset_type_flagging_v1')
+        ON CONFLICT (name) DO NOTHING
+        RETURNING name
+      `);
+
+      if (marker.rowCount === 1) {
+        await client.query(`
+          UPDATE withdrawal_requests
+          SET admin_notes = COALESCE(admin_notes || ' | ', '') || 'LEGACY_ASSET_TYPE_UNVERIFIED: created before asset_type existed; confirm whether this was funded from the fiat or USDT balance before resolving'
+          WHERE withdrawal_type = 'bank'
+            AND status = 'pending'
+            AND asset_type = 'fiat'
+            AND (admin_notes IS NULL OR admin_notes NOT LIKE '%LEGACY_ASSET_TYPE_UNVERIFIED%')
+        `);
+      }
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    }
+    // NEW-1: 'held' is the explicit lifecycle state for a withdrawal whose funds
+    // have ALREADY been debited and which is awaiting an operator decision
+    // (settle or refund). It is distinct from 'pending' (fiat, funds only
+    // reserved) and from 'processing' (broadcast attempted / in flight).
+    //
+    // R3-11: 'sent' and 'reconcile' are the two terminal-ish crypto outcomes the
+    // payout path must be able to persist. 'sent' = provider confirmed the
+    // broadcast. 'reconcile' = the payout call threw or returned an ambiguous
+    // outcome, so an on-chain transfer MAY have happened and the row must NOT be
+    // auto-refunded; an operator has to reconcile it. Without these two values the
+    // CHECK constraint rejected the write and the outcome was silently lost,
+    // leaving a 'held' row that an operator could refund after a real send.
+    await client.query(`
+      ALTER TABLE withdrawal_requests DROP CONSTRAINT IF EXISTS withdrawal_requests_status_check;
+      ALTER TABLE withdrawal_requests ADD CONSTRAINT withdrawal_requests_status_check
+        CHECK (status IN ('pending', 'approved', 'rejected', 'held', 'sending', 'sent', 'reconcile', 'processing', 'completed', 'failed'));
+    `);
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS admin_adjustments (
@@ -526,6 +627,7 @@ export async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_budgets_user ON budgets(user_id);
       CREATE INDEX IF NOT EXISTS idx_virtual_cards_user_id ON virtual_cards(user_id);
       CREATE INDEX IF NOT EXISTS idx_withdrawal_requests_user_id ON withdrawal_requests(user_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_withdrawal_requests_idempotency_unique ON withdrawal_requests(user_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
       CREATE INDEX IF NOT EXISTS idx_card_transactions_card_id ON card_transactions(card_id);
       CREATE INDEX IF NOT EXISTS idx_split_bills_creator_id ON split_bills(creator_id);
@@ -615,6 +717,51 @@ export async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_crypto_ledger_entries_source_order_id ON crypto_ledger_entries(source_order_id);
       CREATE INDEX IF NOT EXISTS idx_crypto_ledger_entries_created_at ON crypto_ledger_entries(created_at);
     `);
+    // HIGH-2: one crypto ledger entry per canonical transaction. The table's inline
+    // `UNIQUE(source_order_id, user_id)` cannot enforce this for anything that is
+    // not a card order: `source_order_id` is NULL for withdrawals, gift-card
+    // payments and on-chain deposits, and NULLs never collide in a Postgres
+    // unique index — so replayed bookkeeping could insert a duplicate ledger row
+    // for the same money movement.
+    //
+    // Deliberately NOT a partial index: NULLs are already distinct in a Postgres
+    // unique index, so rows without a source transaction are unaffected either
+    // way, and a plain index is what `ON CONFLICT (source_transaction_id)` can
+    // infer without the caller having to restate an index predicate.
+    //
+    // This index is a mandatory financial invariant. If it cannot be created,
+    // startup must fail loudly — the money paths depend on it for safe replay.
+    try {
+      await client.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS uniq_crypto_ledger_source_transaction
+          ON crypto_ledger_entries(source_transaction_id)
+      `);
+    } catch (e: any) {
+      if (e?.code === '23505') {
+        const dupes = await client.query(`
+          SELECT source_transaction_id, COUNT(*) as count
+          FROM crypto_ledger_entries
+          WHERE source_transaction_id IS NOT NULL
+          GROUP BY source_transaction_id
+          HAVING COUNT(*) > 1
+          ORDER BY count DESC, source_transaction_id
+          LIMIT 50
+        `);
+        logger.error(
+          '[DB] Cannot create unique index uniq_crypto_ledger_source_transaction: duplicate source_transaction_id values exist. Manual reconciliation required. Application startup aborted.',
+          {
+            error: e instanceof Error ? e.message : String(e),
+            duplicateSourceTransactionCount: dupes.rows.length,
+            samples: dupes.rows.slice(0, 5),
+          },
+        );
+      } else {
+        logger.error('[DB] Cannot create unique index uniq_crypto_ledger_source_transaction. Application startup aborted.', {
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+      throw e;
+    }
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS crypto_transactions (
@@ -678,6 +825,25 @@ export async function initializeDatabase() {
       // A pre-existing install may already contain duplicate tx_hash rows; log
       // and continue rather than blocking startup on a historical data issue.
       logger.warn('[DB] Could not create unique tx_hash index (existing duplicates?)', { error: e?.message });
+    });
+
+    // FIN-1 (deposit attribution): incoming deposits to the shared hot wallet are
+    // attributed to a user ONLY by a server-generated, unique `expected_amount`
+    // matched against an active, unexpired pending intent — never by the
+    // client-supplied sender address. `expected_amount` is the exact on-chain
+    // amount (base + a unique per-intent micro discriminator) the user must send.
+    await client.query(`ALTER TABLE crypto_transactions ADD COLUMN IF NOT EXISTS expected_amount NUMERIC(20, 8)`);
+    await client.query(`ALTER TABLE crypto_transactions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP`);
+    // Enforce that no two ACTIVE pending TRC-20 deposit intents share an
+    // expected_amount, so an incoming transfer maps to at most one intent. The
+    // application also fails closed on 0-or-many matches, but this index makes a
+    // colliding intent impossible to create in the first place.
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS uniq_crypto_deposit_expected_amount
+        ON crypto_transactions(expected_amount)
+        WHERE type = 'deposit' AND status = 'pending' AND network = 'TRC20' AND expected_amount IS NOT NULL
+    `).catch((e: any) => {
+      logger.warn('[DB] Could not create unique expected_amount index (existing duplicates?)', { error: e?.message });
     });
 
     await client.query(`

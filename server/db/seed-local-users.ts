@@ -11,6 +11,7 @@
  */
 
 import { pool } from './pool';
+import { isProductionEnv } from '../lib/env';
 import bcrypt from 'bcryptjs';
 
 const BCRYPT_ROUNDS = 10;
@@ -31,7 +32,7 @@ const LOCAL_USERS = [
 ];
 
 async function seed() {
-  if (process.env.NODE_ENV === 'production') {
+  if (isProductionEnv()) {
     console.error('Seed script must not run in production. Set NODE_ENV=development.');
     process.exit(1);
   }

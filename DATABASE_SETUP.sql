@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS withdrawal_requests (
   bank_name TEXT,
   account_number TEXT,
   account_name TEXT,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'sending')),
   admin_notes TEXT,
   approved_by UUID REFERENCES profiles(id),
   approved_at TIMESTAMPTZ,

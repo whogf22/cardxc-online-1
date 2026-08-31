@@ -10,6 +10,7 @@ import { isStripeConfigured, createPaymentIntent, getPaymentIntent } from '../se
 import { isFluzConfigured } from '../services/fluzClient';
 import { getSecurityEvents, getSecurityEventsByType, getSecurityEventsByIP } from '../middleware/securityLogger';
 import { getRateLimitViolations, clearRateLimitViolations } from '../middleware/rateLimit';
+import { logger } from '../middleware/logger';
 
 const router = Router();
 router.use(authenticate);
@@ -453,6 +454,24 @@ router.post('/withdrawals/:withdrawalId/approve',
       throw new AppError('Withdrawal not found', 404, 'NOT_FOUND');
     }
 
+    // NEW-1: this handler settles a FIAT reserve (it debits balance_cents and
+    // releases reserved_cents). A USDT-funded withdrawal has no fiat reserve — its
+    // funds were taken from usdt_balance_cents — so approving it here would debit
+    // the wrong asset and drive reserved_cents negative. Refuse it and direct the
+    // operator to the USDT resolver. Checked BEFORE the status check so the
+    // failure names the real problem.
+    if ((withdrawal.asset_type ?? 'fiat') !== 'fiat') {
+      throw new AppError(
+        'This is a USDT-funded withdrawal. Resolve it via /withdrawals/:id/usdt/settle or /usdt/refund.',
+        400,
+        'WRONG_ASSET_TYPE',
+      );
+    }
+
+    // Fail closed: a legacy-flagged row has unknown funding provenance and must
+    // be manually reconciled before any money moves. (See assertNotLegacyUnverified.)
+    assertNotLegacyUnverified(withdrawal);
+
     if (withdrawal.status !== 'pending') {
       throw new AppError('Withdrawal already processed', 400, 'ALREADY_PROCESSED');
     }
@@ -461,25 +480,47 @@ router.post('/withdrawals/:withdrawalId/approve',
       // Atomically claim the withdrawal so two concurrent admin actions (or an
       // approve racing a reject) cannot both move money. The out-of-transaction
       // status check above is only a fast-fail; this WHERE status = 'pending'
-      // is the real guard.
+      // AND asset_type = 'fiat' is the real guard.
       const claim = await client.query(`
-        UPDATE withdrawal_requests 
+        UPDATE withdrawal_requests
         SET status = 'approved', admin_notes = $1, approved_by = $2, updated_at = NOW()
-        WHERE id = $3 AND status = 'pending'
+        WHERE id = $3 AND status = 'pending' AND asset_type = 'fiat'
       `, [notes, req.user!.id, withdrawalId]);
 
       if (claim.rowCount === 0) {
         throw new AppError('Withdrawal already processed', 400, 'ALREADY_PROCESSED');
       }
 
-      await client.query(`
+      // The guarded debit MUST affect exactly the one wallet row. If it affects
+      // 0 rows (insufficient balance, or the reserve was already released) the
+      // money was never debited — approving anyway would pay out funds the user
+      // does not have. Throwing here rolls back the whole approval, so the
+      // withdrawal stays 'pending' and its transaction is NOT marked SUCCESS.
+      //
+      // NEW-4: this settles THIS withdrawal's own reserve, so the correct floor
+      // is gross balance AND an existing reserve of at least this amount — not
+      // available balance (the reserve here is the withdrawal itself). COALESCE
+      // stops `NULL - n` from erasing the reserve, which would silently inflate
+      // available balance afterwards.
+      const debit = await client.query(`
         UPDATE wallets
-        SET balance_cents = balance_cents - $1, reserved_cents = reserved_cents - $1, updated_at = NOW()
-        WHERE user_id = $2 AND currency = $3 AND balance_cents >= $1
+        SET balance_cents = balance_cents - $1,
+            reserved_cents = COALESCE(reserved_cents, 0) - $1,
+            updated_at = NOW()
+        WHERE user_id = $2 AND currency = $3
+          AND balance_cents >= $1
+          AND COALESCE(reserved_cents, 0) >= $1
       `, [withdrawal.amount_cents, withdrawal.user_id, withdrawal.currency]);
 
+      if (debit.rowCount !== 1) {
+        logger.error('[Admin] Withdrawal approval aborted: guarded wallet debit affected no row', {
+          withdrawalId, userId: withdrawal.user_id, currency: withdrawal.currency, rowCount: debit.rowCount,
+        });
+        throw new AppError('Insufficient balance to settle this withdrawal', 400, 'INSUFFICIENT_BALANCE');
+      }
+
       await client.query(`
-        UPDATE transactions SET status = 'SUCCESS', updated_at = NOW() 
+        UPDATE transactions SET status = 'SUCCESS', updated_at = NOW()
         WHERE reference = $1 AND type = 'withdrawal'
       `, [withdrawalId]);
     });
@@ -511,6 +552,22 @@ router.post('/withdrawals/:withdrawalId/reject',
       throw new AppError('Withdrawal not found', 404, 'NOT_FOUND');
     }
 
+    // NEW-1: rejecting here releases a FIAT reserve. A USDT-funded withdrawal
+    // never incremented reserved_cents, so decrementing it would drive the
+    // reserve negative — which INFLATES available balance (balance - (-x)).
+    // Refuse and direct the operator to the USDT resolver.
+    if ((withdrawal.asset_type ?? 'fiat') !== 'fiat') {
+      throw new AppError(
+        'This is a USDT-funded withdrawal. Resolve it via /withdrawals/:id/usdt/settle or /usdt/refund.',
+        400,
+        'WRONG_ASSET_TYPE',
+      );
+    }
+
+    // Fail closed: never release a reserve on a legacy row whose funding source
+    // was never recorded. (See assertNotLegacyUnverified.)
+    assertNotLegacyUnverified(withdrawal);
+
     if (withdrawal.status !== 'pending') {
       throw new AppError('Withdrawal already processed', 400, 'ALREADY_PROCESSED');
     }
@@ -519,19 +576,30 @@ router.post('/withdrawals/:withdrawalId/reject',
       // Atomically claim the withdrawal so a concurrent approve/reject cannot
       // both release the reserve (which would corrupt reserved_cents).
       const claim = await client.query(`
-        UPDATE withdrawal_requests 
+        UPDATE withdrawal_requests
         SET status = 'rejected', admin_notes = $1, approved_by = $2, updated_at = NOW()
-        WHERE id = $3 AND status = 'pending'
+        WHERE id = $3 AND status = 'pending' AND asset_type = 'fiat'
       `, [reason, req.user!.id, withdrawalId]);
 
       if (claim.rowCount === 0) {
         throw new AppError('Withdrawal already processed', 400, 'ALREADY_PROCESSED');
       }
 
-      await client.query(`
-        UPDATE wallets SET reserved_cents = reserved_cents - $1, updated_at = NOW()
-        WHERE user_id = $2 AND currency = $3
+      // Release the reserve without letting it go negative or stay NULL. A
+      // 0-row result means the reserve was already released, which must abort the
+      // rejection rather than silently corrupt the wallet.
+      const release = await client.query(`
+        UPDATE wallets
+        SET reserved_cents = COALESCE(reserved_cents, 0) - $1, updated_at = NOW()
+        WHERE user_id = $2 AND currency = $3 AND COALESCE(reserved_cents, 0) >= $1
       `, [withdrawal.amount_cents, withdrawal.user_id, withdrawal.currency]);
+
+      if (release.rowCount !== 1) {
+        logger.error('[Admin] Withdrawal rejection aborted: reserve release affected no row', {
+          withdrawalId, userId: withdrawal.user_id, currency: withdrawal.currency, rowCount: release.rowCount,
+        });
+        throw new AppError('Reserved balance does not cover this withdrawal', 400, 'RESERVE_MISMATCH');
+      }
 
       await client.query(`
         UPDATE transactions SET status = 'FAILED', updated_at = NOW() 
@@ -549,6 +617,251 @@ router.post('/withdrawals/:withdrawalId/reject',
     });
 
     res.json({ success: true, message: 'Withdrawal rejected' });
+  })
+);
+
+/**
+ * NEW-1: resolution path for USDT-funded withdrawals.
+ *
+ * A USDT withdrawal (every crypto payout, plus a bank withdrawal funded from the
+ * USDT balance) debits `usdt_balance_cents` at request time — there is no USDT
+ * reserve column to release. Such a row is created in the 'held' state and was
+ * previously unreachable: the fiat approve/reject handlers only accept
+ * 'pending', and no worker touched it, so the user's funds were debited with no
+ * code path able to settle or refund them.
+ *
+ * These two endpoints are the only resolvers for that state:
+ *   settle — the operator confirms the payout went out; the debit stands.
+ *   refund — the operator declines; the debit is reversed atomically.
+ *
+ * Both claim the row with `WHERE status IN (<allowed>) AND asset_type = 'usdt'` as
+ * the FIRST statement in the transaction, so repeated or concurrent resolution
+ * produces exactly one effect, and neither touches `balance_cents` or
+ * `reserved_cents`.
+ *
+ * R3-11: the crypto payout path now records its outcome as 'sent' (provider
+ * confirmed the broadcast) or 'reconcile' (the call threw or returned an
+ * ambiguous outcome, so an on-chain transfer MAY have happened). Both are
+ * resolvable by SETTLE — otherwise those rows would be stranded exactly like the
+ * original 'held' defect. REFUND stays restricted to 'held': crediting a wallet
+ * for a row whose funds may already be on-chain is a double payout, so it is
+ * deliberately not reachable through this endpoint and requires out-of-band
+ * reconciliation instead.
+ */
+const USDT_TX_HASH_RE = /^[0-9a-fA-F]{64}$/;
+
+/** States a USDT withdrawal may be SETTLED from (debit stands, no balance change). */
+const USDT_SETTLEABLE_STATES = ['held', 'sent', 'reconcile'] as const;
+/** States a USDT withdrawal may be REFUNDED from (wallet is credited back). */
+const USDT_REFUNDABLE_STATES = ['held'] as const;
+
+/**
+ * Legacy-flag marker. A row carrying this in admin_notes was created before the
+ * `asset_type` column existed and the funding wallet was never persisted, so it
+ * is genuinely ambiguous (fiat-funded vs USDT-funded). The one-time migration
+ * flags it for human triage rather than guessing.
+ *
+ * The runtime contract is FAIL-CLOSED: no money may move — approve, reject,
+ * settle or refund — for a flagged row until an operator has manually reconciled
+ * its provenance. Otherwise approve could settle a USDT-funded legacy row against
+ * a fiat reserve (debit balance_cents on money that came from usdt_balance_cents).
+ */
+const LEGACY_UNVERIFIED_MARKER = 'LEGACY_ASSET_TYPE_UNVERIFIED';
+
+/** Refuse to move money on a legacy-flagged withdrawal. Fail closed, before any
+ *  balance/status mutation. */
+function assertNotLegacyUnverified(withdrawal: { admin_notes?: string | null } | null) {
+  if (withdrawal?.admin_notes?.includes(LEGACY_UNVERIFIED_MARKER)) {
+    throw new AppError(
+      'This withdrawal predates asset-type tracking and its funding wallet is unverified. Reconcile it manually before resolving.',
+      400,
+      'LEGACY_ASSET_TYPE_UNVERIFIED',
+    );
+  }
+}
+
+/** Shared pre-flight: the row must exist, be USDT-funded, and be in an allowed state. */
+async function loadUsdtWithdrawalForResolution(withdrawalId: string, allowed: readonly string[]) {
+  const withdrawal = await queryOne<any>(`
+    SELECT * FROM withdrawal_requests WHERE id = $1
+  `, [withdrawalId]);
+
+  if (!withdrawal) {
+    throw new AppError('Withdrawal not found', 404, 'NOT_FOUND');
+  }
+  // Fail closed on a legacy-flagged row even on the USDT path (defense-in-depth;
+  // flagged rows are fiat-defaulted today, but no money may move either way).
+  assertNotLegacyUnverified(withdrawal);
+  if ((withdrawal.asset_type ?? 'fiat') !== 'usdt') {
+    throw new AppError(
+      'This is a fiat withdrawal. Resolve it via /withdrawals/:id/approve or /reject.',
+      400,
+      'WRONG_ASSET_TYPE',
+    );
+  }
+  if (!allowed.includes(withdrawal.status)) {
+    throw new AppError(
+      `This withdrawal cannot be resolved here (current status: ${withdrawal.status}; allowed: ${allowed.join(', ')}).`,
+      400,
+      'NOT_HELD',
+    );
+  }
+  return withdrawal;
+}
+
+/**
+ * R3-8: the two statements that finalise the ONE canonical user-visible
+ * `transactions` row for a withdrawal.
+ *
+ * `reference` is the join key both withdrawal paths write (the withdrawal id),
+ * and `status = 'PENDING'` scopes the write to a still-unresolved ledger row, so
+ * a late resolver cannot stamp SUCCESS over a committed FAILED or vice versa.
+ * Held as two literals rather than one interpolated string: nothing here is
+ * built from a value, so there is no way for the status to become dynamic.
+ */
+const FINALISE_WITHDRAWAL_TX_SQL = {
+  SUCCESS: `
+    UPDATE transactions SET status = 'SUCCESS', updated_at = NOW()
+    WHERE reference = $1 AND type = 'withdrawal' AND status = 'PENDING'
+  `,
+  FAILED: `
+    UPDATE transactions SET status = 'FAILED', updated_at = NOW()
+    WHERE reference = $1 AND type = 'withdrawal' AND status = 'PENDING'
+  `,
+} as const;
+
+/**
+ * Finalise a withdrawal's canonical transaction row inside the caller's already
+ * claimed transaction.
+ *
+ * The rowCount is CHECKED rather than discarded: silently finalising nothing is
+ * how withdrawal state and ledger state diverged permanently — the request
+ * reached 'completed'/'rejected' while the user-visible entry stayed PENDING,
+ * and a 0-row UPDATE is not an error, so nothing could notice.
+ *
+ * It is deliberately NOT fatal. A crypto withdrawal created before R3-8 has no
+ * canonical row at all, and neither settling funds that already left custody nor
+ * returning money the user is owed may be blocked by a missing bookkeeping row —
+ * that is exactly how the original defect stranded withdrawals.
+ */
+async function finaliseWithdrawalTransaction(
+  client: { query: (sql: string, params?: unknown[]) => Promise<{ rowCount: number | null }> },
+  withdrawalId: string,
+  intendedStatus: keyof typeof FINALISE_WITHDRAWAL_TX_SQL,
+): Promise<void> {
+  const finalise = await client.query(FINALISE_WITHDRAWAL_TX_SQL[intendedStatus], [withdrawalId]);
+
+  if (finalise.rowCount !== 1) {
+    logger.error('[Admin] USDT resolution finalised no canonical transaction row', {
+      withdrawalId, intendedStatus, rowCount: finalise.rowCount,
+    });
+  }
+}
+
+router.post('/withdrawals/:withdrawalId/usdt/settle',
+  body('txHash').optional().trim(),
+  body('notes').optional().trim(),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const { withdrawalId } = req.params;
+    const { txHash, notes } = req.body;
+
+    if (txHash !== undefined && txHash !== '' && !USDT_TX_HASH_RE.test(String(txHash))) {
+      throw new AppError('txHash must be a 64-character hex transaction id', 400, 'VALIDATION_ERROR');
+    }
+
+    const priorWithdrawal = await loadUsdtWithdrawalForResolution(withdrawalId as string, USDT_SETTLEABLE_STATES);
+
+    await transaction(async (client) => {
+      // Atomic claim FIRST. A concurrent settle/refund that already won leaves
+      // this at 0 rows, and we abort without touching any balance.
+      const claim = await client.query(`
+        UPDATE withdrawal_requests
+        SET status = 'completed',
+            tx_hash = COALESCE($1, tx_hash),
+            admin_notes = $2,
+            approved_by = $3,
+            updated_at = NOW()
+        WHERE id = $4 AND asset_type = 'usdt'
+          AND status IN ('held', 'sent', 'reconcile')
+      `, [txHash || null, notes ?? 'Settled manually by operator', req.user!.id, withdrawalId]);
+
+      if (claim.rowCount === 0) {
+        throw new AppError('Withdrawal already resolved', 400, 'ALREADY_RESOLVED');
+      }
+
+      // The USDT was debited when the request was created, so settling makes no
+      // balance change. Only the withdrawal transaction record is finalised.
+      await finaliseWithdrawalTransaction(client, withdrawalId as string, 'SUCCESS');
+    });
+
+    await createAuditLog({
+      userId: req.user!.id,
+      action: 'USDT_WITHDRAWAL_SETTLED',
+      entityType: 'withdrawal',
+      entityId: withdrawalId as string,
+      oldValues: { status: priorWithdrawal.status },
+      newValues: { status: 'completed', txHash: txHash || null, notes },
+    });
+
+    res.json({ success: true, message: 'USDT withdrawal settled' });
+  })
+);
+
+router.post('/withdrawals/:withdrawalId/usdt/refund',
+  body('reason').trim().notEmpty(),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const { withdrawalId } = req.params;
+    const { reason } = req.body;
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(errors.array()[0].msg, 400, 'VALIDATION_ERROR');
+    }
+
+    const withdrawal = await loadUsdtWithdrawalForResolution(withdrawalId as string, USDT_REFUNDABLE_STATES);
+
+    await transaction(async (client) => {
+      // Atomic claim FIRST, so the refund below can only run for the single
+      // caller that moved the row out of 'held'. This is what makes a duplicate
+      // or concurrent refund a no-op instead of a double credit.
+      const claim = await client.query(`
+        UPDATE withdrawal_requests
+        SET status = 'rejected', admin_notes = $1, approved_by = $2, updated_at = NOW()
+        WHERE id = $3 AND status = 'held' AND asset_type = 'usdt'
+      `, [reason, req.user!.id, withdrawalId]);
+
+      if (claim.rowCount === 0) {
+        throw new AppError('Withdrawal already resolved', 400, 'ALREADY_RESOLVED');
+      }
+
+      // Restore the USDT that was debited at request time. Same transaction as
+      // the claim, so a rollback cannot leave the row rejected but unrefunded.
+      const refund = await client.query(`
+        UPDATE wallets
+        SET usdt_balance_cents = COALESCE(usdt_balance_cents, 0) + $1, updated_at = NOW()
+        WHERE user_id = $2 AND currency = $3
+      `, [withdrawal.amount_cents, withdrawal.user_id, withdrawal.currency]);
+
+      if (refund.rowCount !== 1) {
+        logger.error('[Admin] USDT refund aborted: wallet row not found', {
+          withdrawalId, userId: withdrawal.user_id, currency: withdrawal.currency, rowCount: refund.rowCount,
+        });
+        throw new AppError('Wallet not found for refund', 400, 'WALLET_NOT_FOUND');
+      }
+
+      await finaliseWithdrawalTransaction(client, withdrawalId as string, 'FAILED');
+    });
+
+    await createAuditLog({
+      userId: req.user!.id,
+      action: 'USDT_WITHDRAWAL_REFUNDED',
+      entityType: 'withdrawal',
+      entityId: withdrawalId as string,
+      oldValues: { status: 'held' },
+      newValues: { status: 'rejected', reason, refundedCents: withdrawal.amount_cents },
+    });
+
+    res.json({ success: true, message: 'USDT withdrawal refunded' });
   })
 );
 
@@ -582,14 +895,39 @@ router.post('/adjustments',
         `, [userId, req.user!.id, type, amountCents, currency, reason]);
 
         const adjustmentId = result.rows[0].id;
-        const balanceChange = type === 'credit' ? amountCents : -amountCents;
 
-        await client.query(`
-          INSERT INTO wallets (user_id, currency, balance_cents)
-          VALUES ($1, $2, $3)
-          ON CONFLICT (user_id, currency) 
-          DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
-        `, [userId, currency, balanceChange]);
+        if (type === 'credit') {
+          await client.query(`
+            INSERT INTO wallets (user_id, currency, balance_cents)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (user_id, currency)
+            DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
+          `, [userId, currency, amountCents]);
+        } else {
+          // A debit may only ever reduce an existing, sufficient balance. The
+          // guarded predicate makes an over-debit match 0 rows (and a missing
+          // wallet match 0 rows), so it can never drive a balance negative or
+          // seed a new wallet at a negative balance. A 0-row result aborts the
+          // whole transaction, rolling back the APPROVED adjustment and ledger
+          // insert with it.
+          // NEW-4: guard on AVAILABLE balance, not gross balance. Guarding only
+          // `balance_cents >= $1` let an admin debit consume funds already
+          // reserved for a pending withdrawal: balance_cents stayed
+          // non-negative, but available (balance - reserved) went negative, which
+          // then starves the withdrawal at approval time. COALESCE keeps a NULL
+          // reserve from blocking a legitimate debit. This matches every other
+          // guarded debit in the tree (payments.ts, transactions.ts, savings.ts,
+          // giftCards.ts).
+          const debit = await client.query(`
+            UPDATE wallets
+            SET balance_cents = balance_cents - $1, updated_at = NOW()
+            WHERE user_id = $2 AND currency = $3
+              AND balance_cents - COALESCE(reserved_cents, 0) >= $1
+          `, [amountCents, userId, currency]);
+          if (debit.rowCount !== 1) {
+            throw new AppError('Insufficient available balance for this debit adjustment', 400, 'INSUFFICIENT_BALANCE');
+          }
+        }
 
         await client.query(`
           INSERT INTO transactions (user_id, type, status, amount_cents, currency, reference, description)
@@ -643,33 +981,68 @@ router.post('/adjustments/:adjustmentId/approve',
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { adjustmentId } = req.params;
 
-    const adjustment = await queryOne<any>(`
-      SELECT * FROM admin_adjustments WHERE id = $1
-    `, [adjustmentId]);
-
-    if (!adjustment) {
-      throw new AppError('Adjustment not found', 404, 'NOT_FOUND');
-    }
-
-    if (adjustment.status !== 'PENDING') {
-      throw new AppError('Adjustment already processed', 400, 'ALREADY_PROCESSED');
-    }
-
+    // R3-7: single-winner claim.
+    //
+    // This handler used to read the adjustment with an UNLOCKED query outside the
+    // transaction, check `status !== 'PENDING'` in application code, and then issue
+    // its terminal UPDATE with neither a status predicate nor a rowCount check. Two
+    // consequences, both money:
+    //   1. two concurrent approvals both passed the check and both ran the additive
+    //      credit upsert, so the user was credited TWICE for one adjustment;
+    //   2. with no predicate, an approval that lost the race to a REJECTION stamped
+    //      APPROVED over the committed REJECTED and paid the money anyway.
+    //
+    // The claim is now the FIRST statement in the transaction, predicated on
+    // PENDING, and it RETURNS the row that every money statement below is driven
+    // from — never a stale pre-read (LOW-1). Exactly one concurrent request can see
+    // rowCount === 1; the loser throws and the transaction rolls back, so it writes
+    // no balance mutation, no ledger row and no audit entry.
     await transaction(async (client) => {
-      await client.query(`
-        UPDATE admin_adjustments 
+      const claim = await client.query(`
+        UPDATE admin_adjustments
         SET status = 'APPROVED', approved_by = $1, updated_at = NOW()
-        WHERE id = $2
+        WHERE id = $2 AND status = 'PENDING'
+        RETURNING id, user_id, type, amount_cents, currency, reason
       `, [req.user!.id, adjustmentId]);
 
-      const balanceChange = adjustment.type === 'credit' ? adjustment.amount_cents : -adjustment.amount_cents;
+      if (claim.rowCount !== 1) {
+        // A 0-row claim is NOT automatically "already processed": reload the
+        // authoritative row so a missing adjustment is still reported as 404.
+        const current = await client.query(`
+          SELECT status FROM admin_adjustments WHERE id = $1
+        `, [adjustmentId]);
+        if (current.rowCount === 0) {
+          throw new AppError('Adjustment not found', 404, 'NOT_FOUND');
+        }
+        throw new AppError('Adjustment already processed', 400, 'ALREADY_PROCESSED');
+      }
 
-      await client.query(`
-        INSERT INTO wallets (user_id, currency, balance_cents)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (user_id, currency) 
-        DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
-      `, [adjustment.user_id, adjustment.currency, balanceChange]);
+      const adjustment = claim.rows[0];
+
+      if (adjustment.type === 'credit') {
+        await client.query(`
+          INSERT INTO wallets (user_id, currency, balance_cents)
+          VALUES ($1, $2, $3)
+          ON CONFLICT (user_id, currency)
+          DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
+        `, [adjustment.user_id, adjustment.currency, adjustment.amount_cents]);
+      } else {
+        // Guarded debit: only reduces an existing, sufficient balance. A 0-row
+        // result aborts the transaction so the adjustment stays PENDING and no
+        // negative balance is written.
+        // NEW-4: guard on AVAILABLE balance so approving a debit adjustment
+        // cannot consume funds reserved for a pending withdrawal. A 0-row result
+        // aborts the transaction so the adjustment stays PENDING.
+        const debit = await client.query(`
+          UPDATE wallets
+          SET balance_cents = balance_cents - $1, updated_at = NOW()
+          WHERE user_id = $2 AND currency = $3
+            AND balance_cents - COALESCE(reserved_cents, 0) >= $1
+        `, [adjustment.amount_cents, adjustment.user_id, adjustment.currency]);
+        if (debit.rowCount !== 1) {
+          throw new AppError('Insufficient available balance for this debit adjustment', 400, 'INSUFFICIENT_BALANCE');
+        }
+      }
 
       await client.query(`
         INSERT INTO transactions (user_id, type, status, amount_cents, currency, reference, description)
@@ -697,11 +1070,29 @@ router.post('/adjustments/:adjustmentId/reject',
     const { adjustmentId } = req.params;
     const { reason } = req.body;
 
-    await query(`
-      UPDATE admin_adjustments 
+    // LOW-6: the PENDING predicate was already here, but the result was discarded.
+    // A rejection that changed nothing still answered `{ success: true }` and still
+    // wrote an ADJUSTMENT_REJECTED audit entry, so the log showed a rejection that
+    // never happened. Claim with RETURNING and check the result.
+    //
+    // `pool.query()` resolves to `result.rows` — an ARRAY with no `.rowCount` — so
+    // the row count is the array length here, not a `rowCount` property.
+    const claimed = await query<{ id: string }>(`
+      UPDATE admin_adjustments
       SET status = 'REJECTED', approved_by = $1, updated_at = NOW()
       WHERE id = $2 AND status = 'PENDING'
+      RETURNING id
     `, [req.user!.id, adjustmentId]);
+
+    if (claimed.length !== 1) {
+      const current = await queryOne<{ status: string }>(`
+        SELECT status FROM admin_adjustments WHERE id = $1
+      `, [adjustmentId]);
+      if (!current) {
+        throw new AppError('Adjustment not found', 404, 'NOT_FOUND');
+      }
+      throw new AppError('Adjustment already processed', 400, 'ALREADY_PROCESSED');
+    }
 
     await createAuditLog({
       userId: req.user!.id,

@@ -221,9 +221,16 @@ export async function executeSwap(request: SwapRequest): Promise<{
             throw new AppError('Currency swaps currently only support USD and USDT', 400);
         }
 
+        // AVAILABLE balance: fiat excludes funds reserved by a pending
+        // withdrawal (available = balance_cents - reserved_cents). USDT has no
+        // reserve concept, so its full balance is available.
+        const availableExpr = balanceField === 'balance_cents'
+            ? 'balance_cents - COALESCE(reserved_cents, 0)'
+            : balanceField;
+
         const wallet = await client.query(`
-      SELECT ${balanceField} as balance
-      FROM wallets 
+      SELECT ${availableExpr} as balance
+      FROM wallets
       WHERE user_id = $1 AND currency = 'USD'
       FOR UPDATE
     `, [request.userId]);
@@ -237,19 +244,27 @@ export async function executeSwap(request: SwapRequest): Promise<{
         const amountCents = Math.round(request.amount * 100);
         const toAmountCents = Math.round(quote.toAmount * 100);
 
-        // Deduct from source currency
+        // Deduct from source currency with an ATOMIC GUARDED debit: the WHERE
+        // clause re-asserts sufficiency at write time and rowCount 0 aborts the
+        // whole swap, so reserved or concurrently-spent funds cannot be drained.
         if (request.fromCurrency === 'USD') {
-            await client.query(`
-        UPDATE wallets 
+            const debit = await client.query(`
+        UPDATE wallets
         SET balance_cents = balance_cents - $1, updated_at = NOW()
-        WHERE user_id = $2 AND currency = 'USD'
+        WHERE user_id = $2 AND currency = 'USD' AND balance_cents - COALESCE(reserved_cents, 0) >= $1
       `, [amountCents, request.userId]);
+            if (debit.rowCount === 0) {
+                throw new AppError('Insufficient USD balance', 400);
+            }
         } else if (request.fromCurrency === 'USDT') {
-            await client.query(`
-        UPDATE wallets 
+            const debit = await client.query(`
+        UPDATE wallets
         SET usdt_balance_cents = usdt_balance_cents - $1, updated_at = NOW()
-        WHERE user_id = $2 AND currency = 'USD'
+        WHERE user_id = $2 AND currency = 'USD' AND usdt_balance_cents >= $1
       `, [amountCents, request.userId]);
+            if (debit.rowCount === 0) {
+                throw new AppError('Insufficient USDT balance', 400);
+            }
         }
 
         // Credit to target currency

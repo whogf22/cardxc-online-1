@@ -1,11 +1,12 @@
 import { Router, Response } from 'express';
 import { body, validationResult } from 'express-validator';
-import { query, queryOne, transaction } from '../db/pool';
+import { query, queryOne } from '../db/pool';
 import { AppError, asyncHandler } from '../middleware/errorHandler';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { apiLimiter, sensitiveOpLimiter, financialOpLimiter } from '../middleware/rateLimit';
 import { createAuditLog } from '../services/auditService';
 import { runFraudChecks } from '../services/fraudService';
+import { processWithdrawal } from '../services/withdrawalService';
 import { logger } from '../middleware/logger';
 import * as fluzApi from '../services/fluzApi';
 import { v4 as uuidv4 } from 'uuid';
@@ -13,6 +14,8 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { randomInt } from 'node:crypto';
+import { validateKycFileContent } from '../lib/fileSignature';
+import { isValidFullName, MAX_FULL_NAME_LENGTH } from '../lib/aiPrompt';
 
 // KYC document upload config.
 // Prefer an absolute path from KYC_UPLOAD_DIR; fall back to `<cwd>/uploads/kyc`.
@@ -53,7 +56,11 @@ router.get('/profile', asyncHandler(async (req: AuthenticatedRequest, res: Respo
 }));
 
 router.put('/profile',
-  body('fullName').optional().trim().isLength({ min: 2 }),
+  // CSO #4: fullName is validated in the handler rather than here, because the
+  // rule is conditional on whether the value actually CHANGED. Rows written
+  // before this rule existed can violate it, and rejecting a resubmitted legacy
+  // name would lock those users out of editing phone/country too.
+  body('fullName').optional().trim(),
   body('phone').optional().trim(),
   body('country').optional().trim(),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -63,11 +70,51 @@ router.put('/profile',
     }
 
     const { fullName, phone, country } = req.body;
+
+    // CSO #4 legacy compatibility. The hardened rule applies to what the user is
+    // CHANGING it to, not to what is already stored. A legacy row can hold a
+    // name that predates the rule (over-long, or carrying a control character);
+    // the profile form prefills it and submits it back untouched. Enforcing the
+    // rule on that unchanged value would 400 the whole request and make phone
+    // and country uneditable, with no way for the user to fix it themselves.
+    //
+    // An unchanged legacy value is left in place rather than rewritten, so it is
+    // never silently truncated or mutated. Note the AI context path sanitises
+    // and caps whatever is stored at read time, so a legacy value still cannot
+    // reach the model unbounded.
+    let fullNameChanged = false;
+    if (fullName !== undefined) {
+      const current = await queryOne<{ full_name: string | null }>(
+        'SELECT full_name FROM users WHERE id = $1',
+        [req.user!.id],
+      );
+
+      if (!current) {
+        throw new AppError('User not found', 404, 'NOT_FOUND');
+      }
+
+      // Compare against the TRIMMED stored value. express-validator's `.trim()`
+      // sanitiser has already rewritten the submitted value, so comparing to the
+      // raw stored one would make a legacy name whose only violation is leading
+      // or trailing whitespace look "changed" and get rejected — reintroducing
+      // exactly the lockout this exemption exists to prevent.
+      const storedTrimmed = (current.full_name ?? '').trim();
+      fullNameChanged = fullName !== storedTrimmed;
+
+      if (fullNameChanged && !isValidFullName(fullName)) {
+        throw new AppError(
+          `Full name must be 2-${MAX_FULL_NAME_LENGTH} characters and contain no line breaks or control characters`,
+          400,
+          'VALIDATION_ERROR',
+        );
+      }
+    }
+
     const updates: string[] = [];
     const values: any[] = [];
     let paramIndex = 1;
 
-    if (fullName) {
+    if (fullName && fullNameChanged) {
       updates.push(`full_name = $${paramIndex++}`);
       values.push(fullName);
     }
@@ -185,6 +232,26 @@ router.get('/transactions', asyncHandler(async (req: AuthenticatedRequest, res: 
   res.json({ success: true, data: { transactions: formatted } });
 }));
 
+/**
+ * POST /api/user/withdraw — bank withdrawal.
+ *
+ * R3-3: this handler used to move the money itself, in its own transaction, with
+ * its own INSERT. That INSERT named neither `asset_type` nor `status`, so the
+ * column defaults ('fiat', 'pending') decided the lifecycle even when the funds
+ * came out of `usdt_balance_cents`. A USDT withdrawal was therefore filed as a
+ * PENDING FIAT one: the fiat approver would debit `balance_cents` a second time
+ * for money already taken from USDT, the fiat rejecter would decrement a
+ * `reserved_cents` this row never incremented and never return the USDT, and the
+ * USDT resolvers refused it outright — so it could not be settled correctly at
+ * all. The row also carried no `idempotency_key`, leaving the partial unique
+ * index on (user_id, idempotency_key) with nothing to dedupe.
+ *
+ * It now delegates to the canonical withdrawal service, so there is exactly ONE
+ * transaction and one state machine for bank withdrawals (asset-correct status,
+ * guarded debit/reserve, persisted idempotency key, unique-violation race
+ * handling). The route keeps what is genuinely route-level: validation, the
+ * risk-engine gate, and the duplicate heuristic below.
+ */
 router.post('/withdraw',
   financialOpLimiter,
   body('amount').isFloat({ min: 1 }),
@@ -202,14 +269,22 @@ router.post('/withdraw',
 
     const { amount, currency, walletType = 'fiat', bankName, accountNumber, accountName, idempotencyKey } = req.body;
     const amountCents = Math.round(amount * 100);
-    const key = idempotencyKey || uuidv4();
+    const key = typeof idempotencyKey === 'string' && idempotencyKey.trim() ? idempotencyKey.trim() : undefined;
 
-    const existing = await queryOne(`
-      SELECT id FROM withdrawal_requests WHERE user_id = $1 AND amount_cents = $2 AND created_at > NOW() - INTERVAL '1 hour'
-    `, [req.user!.id, amountCents]);
+    // The "same amount within the hour" probe is a coarse double-submit
+    // heuristic, and it only applies when the caller gave us nothing better.
+    // With an explicit key the service's idempotency contract governs, and a
+    // retry must REPLAY the prior withdrawal; answering it with a bare 409 (no
+    // withdrawal id) is indistinguishable from a rejection even though the money
+    // has already moved.
+    if (!key) {
+      const existing = await queryOne(`
+        SELECT id FROM withdrawal_requests WHERE user_id = $1 AND amount_cents = $2 AND created_at > NOW() - INTERVAL '1 hour'
+      `, [req.user!.id, amountCents]);
 
-    if (existing) {
-      throw new AppError('Duplicate withdrawal request detected', 409, 'DUPLICATE_REQUEST');
+      if (existing) {
+        throw new AppError('Duplicate withdrawal request detected', 409, 'DUPLICATE_REQUEST');
+      }
     }
 
     const fraudCheck = await runFraudChecks({
@@ -218,78 +293,34 @@ router.post('/withdraw',
       amount: amountCents,
     });
 
-    // Check balance based on wallet type
-    const wallet = await queryOne<any>(`
-      SELECT balance_cents, reserved_cents, usdt_balance_cents FROM wallets WHERE user_id = $1 AND currency = $2
-    `, [req.user!.id, currency]);
-
-    if (!wallet) {
-      throw new AppError('Wallet not found', 404, 'WALLET_NOT_FOUND');
+    // Fail closed: a risk engine that did not pass (including the
+    // FRAUD_CHECK_ERROR outage case) must block the withdrawal.
+    if (!fraudCheck.passed) {
+      throw new AppError('Withdrawal temporarily blocked by risk checks. Please try again later.', 429, 'FRAUD_BLOCKED');
     }
 
-    let available: number;
-    if (walletType === 'usdt') {
-      available = Number(wallet.usdt_balance_cents || 0);
-      if (available < amountCents) {
-        throw new AppError('Insufficient USDT balance', 400, 'INSUFFICIENT_USDT_BALANCE');
-      }
-    } else {
-      available = Number(wallet.balance_cents) - Number(wallet.reserved_cents);
-      if (available < amountCents) {
-        throw new AppError('Insufficient balance', 400, 'INSUFFICIENT_BALANCE');
-      }
-    }
-
-    const result = await transaction(async (client) => {
-      // Reserve balance based on wallet type. Both debits are guarded so that
-      // concurrent withdrawal requests cannot drive the balance negative (the
-      // pre-check above runs outside this transaction).
-      if (walletType === 'usdt') {
-        // For USDT, we deduct immediately (no reserved_cents for USDT)
-        const debit = await client.query(`
-          UPDATE wallets SET usdt_balance_cents = usdt_balance_cents - $1 WHERE user_id = $2 AND currency = $3 AND usdt_balance_cents >= $1
-        `, [amountCents, req.user!.id, currency]);
-        if (debit.rowCount === 0) {
-          throw new AppError('Insufficient USDT balance', 400, 'INSUFFICIENT_USDT_BALANCE');
-        }
-      } else {
-        const reserve = await client.query(`
-          UPDATE wallets SET reserved_cents = reserved_cents + $1 WHERE user_id = $2 AND currency = $3 AND balance_cents - reserved_cents >= $1
-        `, [amountCents, req.user!.id, currency]);
-        if (reserve.rowCount === 0) {
-          throw new AppError('Insufficient balance', 400, 'INSUFFICIENT_BALANCE');
-        }
-      }
-
-      const withdrawalResult = await client.query(`
-        INSERT INTO withdrawal_requests (user_id, amount_cents, currency, bank_name, account_number, account_name)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING id
-      `, [req.user!.id, amountCents, currency, bankName, accountNumber, accountName]);
-
-      await client.query(`
-        INSERT INTO transactions (user_id, idempotency_key, type, status, amount_cents, currency, reference, description)
-        VALUES ($1, $2, 'withdrawal', 'PENDING', $3, $4, $5, $6)
-      `, [req.user!.id, key, amountCents, currency, withdrawalResult.rows[0].id, `Withdrawal to ${bankName}`]);
-
-      return withdrawalResult.rows[0];
-    });
-
-    await createAuditLog({
+    const result = await processWithdrawal({
+      type: 'bank',
       userId: req.user!.id,
-      action: 'WITHDRAWAL_REQUESTED',
-      entityType: 'withdrawal',
-      entityId: result.id,
-      newValues: { amount: amountCents, currency, bankName },
+      amount,
+      currency,
+      walletType,
+      bankName,
+      accountNumber,
+      accountName,
+      idempotencyKey: key,
     });
 
-    res.status(201).json({
+    // A replay is not a creation: 200, not 201.
+    res.status(result.idempotent ? 200 : 201).json({
       success: true,
       data: {
-        withdrawalId: result.id,
-        status: 'pending',
+        withdrawalId: result.withdrawalId,
+        status: result.status,
+        idempotent: result.idempotent ?? false,
         fraudFlags: fraudCheck.flags,
-      }
+      },
+      message: result.message,
     });
   })
 );
@@ -375,6 +406,22 @@ router.post('/kyc/upload',
       // Delete uploaded file if validation fails
       fs.unlinkSync(req.file.path);
       throw new AppError('Invalid document type. Must be one of: ' + validTypes.join(', '), 400, 'INVALID_TYPE');
+    }
+
+    // Content validation (magic bytes): the declared MIME/extension is
+    // attacker-controlled, so verify the real file signature matches an allowed
+    // type before persisting. Prevents MIME spoofing (e.g. HTML/script with an
+    // image content-type).
+    const fd = fs.openSync(req.file.path, 'r');
+    const head = Buffer.alloc(16);
+    try {
+      fs.readSync(fd, head, 0, 16, 0);
+    } finally {
+      fs.closeSync(fd);
+    }
+    if (!validateKycFileContent(head, req.file.mimetype)) {
+      fs.unlinkSync(req.file.path);
+      throw new AppError('File content does not match an allowed document type (JPEG, PNG, WebP, or PDF).', 400, 'INVALID_FILE_CONTENT');
     }
 
     // Persist only the basename (server-generated filename). The absolute path

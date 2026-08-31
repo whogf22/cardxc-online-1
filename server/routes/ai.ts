@@ -1,10 +1,18 @@
 import { Router, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import OpenAI from 'openai';
-import { query, queryOne, transaction } from '../db/pool';
+import { query, queryOne } from '../db/pool';
 import { AppError, asyncHandler } from '../middleware/errorHandler';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { logger } from '../middleware/logger';
+import { aiLimiter } from '../middleware/rateLimit';
+import { reserveDailyAiMessage } from '../services/aiUsageService';
+import {
+  MAX_CONTEXT_FIELD_LENGTH,
+  MAX_FULL_NAME_LENGTH,
+  buildChatMessages,
+  sanitizeUserText,
+} from '../lib/aiPrompt';
 
 const router = Router();
 router.use(authenticate);
@@ -98,6 +106,9 @@ router.delete('/conversations/:id', asyncHandler(async (req: AuthenticatedReques
 }));
 
 router.post('/conversations/:id/messages',
+  // CSO #5: per-user burst limit. The generic apiLimiter is per-IP, which does
+  // not bound spend that is billed per user against the platform's own key.
+  aiLimiter,
   body('content').trim().notEmpty().isLength({ max: 4000 }),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const errors = validationResult(req);
@@ -116,10 +127,23 @@ router.post('/conversations/:id/messages',
       throw new AppError('Conversation not found', 404, 'NOT_FOUND');
     }
 
-    await query(`
-      INSERT INTO ai_messages (conversation_id, role, content)
-      VALUES ($1, 'user', $2)
-    `, [id, content]);
+    // Resolve the upstream client BEFORE reserving budget: if the platform key
+    // is unset there will be no paid call, so charging a daily unit would burn
+    // every user's allowance on a misconfigured deployment.
+    const client = getOpenAI();
+    if (!client) {
+      throw new AppError(
+        'AI not configured. Set AI_INTEGRATIONS_OPENAI_API_KEY.',
+        503,
+        'AI_NOT_CONFIGURED',
+      );
+    }
+
+    // CSO #5: claim one unit of the daily budget AND persist the message in a
+    // single advisory-locked transaction, before the paid API is contacted. A
+    // check-then-insert here was a TOCTOU: concurrent requests all read the same
+    // pre-insert count and all passed. Fails closed if it cannot run.
+    await reserveDailyAiMessage(req.user!.id, id as string, content);
 
     const existingMessages = await query<{ role: string; content: string }>(`
       SELECT role, content FROM ai_messages
@@ -134,36 +158,88 @@ router.post('/conversations/:id/messages',
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
 
+    // CSO #5: a disconnecting client must stop the metered upstream call. Without
+    // this the for-await loop below keeps draining (and billing) the stream into
+    // a dead socket. Listeners are removed in `finally` so they cannot accumulate.
+    const abortController = new AbortController();
+
+    // Only `res` close is a trustworthy disconnect signal. On Node >=16 the
+    // REQUEST emits 'close' once its body has been fully consumed — which
+    // express.json() has already done by the time this handler runs — so
+    // listening on `req` would abort perfectly healthy requests depending on
+    // timing. `res` close also fires after a normal res.end(), hence the
+    // writableEnded guard: only a close BEFORE we finished writing means the
+    // client actually went away.
+    const onClientGone = () => {
+      if (!res.writableEnded) {
+        abortController.abort();
+      }
+    };
+    // A destroyed socket emits 'error' on the response. With no listener that
+    // becomes an unhandled error event and can take the process down — remotely
+    // triggerable by dropping the socket mid-stream.
+    //
+    // This listener is deliberately NOT removed in `finally`: socket errors are
+    // emitted asynchronously (ECONNRESET / ERR_STREAM_DESTROYED land on a later
+    // tick, after res.end() has returned), so detaching it synchronously would
+    // leave exactly those errors unhandled. It is one listener bound to a single
+    // response object, which is released with the request — not a leak.
+    res.on('error', () => {});
+    res.on('close', onClientGone);
+
     try {
-      const chatMessages: OpenAI.ChatCompletionMessageParam[] = [
-        { role: 'system', content: SYSTEM_PROMPT + '\n\nUser Context:\n' + userContext },
-        ...existingMessages.map(m => ({
+      // CSO #4: the system slot holds SYSTEM_PROMPT and nothing else. Account
+      // context (which contains attacker-writable fields such as full_name,
+      // card names and vault names) travels in a separate fenced non-system
+      // message so it cannot overwrite the assistant's instructions.
+      const chatMessages = buildChatMessages(
+        SYSTEM_PROMPT,
+        userContext,
+        existingMessages.map(m => ({
           role: m.role as 'user' | 'assistant',
           content: m.content,
         })),
-      ];
+      ) as OpenAI.ChatCompletionMessageParam[];
 
-      const client = getOpenAI();
-      if (!client) {
-        res.write(`data: ${JSON.stringify({ error: 'AI not configured. Add AI_INTEGRATIONS_OPENAI_API_KEY in Replit Secrets (Tools → Secrets).' })}\n\n`);
-        res.end();
-        return;
-      }
-      const stream = await client.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: chatMessages,
-        stream: true,
-        max_completion_tokens: 1024,
-      });
+      const stream = await client.chat.completions.create(
+        {
+          model: 'gpt-4o-mini',
+          messages: chatMessages,
+          stream: true,
+          max_completion_tokens: 1024,
+        },
+        { signal: abortController.signal },
+      );
 
       let fullResponse = '';
 
       for await (const chunk of stream) {
+        // Belt and braces alongside the AbortSignal: stop on the next chunk
+        // boundary even if the SDK has not yet torn the connection down.
+        if (abortController.signal.aborted) break;
+
         const delta = chunk.choices[0]?.delta?.content || '';
         if (delta) {
           fullResponse += delta;
           res.write(`data: ${JSON.stringify({ content: delta })}\n\n`);
         }
+      }
+
+      if (abortController.signal.aborted) {
+        // The client is gone and the reply is truncated. Persisting it would
+        // record a fabricated assistant turn the user never saw, which would
+        // then be replayed as context on the next request.
+        //
+        // The reserved budget unit is deliberately NOT refunded: refunding on
+        // disconnect would let a client stream-and-drop indefinitely for free
+        // upstream tokens. Pinned by aiStreamAbort.test.ts.
+        (stream as { controller?: AbortController })?.controller?.abort();
+        logger.info('[AI] Client disconnected mid-stream; upstream aborted', {
+          userId: req.user!.id,
+          conversationId: id,
+        });
+        if (!res.destroyed && !res.writableEnded) res.end();
+        return;
       }
 
       await query(`
@@ -175,12 +251,36 @@ router.post('/conversations/:id/messages',
         UPDATE ai_conversations SET updated_at = NOW() WHERE id = $1
       `, [id]);
 
+      // Re-check AFTER the awaits above: the client can disconnect while those
+      // writes are in flight, and writing to a destroyed socket raises an
+      // unhandled 'error'. The rows are already persisted, which is correct —
+      // only the delivery is skipped.
+      if (abortController.signal.aborted || res.destroyed || res.writableEnded) {
+        return;
+      }
+
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
       res.end();
     } catch (error) {
+      // An abort is the expected consequence of the client leaving, not a fault.
+      if (abortController.signal.aborted) {
+        logger.info('[AI] Stream aborted after client disconnect', {
+          userId: req.user!.id,
+          conversationId: id,
+        });
+        if (!res.destroyed && !res.writableEnded) res.end();
+        return;
+      }
       logger.error('AI chat error:', error);
+      if (res.destroyed || res.writableEnded) {
+        return;
+      }
       res.write(`data: ${JSON.stringify({ error: 'Failed to get AI response' })}\n\n`);
       res.end();
+    } finally {
+      // Detach the disconnect listener; the 'error' listener intentionally stays
+      // for the response's lifetime (see the note where it is attached).
+      res.removeListener('close', onClientGone);
     }
   })
 );
@@ -209,7 +309,12 @@ async function getUserContext(userId: string): Promise<string> {
     SELECT name, target_cents, balance_cents FROM savings_vaults WHERE user_id = $1
   `, [userId]);
 
-  let context = `User: ${user?.full_name || 'Unknown'}\n`;
+  // CSO #4: full_name, card_name and vault name are all user-writable free text.
+  // Flatten and cap them before interpolation so a stored value cannot forge a
+  // line break or a new section inside the context block.
+  const displayName = sanitizeUserText(user?.full_name, MAX_FULL_NAME_LENGTH) || 'Unknown';
+
+  let context = `User: ${displayName}\n`;
   context += `KYC Status: ${user?.kyc_status || 'pending'}\n`;
   context += `2FA: ${user?.two_factor_enabled ? 'Enabled' : 'Disabled'}\n\n`;
 
@@ -224,7 +329,8 @@ async function getUserContext(userId: string): Promise<string> {
   if (cards.length > 0) {
     context += `Virtual Cards: ${cards.length} card(s)\n`;
     cards.forEach((c: any) => {
-      context += `- ${c.card_name}: ${c.status}, Balance: ${(Number(c.balance_cents) / 100).toFixed(2)}\n`;
+      const cardName = sanitizeUserText(c.card_name, MAX_CONTEXT_FIELD_LENGTH) || 'Unnamed card';
+      context += `- ${cardName}: ${c.status}, Balance: ${(Number(c.balance_cents) / 100).toFixed(2)}\n`;
     });
     context += '\n';
   }
@@ -233,7 +339,8 @@ async function getUserContext(userId: string): Promise<string> {
     context += `Savings Vaults: ${vaults.length}\n`;
     vaults.forEach((v: any) => {
       const progress = v.target_cents > 0 ? Math.round((v.balance_cents / v.target_cents) * 100) : 0;
-      context += `- ${v.name}: ${(Number(v.balance_cents) / 100).toFixed(2)} / ${(Number(v.target_cents) / 100).toFixed(2)} (${progress}%)\n`;
+      const vaultName = sanitizeUserText(v.name, MAX_CONTEXT_FIELD_LENGTH) || 'Unnamed vault';
+      context += `- ${vaultName}: ${(Number(v.balance_cents) / 100).toFixed(2)} / ${(Number(v.target_cents) / 100).toFixed(2)} (${progress}%)\n`;
     });
     context += '\n';
   }

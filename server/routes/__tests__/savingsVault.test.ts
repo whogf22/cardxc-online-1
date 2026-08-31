@@ -58,7 +58,10 @@ afterEach(() => {
 });
 
 describe('POST /api/savings/vaults/:id/deposit atomic debit', () => {
-  const vaultId = '11111111-1111-1111-1111-111111111111';
+  // Must be a real RFC-4122 UUID: the deposit route now validates the path id
+  // with isUUID(), and validator.js requires a valid version nibble ([1-8]) and
+  // variant ([89ab]). The previous literal had version '1' and variant '1'.
+  const vaultId = '11111111-1111-4111-8111-111111111111';
 
   beforeEach(() => {
     mockQueryOne.mockImplementation(async (sql: string) => {
@@ -90,8 +93,9 @@ describe('POST /api/savings/vaults/:id/deposit atomic debit', () => {
 
     const debitSql = executedSql.find((s) => s.includes('balance_cents = balance_cents - $1') && s.includes('FROM wallets') === false && s.includes('UPDATE wallets'));
     expect(debitSql).toBeDefined();
-    // The critical guard: the debit must be conditional on sufficient balance.
-    expect(debitSql).toContain('balance_cents >= $1');
+    // The critical guard: the debit must be conditional on sufficient AVAILABLE
+    // balance (FIN-3 — funds reserved by a pending withdrawal are not spendable).
+    expect(debitSql).toContain('balance_cents - COALESCE(reserved_cents, 0) >= $1');
   });
 
   it('rejects with 400 when the guarded debit affects 0 rows (lost the race)', async () => {
@@ -100,7 +104,7 @@ describe('POST /api/savings/vaults/:id/deposit atomic debit', () => {
         query: vi.fn(async (sql: string) => {
           // Simulate: another concurrent request already drained the wallet, so
           // the guarded debit matches no rows.
-          if (sql.includes('UPDATE wallets') && sql.includes('balance_cents >= $1')) {
+          if (sql.includes('UPDATE wallets') && sql.includes('balance_cents - COALESCE(reserved_cents, 0) >= $1')) {
             return { rowCount: 0, rows: [] };
           }
           return { rowCount: 1, rows: [] };

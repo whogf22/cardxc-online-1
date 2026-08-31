@@ -2,6 +2,7 @@ import { config } from 'dotenv';
 config();
 
 import { Pool } from 'pg';
+import { isProductionEnv } from '../lib/env';
 import { logger } from '../middleware/logger';
 
 /**
@@ -17,7 +18,7 @@ import { logger } from '../middleware/logger';
  */
 
 const dbUrl = process.env.DATABASE_URL || '';
-const isProduction = process.env.NODE_ENV === 'production';
+const isProduction = isProductionEnv();
 const urlHasSSLDisabled = dbUrl.includes('sslmode=disable');
 const explicitSSLOff = process.env.DATABASE_SSL === 'false';
 

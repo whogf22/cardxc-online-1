@@ -65,7 +65,27 @@ SMTP_HOST=<your-smtp-host>
 SMTP_USER=<your-smtp-user>
 SMTP_PASS=<your-smtp-password>
 NODE_ENV=production
+
+# REQUIRED in production: comma-separated exact public origins allowed to make
+# credentialed browser requests. Loopback is not allowed in production, so
+# leaving this unset yields an EMPTY CORS allowlist and every cross-origin
+# browser call is refused (the server logs a warning at boot).
+REPLIT_DOMAINS=<yourdomain.com,www.yourdomain.com>
+
+# REQUIRED to run the MCP administrative server (`npm run mcp:http`). It refuses
+# to start without both. MCP_SECRET must be 32+ chars and MUST NOT equal
+# SESSION_SECRET — sharing them would let any ordinary end-user auth_token
+# authenticate as an MCP client. Generate with: openssl rand -hex 32
+MCP_SECRET=<32+ char random hex, distinct from SESSION_SECRET>
+MCP_API_KEY=<your-mcp-api-key>
+
+# Optional. Max AI assistant messages per user per UTC day (default 100).
+# Set to 0 to disable the AI assistant entirely.
+AI_DAILY_MESSAGE_LIMIT=100
 ```
+
+See `.env.production.example` for the full annotated list, including the
+fail-closed payment and stablecoin flags.
 
 ### Installation
 

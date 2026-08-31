@@ -242,12 +242,18 @@ router.post('/transfer',
       amount: amountCents,
     });
 
+    // Fail closed: a risk engine that did not pass (including the
+    // FRAUD_CHECK_ERROR outage case) must block the money movement.
+    if (!fraudCheck.passed) {
+      throw new AppError('Transfer temporarily blocked by risk checks. Please try again later.', 429, 'FRAUD_BLOCKED');
+    }
+
     if (fraudCheck.flags.includes('HIGH_VELOCITY_TRANSFERS')) {
       throw new AppError('Transfer temporarily blocked due to unusual activity', 429, 'FRAUD_BLOCKED');
     }
 
     const senderWallet = await queryOne<any>(`
-      SELECT balance_cents, reserved_cents FROM wallets WHERE user_id = $1 AND currency = $2
+      SELECT balance_cents, COALESCE(reserved_cents, 0) AS reserved_cents FROM wallets WHERE user_id = $1 AND currency = $2
     `, [req.user!.id, currency]);
 
     if (!senderWallet) {
@@ -274,10 +280,12 @@ router.post('/transfer',
 
       // Guarded debit prevents concurrent transfers from overdrawing the wallet
       // (balance_cents has no CHECK constraint, and the pre-check above is
-      // outside this transaction).
+      // outside this transaction). COALESCE the reserve: a NULL reserved_cents
+      // would otherwise make `balance_cents - reserved_cents` NULL and the
+      // predicate never true, wrongly blocking a fully-funded transfer.
       const debit = await client.query(`
         UPDATE wallets SET balance_cents = balance_cents - $1, updated_at = NOW()
-        WHERE user_id = $2 AND currency = $3 AND balance_cents - reserved_cents >= $1
+        WHERE user_id = $2 AND currency = $3 AND balance_cents - COALESCE(reserved_cents, 0) >= $1
       `, [amountCents, req.user!.id, currency]);
 
       if (debit.rowCount === 0) {

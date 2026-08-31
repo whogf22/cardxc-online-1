@@ -52,8 +52,11 @@ export async function checkLoginVelocity(email: string, ipAddress?: string): Pro
 
     return { allowed: true };
   } catch (error) {
-    logger.error('[Fraud] Error checking login velocity:', error);
-    return { allowed: true };
+    // FAIL CLOSED: if the velocity check cannot be evaluated (DB down, malformed
+    // response), we must not silently allow the attempt — an outage would
+    // otherwise disable brute-force protection entirely.
+    logger.error('[Fraud] Error checking login velocity — failing closed:', error);
+    return { allowed: false, reason: 'Security checks are temporarily unavailable. Please try again later.' };
   }
 }
 
@@ -210,8 +213,11 @@ export async function runFraudChecks(params: FraudCheckParams): Promise<{ passed
       score: riskScore,
     };
   } catch (err) {
-    logger.error('[Fraud] Error running fraud checks:', err);
-    return { passed: true, flags: [], score: 0 };
+    // FAIL CLOSED: a risk engine that cannot run has NOT cleared the
+    // transaction. Returning `passed: true` here would let every financial
+    // operation through unscreened during a DB/service outage.
+    logger.error('[Fraud] Error running fraud checks — failing closed:', err);
+    return { passed: false, flags: ['FRAUD_CHECK_ERROR'], score: 100 };
   }
 }
 

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
+import { isProductionEnv } from '../lib/env';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import { body, validationResult } from 'express-validator';
@@ -9,6 +10,7 @@ import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { authLimiter } from '../middleware/rateLimit';
 import { createAuditLog } from '../services/auditService';
 import { checkLoginVelocity, runFraudChecks } from '../services/fraudService';
+import { isValidFullName, MAX_FULL_NAME_LENGTH } from '../lib/aiPrompt';
 import { generateTwoFactorSecret, verifyAndEnableTwoFactor, verifyTwoFactorToken, disableTwoFactor, isTwoFactorEnabled } from '../services/twoFactorService';
 import { sendWelcomeEmail, sendPasswordResetEmail } from '../services/emailService';
 import { logger } from '../middleware/logger';
@@ -66,7 +68,14 @@ router.post('/signup',
   authLimiter,
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
-  body('fullName').trim().isLength({ min: 2 }).withMessage('Full name is required'),
+  // CSO #4: same bound as the profile-update path — full_name reaches the AI
+  // context block, so it must be length-capped and free of control characters.
+  body('fullName')
+    .trim()
+    .custom(isValidFullName)
+    .withMessage(
+      `Full name must be 2-${MAX_FULL_NAME_LENGTH} characters and contain no line breaks or control characters`,
+    ),
   body('phone').optional().trim(),
   asyncHandler(async (req: Request, res: Response) => {
     const errors = validationResult(req);
@@ -118,7 +127,7 @@ router.post('/signup',
 
       res.cookie('auth_token', token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: isProductionEnv(),
         sameSite: 'lax',
         maxAge: SESSION_DURATION_HOURS * 60 * 60 * 1000,
         path: '/',
@@ -244,7 +253,7 @@ router.post('/signin',
 
     res.cookie('auth_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProductionEnv(),
       sameSite: 'lax',
       maxAge: SESSION_DURATION_HOURS * 60 * 60 * 1000,
       path: '/',
@@ -288,7 +297,7 @@ router.post(['/signout', '/logout'], asyncHandler(async (req: Request, res: Resp
   
   res.clearCookie('auth_token', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isProductionEnv(),
     sameSite: 'lax',
     path: '/',
   });
@@ -622,7 +631,7 @@ function sanitizeOAuthError(raw: unknown): string {
 function getGoogleCallbackUrl(req?: Request): string {
   // In production, always use the configured PRODUCTION_DOMAIN. Never derive
   // from the request Host header — it is attacker-controlled.
-  if (process.env.NODE_ENV === 'production') {
+  if (isProductionEnv()) {
     return `https://${PRODUCTION_DOMAIN}/api/auth/google/callback`;
   }
 
@@ -642,7 +651,7 @@ function getGoogleCallbackUrl(req?: Request): string {
 }
 
 function isSecureContext(req?: Request): boolean {
-  if (process.env.NODE_ENV === 'production') return true;
+  if (isProductionEnv()) return true;
   const host = req?.get('host') || '';
   return host.includes('replit.app') || host.includes('replit.dev') || host.includes(PRODUCTION_DOMAIN);
 }
@@ -774,7 +783,7 @@ router.get('/google/callback', asyncHandler(async (req: Request, res: Response) 
     }
 
     let user = await queryOne<any>(`
-      SELECT id, email, full_name, role, account_status 
+      SELECT id, email, full_name, role, account_status, two_factor_enabled 
       FROM users WHERE email = $1
     `, [email]);
 
@@ -828,6 +837,27 @@ router.get('/google/callback', asyncHandler(async (req: Request, res: Response) 
       return res.redirect('/signin?error_description=' + encodeURIComponent('Your account is not active'));
     }
 
+    // SECURITY (fail-closed): if the account has 2FA enabled, the OAuth (IdP)
+    // assertion is NOT sufficient on its own — a second factor is still
+    // required. We do NOT establish an authenticated session here; the user must
+    // complete login through the standard email/password + authenticator flow,
+    // which enforces the TOTP check. This prevents an OAuth path from bypassing
+    // 2FA. (Google sign-in alone never satisfies the user's own 2FA.)
+    if (user.two_factor_enabled) {
+      await recordLoginAttempt(email, false, 'TWO_FACTOR_REQUIRED', req);
+      logSecurityEvent('LOGIN_BLOCKED', 'medium', req, {
+        reason: 'OAUTH_2FA_REQUIRED',
+        userId: user.id,
+      });
+      await createAuditLog({
+        userId: user.id,
+        action: 'USER_LOGIN_GOOGLE_2FA_REQUIRED',
+        newValues: { provider: 'google' },
+        ...getClientInfo(req),
+      });
+      return res.redirect('/signin?error_description=' + encodeURIComponent('Two-factor authentication is enabled. Please sign in with your email, password, and authenticator code to continue.') + '&require_2fa=1');
+    }
+
     const token = await createSession(user.id, req);
 
     await recordLoginAttempt(email, true, null, req);
@@ -847,7 +877,7 @@ router.get('/google/callback', asyncHandler(async (req: Request, res: Response) 
 
     res.cookie('auth_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProductionEnv(),
       sameSite: 'lax',
       maxAge: SESSION_DURATION_HOURS * 60 * 60 * 1000,
       path: '/',
@@ -905,7 +935,7 @@ router.post('/request-phone-otp',
 
     // In production, dispatch via an SMS provider. For now we only log in
     // non-production so the code does not appear in real server logs.
-    if (process.env.NODE_ENV !== 'production') {
+    if (!isProductionEnv()) {
       logger.info('phone_otp_generated_dev_only', { userId, phone: phone.substring(0, 3) + '***', code });
     } else {
       logger.info('phone_otp_generated', { userId, phone: phone.substring(0, 3) + '***' });

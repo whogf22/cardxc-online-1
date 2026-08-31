@@ -26,6 +26,24 @@ Edit `.env` and set at least:
 - **DATABASE_URL** – e.g. `postgresql://localhost:5432/cardxc`
 - **SESSION_SECRET** – any string 32+ characters
 
+Only if you run the MCP administrative server (`npm run mcp:http`) — it refuses
+to start without both:
+
+- **MCP_SECRET** – 32+ characters, and **must differ from SESSION_SECRET**.
+  Sharing them would let any ordinary end-user `auth_token` authenticate as an
+  MCP client. Generate with `openssl rand -hex 32`.
+- **MCP_API_KEY** – generated separately, e.g. `openssl rand -hex 32`.
+
+`scripts/ensure-env.sh` generates all of these for you and backfills them into
+an existing `.env` without overwriting anything:
+
+```bash
+bash scripts/ensure-env.sh
+```
+
+The MCP server binds `127.0.0.1` and keeps raw SQL disabled unless you
+explicitly set `MCP_BIND_HOST` / `MCP_ENABLE_RAW_SQL`.
+
 ## 4. Database
 
 Create the database and apply the **user** schema (users, sessions, wallets):

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { logger } from './logger';
+import { isProductionEnv } from '../lib/env';
 import { AppError } from './errorHandler';
 
 // IP-based brute force protection.
@@ -104,7 +105,7 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
   res.removeHeader('X-Powered-By');
   
   // HSTS (only in production with HTTPS)
-  if (process.env.NODE_ENV === 'production' && req.secure) {
+  if (isProductionEnv() && req.secure) {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   }
   

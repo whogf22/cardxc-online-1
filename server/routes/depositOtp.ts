@@ -20,6 +20,12 @@ import {
   isStripeConfigured,
 } from '../services/stripeService';
 import { logger } from '../middleware/logger';
+import { isDepositIdempotencyViolation } from '../lib/pgErrors';
+import { resolveUsdtRate, usdtCentsForFiatCents } from '../lib/usdtRate';
+import {
+  isStablecoinFulfillmentEnabled,
+  isUnconfirmedDepositBypassAllowed,
+} from '../services/fulfillmentPolicy';
 import crypto from 'crypto';
 
 const router = Router();
@@ -27,7 +33,6 @@ router.use(authenticate);
 
 const OTP_EXPIRY_MINUTES = 10;
 const MAX_OTP_ATTEMPTS = 5;
-const USDT_RATE = parseFloat(process.env.USDT_RATE || '1.0');
 
 function generateOtp(): string {
   return crypto.randomInt(100000, 1000000).toString();
@@ -237,16 +242,25 @@ router.post(
       }
     }
 
-    // Allow completion if Stripe payment is confirmed OR if in test/demo mode
+    // A deposit is fulfilled only against a confirmed Stripe payment. The
+    // unconfirmed-deposit bypass is a fail-closed local/demo affordance
+    // (non-production + explicit opt-in + test key); a test key alone never
+    // suffices, so a production-shaped environment always rejects here.
     const stripeConfirmed = stripeSession?.payment_status === 'paid' || stripeSession?.status === 'complete';
-    const isTestMode = process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_');
 
-    if (!stripeConfirmed && !isTestMode) {
-      throw new AppError(
-        'Payment not yet confirmed. Please complete the payment first.',
-        402,
-        'PAYMENT_NOT_CONFIRMED'
-      );
+    if (!stripeConfirmed) {
+      if (!isUnconfirmedDepositBypassAllowed()) {
+        throw new AppError(
+          'Payment not yet confirmed. Please complete the payment first.',
+          402,
+          'PAYMENT_NOT_CONFIRMED'
+        );
+      }
+      logger.warn('deposit_otp_payment_confirmation_bypassed', {
+        orderId,
+        userId,
+        reason: 'ALLOW_UNCONFIRMED_DEPOSITS enabled in a non-production test-key environment',
+      });
     }
 
     // Get user info for email
@@ -258,101 +272,190 @@ router.post(
     // Mark OTP as verified
     await query('UPDATE deposit_otps SET verified = TRUE WHERE id = $1', [otpRecord.id]);
 
-    // Credit wallet in a transaction
+    // Credit wallet in a transaction.
+    //
+    // An OTP-initiated deposit also has a live Stripe checkout session, so this
+    // path and the Stripe webhook can both try to fulfill the SAME order under
+    // DIFFERENT transaction idempotency keys (`deposit_otp_<order>` vs
+    // `stripe_<session>`) — the unique index on transactions.idempotency_key
+    // cannot dedupe across them. The shared identity is the ORDER, so
+    // fulfillment is serialized by an atomic conditional claim of the order row
+    // inside this transaction: only the caller whose UPDATE matches a still
+    // PENDING row may credit. Under READ COMMITTED the row lock serializes
+    // concurrent claimants and the loser re-evaluates the predicate against the
+    // committed row, matching 0 rows.
     let newBalance = 0;
-    await transaction(async (client) => {
-      // Check idempotency
-      const existing = await client.query(
-        `SELECT id FROM transactions WHERE idempotency_key = $1`,
-        [`deposit_otp_${orderId}`]
-      );
-      if (existing.rows.length > 0) {
-        // Already processed
-        const walletRow = await client.query(
-          `SELECT balance_cents FROM wallets WHERE user_id = $1 AND currency = $2`,
-          [userId, order.currency]
+    let credited = false;
+    // NEW-5: the amount/currency that ACTUALLY sized the credit, taken from the
+    // claimed row. Every downstream artefact (email, audit, log, HTTP receipt)
+    // must report these rather than the stale pre-transaction read.
+    let creditedAmountCents = order.amount_cents;
+    let creditedCurrency = order.currency;
+    try {
+      await transaction(async (client) => {
+        // Atomic fulfillment claim. Credit only from the row we actually won,
+        // never from the stale pre-transaction read.
+        const claim = await client.query(
+          `UPDATE card_orders
+              SET status = 'COMPLETED', updated_at = NOW()
+            WHERE id = $1 AND user_id = $2 AND status = 'PENDING'
+          RETURNING amount_cents, currency`,
+          [orderId, userId]
         );
-        newBalance = walletRow.rows[0]?.balance_cents / 100 || 0;
-        return;
-      }
 
-      // Insert transaction
-      const txResult = await client.query(
-        `INSERT INTO transactions (user_id, idempotency_key, type, status, amount_cents, currency, description, metadata)
-         VALUES ($1, $2, 'deposit', 'SUCCESS', $3, $4, $5, $6)
-         RETURNING id`,
-        [
-          userId,
-          `deposit_otp_${orderId}`,
-          order.amount_cents,
-          order.currency,
-          'Card Deposit (OTP Verified)',
-          JSON.stringify({ orderId, source: 'card_deposit_otp', stripeSessionId: order.provider_payment_id }),
-        ]
-      );
-      const transactionId = txResult.rows[0].id;
+        if (claim.rowCount === 0) {
+          // Another fulfillment path (Stripe webhook, or a concurrent retry of
+          // this one) already claimed the order. Report the current balance and
+          // credit nothing.
+          const walletRow = await client.query(
+            `SELECT balance_cents FROM wallets WHERE user_id = $1 AND currency = $2`,
+            [userId, order.currency]
+          );
+          newBalance = walletRow.rows[0]?.balance_cents / 100 || 0;
+          logger.info('deposit_otp_fulfillment_claim_lost', { userId, orderId });
+          return;
+        }
 
-      // Credit wallet
-      const walletResult = await client.query(
-        `INSERT INTO wallets (user_id, currency, balance_cents)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (user_id, currency)
-         DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
-         RETURNING balance_cents`,
-        [userId, order.currency, order.amount_cents]
-      );
-      newBalance = walletResult.rows[0].balance_cents / 100;
+        const claimed = claim.rows[0];
+        creditedAmountCents = claimed.amount_cents;
+        creditedCurrency = claimed.currency;
 
-      // Also credit USDT balance
-      const usdtAmountCents = Math.round(order.amount_cents / USDT_RATE);
-      await client.query(
-        `INSERT INTO wallets (user_id, currency, balance_cents, usdt_balance_cents)
-         VALUES ($1, 'USD', 0, $2)
-         ON CONFLICT (user_id, currency)
-         DO UPDATE SET usdt_balance_cents = COALESCE(wallets.usdt_balance_cents, 0) + $2, updated_at = NOW()`,
-        [userId, usdtAmountCents]
-      );
+        // Insert transaction
+        const txResult = await client.query(
+          `INSERT INTO transactions (user_id, idempotency_key, type, status, amount_cents, currency, description, metadata)
+           VALUES ($1, $2, 'deposit', 'SUCCESS', $3, $4, $5, $6)
+           RETURNING id`,
+          [
+            userId,
+            `deposit_otp_${orderId}`,
+            claimed.amount_cents,
+            claimed.currency,
+            'Card Deposit (OTP Verified)',
+            JSON.stringify({ orderId, source: 'card_deposit_otp', stripeSessionId: order.provider_payment_id }),
+          ]
+        );
+        const transactionId = txResult.rows[0].id;
 
-      // Update order status
-      await client.query(
-        `UPDATE card_orders SET status = 'COMPLETED', transaction_id = $1, updated_at = NOW() WHERE id = $2`,
-        [transactionId, orderId]
-      );
-    });
+        // Credit wallet
+        const walletResult = await client.query(
+          `INSERT INTO wallets (user_id, currency, balance_cents)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (user_id, currency)
+           DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
+           RETURNING balance_cents`,
+          [userId, claimed.currency, claimed.amount_cents]
+        );
+        newBalance = walletResult.rows[0].balance_cents / 100;
 
-    // Send success email
-    if (user) {
-      await sendDepositSuccessEmail(
-        user.email,
-        user.full_name,
-        order.amount_cents / 100,
-        order.currency,
-        newBalance
+        // Stablecoin (USDT) fulfillment is fail-closed: a card deposit credits
+        // only the fiat balance unless stablecoin fulfillment is explicitly
+        // enabled via ENABLE_STABLECOIN_FULFILLMENT.
+        //
+        // LOW: the rate is a DIVISOR and was used unvalidated. USDT_RATE=0 gave
+        // Infinity, non-numeric gave NaN, and USDT_RATE=0.5 silently DOUBLED the
+        // credit with no error. A rate we cannot trust means we skip the credit.
+        if (isStablecoinFulfillmentEnabled()) {
+          const rate = resolveUsdtRate();
+          const usdtAmountCents = rate === null
+            ? null
+            : usdtCentsForFiatCents(claimed.amount_cents, rate);
+          if (usdtAmountCents === null) {
+            logger.error('stablecoin_fulfillment_skipped_invalid_rate', {
+              orderId, configured: process.env.USDT_RATE, amountCents: claimed.amount_cents,
+            });
+          } else {
+            await client.query(
+              `INSERT INTO wallets (user_id, currency, balance_cents, usdt_balance_cents)
+             VALUES ($1, 'USD', 0, $2)
+             ON CONFLICT (user_id, currency)
+             DO UPDATE SET usdt_balance_cents = COALESCE(wallets.usdt_balance_cents, 0) + $2, updated_at = NOW()`,
+              [userId, usdtAmountCents]
+            );
+          }
+        } else {
+          logger.info('stablecoin_fulfillment_skipped', { orderId, context: 'deposit_otp' });
+        }
+
+        // Link the order to its ledger entry (status was already set by the claim).
+        await client.query(
+          `UPDATE card_orders SET transaction_id = $1, updated_at = NOW() WHERE id = $2`,
+          [transactionId, orderId]
+        );
+
+        credited = true;
+      });
+    } catch (err: any) {
+      // The transactions idempotency index is the authoritative claim. If a
+      // concurrent fulfillment of the same order committed first, this whole
+      // transaction (including the order claim) rolled back — so the deposit is
+      // already fulfilled exactly once. Report idempotent success, not a 500.
+      //
+      // NEW-9: this must inspect WHICH constraint was violated. Matching any
+      // 23505 (or any message containing "duplicate key") reported success for
+      // unrelated integrity failures too, hiding real bugs behind a 200.
+      if (!isDepositIdempotencyViolation(err)) throw err;
+
+      logger.warn('deposit_otp_fulfillment_duplicate_race', { userId, orderId, error: err.message });
+      const walletRow = await queryOne<{ balance_cents: number }>(
+        'SELECT balance_cents FROM wallets WHERE user_id = $1 AND currency = $2',
+        [userId, order.currency]
       );
+      newBalance = walletRow ? walletRow.balance_cents / 100 : 0;
     }
 
-    await createAuditLog({
-      userId,
-      action: 'DEPOSIT_OTP_VERIFIED',
-      entityType: 'card_order',
-      entityId: orderId,
-      newValues: { amount: order.amount_cents, currency: order.currency, newBalance },
-    });
+    // NEW-5: every credit-success artefact below is gated on `credited` — the
+    // caller that actually won the atomic claim. A race loser (the Stripe webhook
+    // fulfilled this order first) credited nothing, so emitting a
+    // DEPOSIT_OTP_VERIFIED audit record or a "verified_and_credited" log line
+    // would write a FALSE financial record and make double-credit
+    // investigations unreadable. The loser gets its own truthful event.
+    // Amount and currency come from the CLAIMED row, never the stale pre-read.
+    if (credited) {
+      if (user) {
+        await sendDepositSuccessEmail(
+          user.email,
+          user.full_name,
+          creditedAmountCents / 100,
+          creditedCurrency,
+          newBalance
+        );
+      }
 
-    logger.info('deposit_otp_verified_and_credited', {
-      userId,
-      orderId,
-      amountCents: order.amount_cents,
-      currency: order.currency,
-      newBalance,
-    });
+      await createAuditLog({
+        userId,
+        action: 'DEPOSIT_OTP_VERIFIED',
+        entityType: 'card_order',
+        entityId: orderId,
+        newValues: { amount: creditedAmountCents, currency: creditedCurrency, newBalance },
+      });
+
+      logger.info('deposit_otp_verified_and_credited', {
+        userId,
+        orderId,
+        amountCents: creditedAmountCents,
+        currency: creditedCurrency,
+        newBalance,
+      });
+    } else {
+      // Truthful record for the loser: the OTP was verified, but this request
+      // did not move money.
+      await createAuditLog({
+        userId,
+        action: 'DEPOSIT_OTP_VERIFIED_NO_CREDIT',
+        entityType: 'card_order',
+        entityId: orderId,
+        newValues: { orderId, reason: 'fulfillment claim lost to a concurrent path', newBalance },
+      });
+    }
 
     res.json({
       success: true,
       data: {
-        message: 'Deposit verified and credited to your wallet!',
-        amount: order.amount_cents / 100,
-        currency: order.currency,
+        message: credited
+          ? 'Deposit verified and credited to your wallet!'
+          : 'This deposit was already credited to your wallet.',
+        amount: creditedAmountCents / 100,
+        currency: creditedCurrency,
         newBalance,
       },
     });

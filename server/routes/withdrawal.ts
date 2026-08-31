@@ -9,9 +9,25 @@ import {
   isCryptoProviderConfigured,
   getCryptoProviderName,
   getCryptoDepositAddresses,
+  parseUsdtAmountToCents,
 } from '../services/cryptoProviderService';
 
 const router = Router();
+
+/**
+ * Extract a caller-supplied logical idempotency key for a withdrawal. Accepts
+ * the standard `Idempotency-Key` header (preferred) or an `idempotencyKey`
+ * body field. Bounded to 255 chars to match the persisted column; anything
+ * empty/oversized/non-string is treated as absent (the request is then simply
+ * non-idempotent rather than rejected).
+ */
+function extractIdempotencyKey(req: AuthenticatedRequest): string | undefined {
+    const raw = req.get('Idempotency-Key') ?? req.body?.idempotencyKey;
+    if (typeof raw !== 'string') return undefined;
+    const trimmed = raw.trim();
+    if (!trimmed || trimmed.length > 255) return undefined;
+    return trimmed;
+}
 
 /**
  * GET /api/withdraw/crypto/config
@@ -62,7 +78,10 @@ router.post('/bank',
             walletType,
             bankName,
             accountNumber,
-            accountName
+            accountName,
+            // NEW-8: the key was previously accepted by the interface and never
+            // passed, so a double submit created two reserves and two rows.
+            idempotencyKey: extractIdempotencyKey(req)
         });
 
         res.status(201).json({
@@ -81,6 +100,12 @@ router.post('/crypto',
     authenticate,
     financialOpLimiter,
     body('amount').isFloat({ min: 10 }).withMessage('Minimum crypto withdrawal is 10 USDT'),
+    // NEW-6: the USDT ledger unit is 2 dp while the chain is 6 dp. Without a
+    // decimal-place constraint a sub-cent amount reached both scales and the
+    // chain was sent up to ~0.005 USDT more than the wallet was debited. Reject
+    // at the boundary rather than truncating.
+    body('amount').custom((v) => parseUsdtAmountToCents(v) !== null)
+        .withMessage('Amount must have at most 2 decimal places'),
     body('walletAddress').trim().notEmpty().isLength({ min: 20, max: 255 }),
     body('network').isIn(['TRC20', 'ERC20', 'BEP20', 'POLYGON']),
     asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -96,7 +121,8 @@ router.post('/crypto',
             userId: req.user!.id,
             amount,
             walletAddress,
-            network
+            network,
+            idempotencyKey: extractIdempotencyKey(req)
         });
 
         res.status(201).json({
@@ -132,7 +158,9 @@ router.post('/platform',
             recipientEmail,
             amount,
             walletType,
-            message
+            message,
+            // NEW-8: previously discarded, so a double submit moved the money twice.
+            idempotencyKey: extractIdempotencyKey(req)
         });
 
         res.status(201).json({

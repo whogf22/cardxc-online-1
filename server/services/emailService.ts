@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { logger } from '../middleware/logger';
+import { isProductionEnv } from '../lib/env';
 
 const APP_BASE_URL = process.env.APP_URL || process.env.FRONTEND_URL || 'https://cardxc.online';
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@cardxc.online';
@@ -45,7 +46,7 @@ function createTransporter() {
     port: config.port,
     secure: config.secure,
     tls: {
-      rejectUnauthorized: process.env.NODE_ENV === 'production',
+      rejectUnauthorized: isProductionEnv(),
       minVersion: 'TLSv1.2'
     }
   };

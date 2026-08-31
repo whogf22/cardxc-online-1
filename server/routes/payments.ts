@@ -59,6 +59,12 @@ router.post('/p2p/transfer',
       amount: amountCents,
     });
 
+    // Fail closed: a risk engine that did not pass (including the
+    // FRAUD_CHECK_ERROR outage case) must block the money movement.
+    if (!fraudCheck.passed) {
+      throw new AppError('Transfer temporarily blocked by risk checks. Please try again later.', 429, 'FRAUD_BLOCKED');
+    }
+
     if (fraudCheck.flags.includes('HIGH_VELOCITY_TRANSFERS')) {
       throw new AppError('Transfer temporarily blocked due to unusual activity', 429, 'FRAUD_BLOCKED');
     }
@@ -77,9 +83,11 @@ router.post('/p2p/transfer',
 
       // Guarded debit: only succeeds if the sender still has enough available
       // balance. Prevents concurrent transfers from overdrawing the wallet.
+      // COALESCE the reserve so a NULL reserved_cents does not make the
+      // predicate NULL and wrongly block a fully-funded transfer.
       const debit = await client.query(`
         UPDATE wallets SET balance_cents = balance_cents - $1, updated_at = NOW()
-        WHERE user_id = $2 AND currency = $3 AND balance_cents - reserved_cents >= $1
+        WHERE user_id = $2 AND currency = $3 AND balance_cents - COALESCE(reserved_cents, 0) >= $1
       `, [amountCents, req.user!.id, currency]);
 
       if (debit.rowCount === 0) {
@@ -539,9 +547,11 @@ router.post('/splits/:id/pay',
         VALUES ($1, 'transfer_in', 'SUCCESS', $2, $3, 'Split bill received')
       `, [participant.creator_id, participant.amount_cents, participant.currency]);
 
-      // Guarded debit prevents concurrent payments from overdrawing the wallet.
+      // Guarded debit against AVAILABLE funds (balance - reserved) prevents
+      // concurrent payments from overdrawing and blocks spending funds already
+      // reserved by a pending withdrawal.
       const debit = await client.query(`
-        UPDATE wallets SET balance_cents = balance_cents - $1 WHERE user_id = $2 AND currency = $3 AND balance_cents >= $1
+        UPDATE wallets SET balance_cents = balance_cents - $1 WHERE user_id = $2 AND currency = $3 AND balance_cents - COALESCE(reserved_cents, 0) >= $1
       `, [participant.amount_cents, req.user!.id, participant.currency]);
       if (debit.rowCount === 0) {
         throw new AppError('Insufficient balance', 400, 'INSUFFICIENT_BALANCE');

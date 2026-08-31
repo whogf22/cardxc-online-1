@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { body, validationResult } from 'express-validator';
+import { body, param, validationResult } from 'express-validator';
 import { query, queryOne, transaction } from '../db/pool';
 import { AppError, asyncHandler } from '../middleware/errorHandler';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
@@ -55,6 +55,10 @@ router.post('/vaults',
 
 router.post('/vaults/:id/deposit',
   sensitiveOpLimiter,
+  // PHASE 6: validate the path id before it reaches a uuid column. Without this
+  // a malformed value made Postgres raise 22P02, which surfaced as a 500 and
+  // leaked the driver message (including the rejected value) into the response.
+  param('id').isUUID().withMessage('Invalid vault id'),
   body('amount').isFloat({ min: 0.01 }),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const errors = validationResult(req);
@@ -84,22 +88,33 @@ router.post('/vaults/:id/deposit',
     }
 
     await transaction(async (client) => {
-      // Atomic, guarded debit: only succeeds if the wallet still has enough.
-      // Prevents a TOCTOU race where two concurrent deposits both pass the
-      // pre-check above and overdraw the wallet into a negative balance.
+      // Atomic, guarded debit against AVAILABLE funds
+      // (available = balance_cents - reserved_cents). Prevents a TOCTOU race
+      // where two concurrent deposits both pass the pre-check above, and
+      // prevents spending funds already reserved by a pending withdrawal.
       const debit = await client.query(`
         UPDATE wallets SET balance_cents = balance_cents - $1, updated_at = NOW()
-        WHERE user_id = $2 AND currency = $3 AND balance_cents >= $1
+        WHERE user_id = $2 AND currency = $3 AND balance_cents - COALESCE(reserved_cents, 0) >= $1
       `, [amountCents, req.user!.id, vault.currency]);
 
       if (debit.rowCount === 0) {
         throw new AppError('Insufficient balance', 400, 'INSUFFICIENT_BALANCE');
       }
 
-      await client.query(`
+      // PHASE 6: ownership is enforced HERE, in the SQL predicate, not only by
+      // the out-of-transaction pre-read above — the same JS-vs-SQL ownership
+      // pattern already fixed on the withdraw and delete paths. A 0-row result
+      // means the vault is not ours (or vanished), which must abort the whole
+      // transaction so the wallet debit above is rolled back rather than the
+      // money disappearing.
+      const credit = await client.query(`
         UPDATE savings_vaults SET balance_cents = balance_cents + $1, updated_at = NOW()
-        WHERE id = $2
-      `, [amountCents, id]);
+        WHERE id = $2 AND user_id = $3
+      `, [amountCents, id, req.user!.id]);
+
+      if (credit.rowCount !== 1) {
+        throw new AppError('Vault not found', 404, 'NOT_FOUND');
+      }
 
       await client.query(`
         INSERT INTO transactions (user_id, type, status, amount_cents, currency, description, metadata)
@@ -117,6 +132,10 @@ router.post('/vaults/:id/deposit',
 
 router.post('/vaults/:id/withdraw',
   sensitiveOpLimiter,
+  // LOW: validate the path id. Without this a malformed value reached a uuid
+  // column and Postgres raised 22P02, surfacing as a 500 (and potentially leaking
+  // a PG message) instead of a clean 400.
+  param('id').isUUID().withMessage('Invalid vault id'),
   body('amount').isFloat({ min: 0.01 }),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const errors = validationResult(req);
@@ -142,26 +161,34 @@ router.post('/vaults/:id/withdraw',
     await transaction(async (client) => {
       // Atomic, guarded debit against the vault balance. Prevents a race where
       // two concurrent withdrawals both pass the pre-check and overdraw the vault.
+      //
+      // LOW: ownership is enforced HERE, in the SQL predicate, not only by the
+      // JS pre-read above. That is the same JS-vs-SQL ownership pattern
+      // CRITICAL-1 was filed for. RETURNING currency means the credit below is
+      // sized from the row actually debited rather than the stale pre-read.
       const debit = await client.query(`
         UPDATE savings_vaults SET balance_cents = balance_cents - $1, updated_at = NOW()
-        WHERE id = $2 AND balance_cents >= $1
-      `, [amountCents, id]);
+        WHERE id = $2 AND user_id = $3 AND balance_cents >= $1
+        RETURNING currency
+      `, [amountCents, id, req.user!.id]);
 
       if (debit.rowCount === 0) {
         throw new AppError('Insufficient vault balance', 400, 'INSUFFICIENT_BALANCE');
       }
 
+      const debitedCurrency = debit.rows[0].currency;
+
       await client.query(`
         INSERT INTO wallets (user_id, currency, balance_cents)
         VALUES ($1, $2, $3)
-        ON CONFLICT (user_id, currency) 
+        ON CONFLICT (user_id, currency)
         DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
-      `, [req.user!.id, vault.currency, amountCents]);
+      `, [req.user!.id, debitedCurrency, amountCents]);
 
       await client.query(`
         INSERT INTO transactions (user_id, type, status, amount_cents, currency, description, metadata)
         VALUES ($1, 'transfer_in', 'SUCCESS', $2, $3, 'Savings vault withdrawal', $4)
-      `, [req.user!.id, amountCents, vault.currency, JSON.stringify({ vaultId: id })]);
+      `, [req.user!.id, amountCents, debitedCurrency, JSON.stringify({ vaultId: id })]);
     });
 
     const updated = await queryOne(`
@@ -172,30 +199,60 @@ router.post('/vaults/:id/withdraw',
   })
 );
 
-router.delete('/vaults/:id', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const id = req.params.id as string;
-
-  const vault = await queryOne<any>(`
-    SELECT id, balance_cents, currency FROM savings_vaults WHERE id = $1 AND user_id = $2
-  `, [id, req.user!.id]);
-
-  if (!vault) {
-    throw new AppError('Vault not found', 404, 'NOT_FOUND');
+router.delete('/vaults/:id',
+  // LOW: validate the path id before it reaches a uuid column, so a malformed
+  // value returns 400 instead of a Postgres 22P02 surfacing as a 500.
+  param('id').isUUID().withMessage('Invalid vault id'),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    throw new AppError(errors.array()[0].msg, 400, 'VALIDATION_ERROR');
   }
+  const id = req.params.id as string;
+  const userId = req.user!.id;
 
-  if (Number(vault.balance_cents) > 0) {
-    await transaction(async (client) => {
+  // Atomically claim and delete the vault inside the transaction, scoped by
+  // owner. The conditional DELETE ... RETURNING guarantees exactly one caller
+  // receives the row (and its authoritative balance); a concurrent duplicate
+  // delete claims zero rows and therefore cannot re-credit the wallet.
+  //
+  // The previous implementation read balance_cents OUTSIDE the transaction and
+  // credited that stale value, so two concurrent deletes each credited the same
+  // balance — minting money (CRITICAL-1).
+  const claimed = await transaction<{ balance_cents: string | number; currency: string } | null>(async (client) => {
+    const del = await client.query(`
+      DELETE FROM savings_vaults WHERE id = $1 AND user_id = $2
+      RETURNING balance_cents, currency
+    `, [id, userId]);
+
+    if (del.rowCount === 0) {
+      // Not found, not owned, or already claimed by a concurrent request.
+      return null;
+    }
+
+    const row = del.rows[0] as { balance_cents: string | number; currency: string };
+    const balanceCents = Number(row.balance_cents);
+
+    if (balanceCents > 0) {
       await client.query(`
         INSERT INTO wallets (user_id, currency, balance_cents)
         VALUES ($1, $2, $3)
-        ON CONFLICT (user_id, currency) 
-        DO UPDATE SET balance_cents = wallets.balance_cents + $3
-      `, [req.user!.id, vault.currency, vault.balance_cents]);
+        ON CONFLICT (user_id, currency)
+        DO UPDATE SET balance_cents = wallets.balance_cents + $3, updated_at = NOW()
+      `, [userId, row.currency, balanceCents]);
 
-      await client.query(`DELETE FROM savings_vaults WHERE id = $1`, [id]);
-    });
-  } else {
-    await query(`DELETE FROM savings_vaults WHERE id = $1`, [id]);
+      // Bookkeeping entry for the returned funds, atomic with the credit.
+      await client.query(`
+        INSERT INTO transactions (user_id, type, status, amount_cents, currency, description, metadata)
+        VALUES ($1, 'transfer_in', 'SUCCESS', $2, $3, 'Savings vault closed', $4)
+      `, [userId, balanceCents, row.currency, JSON.stringify({ vaultId: id })]);
+    }
+
+    return row;
+  });
+
+  if (!claimed) {
+    throw new AppError('Vault not found', 404, 'NOT_FOUND');
   }
 
   res.json({ success: true, message: 'Vault deleted, balance returned to wallet' });

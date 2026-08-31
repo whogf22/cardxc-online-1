@@ -113,13 +113,15 @@ export async function createCheckoutSession(
     },
     customer_email: userEmail,
     return_url: returnUrl,
-    // 3DS2 and high success rate configuration
+    // 3DS / SCA is left to Stripe: 'automatic' triggers 3D Secure only when the
+    // issuer requires it or Radar's risk signals warrant a step-up, rather than
+    // forcing a challenge on every payment ('any'). This is the Stripe-native,
+    // risk-based behavior. We do NOT set setup_future_usage here: a wallet
+    // top-up is a one-time payment and must not silently create an off-session
+    // mandate to reuse the card later.
     payment_method_options: {
       card: {
-        // Enable 3DS2 authentication
-        request_three_d_secure: 'any',
-        // Store card for future use
-        setup_future_usage: 'off_session',
+        request_three_d_secure: 'automatic',
       },
     } as any,
   });
