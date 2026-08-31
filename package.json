@@ -59,7 +59,7 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "tailwindcss": "^3.4.17",
-    "tronweb": "^6.2.0",
+    "tronweb": "^6.5.0",
     "tsx": "^4.21.0",
     "unplugin-auto-import": "^21.0.0",
     "uuid": "^13.0.0",
