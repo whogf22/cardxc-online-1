@@ -143,4 +143,45 @@ describe('sumsub user routes', () => {
     expect(res.status).toBe(403);
     expect(res.body?.error?.code).toBe('KYC_FINAL_REJECTION');
   });
+
+  it('POST /api/user/kyc/token does not move a fresh user to pending when storing the applicant mapping', async () => {
+    mockUserRecord = {
+      id: 'user-1',
+      email: 'user@test.com',
+      phone: null,
+      kyc_status: 'not_started',
+      kyc_rejection_reason: null,
+      sumsub_applicant_id: null,
+      sumsub_inspection_id: null,
+    };
+    mockQueryOne.mockResolvedValue(mockUserRecord);
+
+    const res = await request(app).post('/api/user/kyc/token');
+    expect(res.status).toBe(200);
+
+    const updateCalls = mockQuery.mock.calls.filter(
+      (call) => typeof call[0] === 'string' && call[0].includes('UPDATE users')
+    );
+    expect(updateCalls).toHaveLength(1);
+    const [updateSql] = updateCalls[0];
+    expect(updateSql).not.toMatch(/kyc_status/);
+    expect(updateSql).toMatch(/sumsub_applicant_id\s*=\s*\$1/);
+  });
+
+  it('POST /api/user/kyc/token allows RETRY rejections to request a new token', async () => {
+    mockUserRecord = {
+      id: 'user-1',
+      email: 'user@test.com',
+      phone: null,
+      kyc_status: 'rejected',
+      kyc_rejection_reason: 'RETRY: GRAPHIC_EDITOR',
+      sumsub_applicant_id: 'app-1',
+      sumsub_inspection_id: 'insp-1',
+    };
+    mockQueryOne.mockResolvedValue(mockUserRecord);
+
+    const res = await request(app).post('/api/user/kyc/token');
+    expect(res.status).toBe(200);
+    expect(res.body.data.token).toBe('sdk-token-1');
+  });
 });

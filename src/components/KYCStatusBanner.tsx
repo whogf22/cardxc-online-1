@@ -18,16 +18,20 @@ export function KYCStatusBanner({ onUploadClick }: KYCStatusBannerProps) {
 
   if (context.kyc_status === 'approved') return null;
 
+  const hasSumsubApplicant = !!context.sumsub_applicant_id;
+
   const baseConfig = {
     not_started: {
-      icon: 'ri-shield-check-line',
+      icon: hasSumsubApplicant ? 'ri-restart-line' : 'ri-shield-check-line',
       bgColor: 'bg-gradient-to-r from-violet-500/10 to-indigo-500/10',
       borderColor: 'border-violet-500/30',
       textColor: 'text-white',
       iconColor: 'text-violet-400',
-      title: 'Verify Your Identity',
-      message: 'Financial regulations require us to confirm who you are before you can send, withdraw, or use virtual cards. Your documents are processed securely by our verification partner.',
-      buttonText: 'Start Verification',
+      title: hasSumsubApplicant ? 'Resume Identity Verification' : 'Verify Your Identity',
+      message: hasSumsubApplicant
+        ? 'You started verification but did not finish. Continue where you left off to unlock all features.'
+        : 'Financial regulations require us to confirm who you are before you can send, withdraw, or use virtual cards. Your documents are processed securely by our verification partner.',
+      buttonText: hasSumsubApplicant ? 'Continue Verification' : 'Start Verification',
       showButton: true,
     },
     pending: {

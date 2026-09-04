@@ -182,10 +182,15 @@ describe('sumsubService', () => {
       expect(sumsub.mapSumsubStatus('applicantReviewed', 'RED')).toBe('rejected');
     });
 
-    it('maps intermediate events to pending', () => {
-      for (const event of ['applicantCreated', 'applicantPending', 'applicantPrechecked', 'applicantOnHold', 'applicantPersonalInfoChanged']) {
+    it('maps review-submission events to pending', () => {
+      for (const event of ['applicantPending', 'applicantPrechecked', 'applicantOnHold']) {
         expect(sumsub.mapSumsubStatus(event)).toBe('pending');
       }
+    });
+
+    it('does not treat applicantCreated or applicantPersonalInfoChanged as a status change', () => {
+      expect(sumsub.mapSumsubStatus('applicantCreated')).toBeNull();
+      expect(sumsub.mapSumsubStatus('applicantPersonalInfoChanged')).toBeNull();
     });
 
     it('returns null for unknown event types', () => {

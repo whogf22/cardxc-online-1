@@ -154,8 +154,8 @@ router.post('/signin',
     }
 
     const user = await queryOne<any>(`
-      SELECT id, email, password_hash, full_name, role, account_status, kyc_status, locked_until, 
-             failed_login_attempts, two_factor_enabled
+      SELECT id, email, password_hash, full_name, role, account_status, kyc_status, locked_until,
+             failed_login_attempts, two_factor_enabled, sumsub_applicant_id
       FROM users WHERE email = $1
     `, [email]);
 
@@ -260,6 +260,7 @@ router.post('/signin',
           role: user.role,
           kyc_status: (user.kyc_status || 'not_started').toLowerCase(),
           account_status: (user.account_status || 'active').toLowerCase(),
+          sumsub_applicant_id: user.sumsub_applicant_id || null,
         },
         token,
       }
@@ -328,7 +329,7 @@ router.get('/session', asyncHandler(async (req: Request, res: Response) => {
     }
     
     const user = await queryOne<any>(`
-      SELECT id, email, full_name, role, kyc_status, kyc_rejection_reason, account_status
+      SELECT id, email, full_name, role, kyc_status, kyc_rejection_reason, account_status, sumsub_applicant_id
       FROM users WHERE id = $1
     `, [decoded.userId]);
 
@@ -353,6 +354,7 @@ router.get('/session', asyncHandler(async (req: Request, res: Response) => {
       kyc_status: user.kyc_status,
       kyc_rejection_type: kycRejectionType,
       account_status: user.account_status,
+      sumsub_applicant_id: user.sumsub_applicant_id || null,
     };
 
     res.json({ success: true, data: { user: safeUser } });

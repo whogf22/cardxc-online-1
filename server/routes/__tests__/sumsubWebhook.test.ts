@@ -297,6 +297,81 @@ describe('Sumsub webhook handler', () => {
     });
   });
 
+  describe('lifecycle event mapping', () => {
+    it('applicantCreated does not move a not_started user to pending', async () => {
+      const payload = {
+        type: 'applicantCreated',
+        applicantId: 'app-1',
+        externalUserId: 'user-1',
+        inspectionId: 'insp-1',
+      };
+      const signature = signPayload(payload, process.env.SUMSUB_WEBHOOK_SECRET as string);
+
+      mockQueryOne.mockResolvedValueOnce(null); // dedupe check
+
+      const res = await request(app)
+        .post('/api/webhooks/sumsub')
+        .set('Content-Type', 'application/json')
+        .set('x-payload-digest', signature)
+        .set('x-payload-digest-alg', 'HMAC_SHA256_HEX')
+        .send(payload);
+
+      expect(res.status).toBe(200);
+
+      const cteCalls = mockQueryOne.mock.calls.filter((call) =>
+        (call[0] as string).includes('WITH inserted AS')
+      );
+      expect(cteCalls).toHaveLength(0);
+    });
+
+    it('applicantPending transitions a not_started user to pending', async () => {
+      const payload = { type: 'applicantPending', applicantId: 'app-1', externalUserId: 'user-1', inspectionId: 'insp-1' };
+      const signature = signPayload(payload, process.env.SUMSUB_WEBHOOK_SECRET as string);
+
+      mockQueryOne
+        .mockResolvedValueOnce(null) // dedupe check
+        .mockResolvedValueOnce({ id: 'user-1', kyc_status: 'not_started', sumsub_applicant_id: null }) // resolve by externalUserId
+        .mockResolvedValueOnce(null) // conflict check: no other user owns app-1
+        .mockResolvedValueOnce({ id: 'user-1' }); // CTE update succeeded
+
+      const res = await request(app)
+        .post('/api/webhooks/sumsub')
+        .set('Content-Type', 'application/json')
+        .set('x-payload-digest', signature)
+        .set('x-payload-digest-alg', 'HMAC_SHA256_HEX')
+        .send(payload);
+
+      expect(res.status).toBe(200);
+
+      const cteCall = mockQueryOne.mock.calls.find((call) => (call[0] as string).includes('WITH inserted AS'));
+      expect(cteCall).toBeTruthy();
+      expect(cteCall?.[1]).toEqual(expect.arrayContaining(['pending', 'app-1', 'insp-1', 'user-1']));
+    });
+
+    it('applicantOnHold keeps the user under review (pending)', async () => {
+      const payload = { type: 'applicantOnHold', applicantId: 'app-1', externalUserId: 'user-1', inspectionId: 'insp-1' };
+      const signature = signPayload(payload, process.env.SUMSUB_WEBHOOK_SECRET as string);
+
+      mockQueryOne
+        .mockResolvedValueOnce(null) // dedupe check
+        .mockResolvedValueOnce({ id: 'user-1', kyc_status: 'pending', sumsub_applicant_id: 'app-1' }) // resolve by externalUserId
+        .mockResolvedValueOnce({ id: 'user-1' }); // CTE update succeeded
+
+      const res = await request(app)
+        .post('/api/webhooks/sumsub')
+        .set('Content-Type', 'application/json')
+        .set('x-payload-digest', signature)
+        .set('x-payload-digest-alg', 'HMAC_SHA256_HEX')
+        .send(payload);
+
+      expect(res.status).toBe(200);
+
+      const cteCall = mockQueryOne.mock.calls.find((call) => (call[0] as string).includes('WITH inserted AS'));
+      expect(cteCall).toBeTruthy();
+      expect(cteCall?.[1]).toEqual(expect.arrayContaining(['pending', 'app-1', 'insp-1', 'user-1']));
+    });
+  });
+
   describe('review outcome mapping', () => {
     it('updates user to approved on GREEN review', async () => {
       const payload = { ...basePayload, reviewResult: { reviewAnswer: 'GREEN' } };
@@ -349,6 +424,36 @@ describe('Sumsub webhook handler', () => {
       const cteCall = mockQueryOne.mock.calls.find((call) => (call[0] as string).includes('WITH inserted AS'));
       expect(cteCall).toBeTruthy();
       expect(cteCall?.[1]).toEqual(expect.arrayContaining(['rejected', 'FINAL: GRAPHIC_EDITOR, FORGERY']));
+    });
+
+    it('records RETRY reject type so the user can request another token', async () => {
+      const payload = {
+        ...basePayload,
+        reviewResult: {
+          reviewAnswer: 'RED',
+          reviewRejectType: 'RETRY',
+          rejectLabels: ['GRAPHIC_EDITOR'],
+        },
+      };
+      const signature = signPayload(payload, process.env.SUMSUB_WEBHOOK_SECRET as string);
+
+      mockQueryOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 'user-1', kyc_status: 'pending', sumsub_applicant_id: 'app-1' })
+        .mockResolvedValueOnce({ id: 'user-1' });
+
+      const res = await request(app)
+        .post('/api/webhooks/sumsub')
+        .set('Content-Type', 'application/json')
+        .set('x-payload-digest', signature)
+        .set('x-payload-digest-alg', 'HMAC_SHA256_HEX')
+        .send(payload);
+
+      expect(res.status).toBe(200);
+
+      const cteCall = mockQueryOne.mock.calls.find((call) => (call[0] as string).includes('WITH inserted AS'));
+      expect(cteCall).toBeTruthy();
+      expect(cteCall?.[1]).toEqual(expect.arrayContaining(['rejected', 'RETRY: GRAPHIC_EDITOR']));
     });
   });
 });

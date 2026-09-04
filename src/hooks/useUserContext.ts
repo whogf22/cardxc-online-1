@@ -31,6 +31,7 @@ export function useUserContext() {
       country: null,
       kyc_status: kycStatus,
       kyc_rejection_type: user.kyc_rejection_type,
+      sumsub_applicant_id: user.sumsub_applicant_id || null,
       account_status: accountStatus,
       is_admin: user.role === 'SUPER_ADMIN' || false,
       balances: [],

@@ -259,11 +259,14 @@ export function verifyWebhookSignature(rawBody: Buffer, headers: Record<string, 
  */
 export function mapSumsubStatus(eventType: string, reviewAnswer?: 'GREEN' | 'RED'): string | null {
   switch (eventType) {
+    // Creating an applicant or editing personal info before submission must
+    // not itself move the user into "under review".
     case 'applicantCreated':
+    case 'applicantPersonalInfoChanged':
+      return null;
     case 'applicantPending':
     case 'applicantPrechecked':
     case 'applicantOnHold':
-    case 'applicantPersonalInfoChanged':
       return 'pending';
     case 'applicantReviewed':
     case 'applicantWorkflowCompleted':

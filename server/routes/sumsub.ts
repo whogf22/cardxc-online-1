@@ -75,13 +75,14 @@ router.post('/kyc/token', sensitiveOpLimiter, asyncHandler(async (req: Authentic
   );
 
   // Persist applicant metadata the first time we see it or if it changes.
+  // Do NOT change kyc_status here: creating an applicant or generating a
+  // token does not mean the user has submitted documents for review.
   if (applicant.id !== user.sumsub_applicant_id || applicant.inspectionId !== user.sumsub_inspection_id) {
     await query(
       `UPDATE users
        SET sumsub_applicant_id = $1,
            sumsub_inspection_id = $2,
            kyc_provider = 'sumsub',
-           kyc_status = CASE WHEN kyc_status = 'not_started' THEN 'pending' ELSE kyc_status END,
            updated_at = NOW()
        WHERE id = $3`,
       [applicant.id, applicant.inspectionId, user.id]

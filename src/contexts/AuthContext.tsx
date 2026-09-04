@@ -14,6 +14,7 @@ export interface User {
   kyc_status?: string;
   kyc_rejection_type?: 'FINAL' | 'RETRY' | null;
   account_status?: string;
+  sumsub_applicant_id?: string | null;
   profile_picture?: string;
   user_metadata?: {
     full_name?: string;
@@ -96,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             kyc_status: kycStatus,
             kyc_rejection_type: user.kyc_rejection_type,
             account_status: accountStatus,
+            sumsub_applicant_id: user.sumsub_applicant_id || null,
             user_metadata: { full_name: user.full_name, phone: user.phone },
           },
           role,
@@ -190,6 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             role: user.role,
             kyc_status: kycStatus,
             account_status: accountStatus,
+            sumsub_applicant_id: user.sumsub_applicant_id || null,
             user_metadata: { full_name: user.fullName },
           },
           role,
@@ -236,6 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             role: user.role,
             kyc_status: kycStatus,
             account_status: accountStatus,
+            sumsub_applicant_id: user.sumsub_applicant_id || null,
             user_metadata: { full_name: user.fullName },
           },
           role: 'customer',
