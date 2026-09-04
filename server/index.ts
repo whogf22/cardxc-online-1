@@ -119,14 +119,19 @@ app.use(helmet({
       // bootstrap in dev and any third-party embeds) to nonce-based CSP so
       // 'unsafe-inline' can be dropped. 'unsafe-eval' is removed because no
       // current script path requires eval().
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.googleapis.com", "https://js.stripe.com", "https://static.sumsub.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.googleapis.com", "https://js.stripe.com", "https://static.sumsub.com", "https://t.whop.tw"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
       fontSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.gstatic.com", "https://cdn.fontshare.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "https://api.exchangerate-api.com", "https://api.stripe.com", "https://hooks.stripe.com", "https://api.sumsub.com", "https://*.sumsub.com", "wss://cardxc.online", "wss://www.cardxc.online", "ws://localhost:5000", "ws://localhost:5173"],
+      connectSrc: ["'self'", "https://api.cardxc.online", "wss://api.cardxc.online", "https://api.exchangerate-api.com", "https://api.stripe.com", "https://hooks.stripe.com", "https://api.sumsub.com", "https://*.sumsub.com", "https://*.supabase.co", "wss://*.supabase.co", "wss://cardxc.online", "wss://www.cardxc.online", "ws://localhost:5000", "ws://localhost:5173", "https://t.whop.tw", "https://auth.privy.io", "wss://relay.walletconnect.com", "wss://relay.walletconnect.org", "wss://www.walletlink.org", "https://*.rpc.privy.systems", "https://explorer-api.walletconnect.com"],
       workerSrc: ["'self'", "blob:"],
-      frameSrc: ["https://js.stripe.com", "https://hooks.stripe.com", "https://*.sumsub.com"],
+      frameSrc: ["'self'", "https://js.stripe.com", "https://checkout.stripe.com", "https://hooks.stripe.com", "https://*.sumsub.com", "https://auth.privy.io", "https://verify.walletconnect.com", "https://verify.walletconnect.org"],
+      childSrc: ["https://auth.privy.io", "https://verify.walletconnect.com", "https://verify.walletconnect.org"],
       objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+      manifestSrc: ["'self'"],
       upgradeInsecureRequests: isProduction ? [] : null,
     },
   },
