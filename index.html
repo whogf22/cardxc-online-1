@@ -12,7 +12,7 @@
          'unsafe-inline' on script-src is kept only for JSON-LD <script> blocks
          and inline onload handlers. Tighten at the edge with a per-request
          nonce once the CDN layer supports it. -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://static.sumsub.com; style-src 'self' 'unsafe-inline' https://api.fontshare.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: https:; font-src 'self' data: https://api.fontshare.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; connect-src 'self' https://api.cardxc.online https://api.sumsub.com https://*.sumsub.com https://*.supabase.co wss://*.supabase.co; frame-src 'self' https://js.stripe.com https://checkout.stripe.com https://*.sumsub.com; object-src 'none'; base-uri 'self'; form-action 'self';" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://static.sumsub.com https://t.whop.tw; style-src 'self' 'unsafe-inline' https://api.fontshare.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: https:; font-src 'self' data: https://api.fontshare.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; connect-src 'self' https://api.cardxc.online https://api.sumsub.com https://*.sumsub.com https://*.supabase.co wss://*.supabase.co https://t.whop.tw; frame-src 'self' https://js.stripe.com https://checkout.stripe.com https://*.sumsub.com; object-src 'none'; base-uri 'self'; form-action 'self';" />
 
     <!-- Primary Meta Tags -->
     <title>CardXC — Send Money Worldwide & Buy Gift Cards</title>
@@ -186,6 +186,9 @@
       ]
     }
     </script>
+
+    <!-- Whop Pixel -->
+    <script>!function(w,d,s,u,n,a,b){if(w[n])return;a=w[n]={q:[],t:+new Date,s:[],o:u,track:function(){a.q.push([+new Date].concat([].slice.call(arguments)))},setScope:function(){a.s=[].slice.call(arguments).filter(function(x){return typeof x==="string"});a.q.push([+new Date,"setScope"].concat(a.s))},scope:function(){var c=[].slice.call(arguments);return{track:function(){a.q.push([+new Date].concat([].slice.call(arguments)).concat([{__scope:c}]))}}}};b=d.createElement(s);b.async=1;b.src=u+"/s.js";d.getElementsByTagName(s)[0].parentNode.insertBefore(b,d.getElementsByTagName(s)[0])}(window,document,"script","https://t.whop.tw","whop");whop.setScope("biz_GenbvttXUewWHh");whop.track("page");</script>
   </head>
   <body style="background-color:#030303;color:#fff;">
     <div id="root" style="background-color:#030303;min-height:100vh;"></div>
