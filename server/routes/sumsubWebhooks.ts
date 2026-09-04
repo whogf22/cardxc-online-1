@@ -87,6 +87,100 @@ function buildDedupeKey(payload: sumsub.SumsubWebhookPayload): string {
   return parts.filter((p): p is string | number => p !== undefined).join(':');
 }
 
+interface WebhookUser {
+  id: string;
+  kyc_status: string;
+  sumsub_applicant_id: string | null;
+}
+
+/**
+ * Deterministically resolve the CardXC user a verified Sumsub webhook is
+ * about. Fail-closed: if the identifiers disagree, no user is returned and
+ * no state may be mutated.
+ *
+ * Rules:
+ * 1. payload.externalUserId is authoritative when present — never fall back
+ *    to another user's applicantId if it is missing or wrong.
+ * 2. If externalUserId is present and the resolved user's applicantId does
+ *    not match payload.applicantId, reject.
+ * 3. If the resolved user has no applicantId yet and payload.applicantId is
+ *    present, allow a one-time first-webhook binding only when no other user
+ *    already owns that applicantId (guarded by the UNIQUE constraint too).
+ * 4. Only when externalUserId is absent may we look up by applicantId.
+ */
+async function resolveWebhookUser(payload: sumsub.SumsubWebhookPayload): Promise<WebhookUser | null> {
+  const externalUserId = payload.externalUserId || null;
+  const applicantId = payload.applicantId || null;
+
+  if (externalUserId) {
+    const user = await queryOne<WebhookUser>(
+      'SELECT id, kyc_status, sumsub_applicant_id FROM users WHERE id = $1',
+      [externalUserId]
+    );
+
+    if (!user) {
+      logger.warn('Sumsub webhook: externalUserId not found', {
+        externalUserId,
+        applicantId,
+        type: payload.type,
+      });
+      return null;
+    }
+
+    if (applicantId) {
+      if (user.sumsub_applicant_id && user.sumsub_applicant_id !== applicantId) {
+        logger.warn('Sumsub webhook: applicantId does not match the user binding', {
+          externalUserId,
+          applicantId,
+          existingApplicantId: user.sumsub_applicant_id,
+          type: payload.type,
+        });
+        return null;
+      }
+
+      if (!user.sumsub_applicant_id) {
+        // First-webhook binding: verify the applicantId is not already bound
+        // to a different user. The UNIQUE constraint is the final guard, but
+        // resolving up front lets us skip safely instead of throwing.
+        const other = await queryOne<{ id: string }>(
+          'SELECT id FROM users WHERE sumsub_applicant_id = $1 AND id <> $2',
+          [applicantId, externalUserId]
+        );
+        if (other) {
+          logger.warn('Sumsub webhook: applicantId already bound to another user', {
+            externalUserId,
+            applicantId,
+            otherUserId: other.id,
+            type: payload.type,
+          });
+          return null;
+        }
+      }
+    }
+
+    return user;
+  }
+
+  if (applicantId) {
+    const user = await queryOne<WebhookUser>(
+      'SELECT id, kyc_status, sumsub_applicant_id FROM users WHERE sumsub_applicant_id = $1',
+      [applicantId]
+    );
+
+    if (!user) {
+      logger.warn('Sumsub webhook: applicantId not found', {
+        applicantId,
+        type: payload.type,
+      });
+      return null;
+    }
+
+    return user;
+  }
+
+  return null;
+}
+
 async function processWebhookEvent(payload: sumsub.SumsubWebhookPayload): Promise<void> {
   const newStatus = sumsub.mapSumsubStatus(payload.type, payload.reviewResult?.reviewAnswer);
   if (!newStatus) {
@@ -121,19 +215,8 @@ async function processWebhookEvent(payload: sumsub.SumsubWebhookPayload): Promis
     return;
   }
 
-  const user = await queryOne<{ id: string; kyc_status: string; sumsub_applicant_id: string | null }>(
-    `SELECT id, kyc_status, sumsub_applicant_id
-     FROM users
-     WHERE id = $1 OR sumsub_applicant_id = $2
-     LIMIT 1`,
-    [payload.externalUserId || null, payload.applicantId || null]
-  );
-
+  const user = await resolveWebhookUser(payload);
   if (!user) {
-    logger.warn('Sumsub webhook: user not found', {
-      externalUserId: payload.externalUserId,
-      applicantId: payload.applicantId,
-    });
     return;
   }
 
