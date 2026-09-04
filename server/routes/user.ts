@@ -52,6 +52,7 @@ router.get('/profile', asyncHandler(async (req: AuthenticatedRequest, res: Respo
              ELSE 'RETRY'
            END AS kyc_rejection_type,
            account_status,
+           sumsub_applicant_id IS NOT NULL AS has_sumsub_applicant,
            two_factor_enabled, created_at, updated_at
     FROM users WHERE id = $1
   `, [req.user!.id]);

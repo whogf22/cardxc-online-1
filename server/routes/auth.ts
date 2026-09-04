@@ -260,7 +260,7 @@ router.post('/signin',
           role: user.role,
           kyc_status: (user.kyc_status || 'not_started').toLowerCase(),
           account_status: (user.account_status || 'active').toLowerCase(),
-          sumsub_applicant_id: user.sumsub_applicant_id || null,
+          has_sumsub_applicant: Boolean(user.sumsub_applicant_id),
         },
         token,
       }
@@ -354,7 +354,7 @@ router.get('/session', asyncHandler(async (req: Request, res: Response) => {
       kyc_status: user.kyc_status,
       kyc_rejection_type: kycRejectionType,
       account_status: user.account_status,
-      sumsub_applicant_id: user.sumsub_applicant_id || null,
+      has_sumsub_applicant: Boolean(user.sumsub_applicant_id),
     };
 
     res.json({ success: true, data: { user: safeUser } });

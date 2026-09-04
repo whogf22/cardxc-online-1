@@ -18,7 +18,7 @@ export function KYCStatusBanner({ onUploadClick }: KYCStatusBannerProps) {
 
   if (context.kyc_status === 'approved') return null;
 
-  const hasSumsubApplicant = !!context.sumsub_applicant_id;
+  const hasSumsubApplicant = context.has_sumsub_applicant;
 
   const baseConfig = {
     not_started: {
