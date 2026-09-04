@@ -107,6 +107,9 @@ describe('CSP policy regression guard', () => {
   });
 
   it('enforces base directives in every source', () => {
+    // These must match exactly to avoid accidental weakening.
+    const exactOnly = new Set(['default-src', 'object-src', 'base-uri', 'form-action', 'frame-ancestors']);
+
     for (const [sourceName, directives] of Object.entries(sources)) {
       for (const [directive, expected] of requiredBase.entries()) {
         if (sourceName === 'index.html' && directive === 'frame-ancestors') {
@@ -115,8 +118,13 @@ describe('CSP policy regression guard', () => {
         }
         const values = directives.get(directive);
         expect(values, `${sourceName} ${directive} must be defined`).toBeDefined();
-        for (const value of expected) {
-          expect(values, `${sourceName} ${directive} must include ${value}`).toContain(value);
+        if (exactOnly.has(directive)) {
+          const actual = new Set(values!);
+          expect(actual, `${sourceName} ${directive} must be exactly ${JSON.stringify(expected)}`).toEqual(new Set(expected));
+        } else {
+          for (const value of expected) {
+            expect(values, `${sourceName} ${directive} must include ${value}`).toContain(value);
+          }
         }
       }
     }
