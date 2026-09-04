@@ -15,10 +15,11 @@ import PlatformTransferModal from './components/PlatformTransferModal';
 import { DashboardSkeleton } from '../../components/SkeletonLoader';
 import { KYCStatusBanner } from '../../components/KYCStatusBanner';
 import { KYCDocumentUpload } from '../../components/KYCDocumentUpload';
+import { SumsubKYC } from '../../components/SumsubKYC';
 
 export default function Dashboard() {
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user, refreshAuth } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -31,6 +32,7 @@ export default function Dashboard() {
   const [showPlatformTransferModal, setShowPlatformTransferModal] = useState(false);
   const [showKYCModal, setShowKYCModal] = useState(false);
   const [showBalance, setShowBalance] = useState(true);
+  const [kycConfig, setKycConfig] = useState<{ enabled: boolean; levelName: string | null; manualFallback: boolean } | null>(null);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   const calculateBalance = () => {
@@ -95,6 +97,14 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadDashboardData();
+  }, []);
+
+  useEffect(() => {
+    userApi.getKycConfig().then((result) => {
+      if (result.success && result.data) {
+        setKycConfig(result.data);
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -253,13 +263,24 @@ export default function Dashboard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowKYCModal(false)} />
           <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl">
-            <KYCDocumentUpload
-              onComplete={() => {
-                setShowKYCModal(false);
-                loadDashboardData();
-              }}
-              onClose={() => setShowKYCModal(false)}
-            />
+            {kycConfig?.enabled ? (
+              <SumsubKYC
+                onComplete={() => {
+                  setShowKYCModal(false);
+                  refreshAuth();
+                  loadDashboardData();
+                }}
+                onClose={() => setShowKYCModal(false)}
+              />
+            ) : (
+              <KYCDocumentUpload
+                onComplete={() => {
+                  setShowKYCModal(false);
+                  loadDashboardData();
+                }}
+                onClose={() => setShowKYCModal(false)}
+              />
+            )}
           </div>
         </div>
       )}

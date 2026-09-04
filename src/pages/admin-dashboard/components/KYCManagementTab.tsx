@@ -268,15 +268,6 @@ export default function KYCManagementTab() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex gap-2">
-                          {user.kyc_status !== 'approved' && (
-                            <button
-                              onClick={() => handleUpdateKYCStatus(user.id, 'approved')}
-                              disabled={updating === user.id}
-                              className="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-lg text-sm font-medium transition-all disabled:opacity-50 cursor-pointer border border-emerald-500/30"
-                            >
-                              {updating === user.id ? '...' : 'Approve'}
-                            </button>
-                          )}
                           {user.kyc_status !== 'rejected' && (
                             <button
                               onClick={() => handleUpdateKYCStatus(user.id, 'rejected')}

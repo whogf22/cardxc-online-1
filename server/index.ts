@@ -32,6 +32,8 @@ import { cardsRouter } from './routes/cards';
 import { savingsRouter } from './routes/savings';
 import { rewardsRouter } from './routes/rewards';
 import { cardCheckoutRouter, paymentWebhookRouter, paymentAdminRouter } from './routes/cardCheckout';
+import { sumsubRouter } from './routes/sumsub';
+import { sumsubWebhookRouter } from './routes/sumsubWebhooks';
 import { legalRouter } from './routes/legal';
 import { supportRouter } from './routes/support';
 import { giftCardsRouter } from './routes/giftCards';
@@ -117,13 +119,13 @@ app.use(helmet({
       // bootstrap in dev and any third-party embeds) to nonce-based CSP so
       // 'unsafe-inline' can be dropped. 'unsafe-eval' is removed because no
       // current script path requires eval().
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.googleapis.com", "https://js.stripe.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.googleapis.com", "https://js.stripe.com", "https://static.sumsub.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
       fontSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.gstatic.com", "https://cdn.fontshare.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "https://api.exchangerate-api.com", "https://api.stripe.com", "https://hooks.stripe.com", "wss://cardxc.online", "wss://www.cardxc.online", "ws://localhost:5000", "ws://localhost:5173"],
+      connectSrc: ["'self'", "https://api.exchangerate-api.com", "https://api.stripe.com", "https://hooks.stripe.com", "https://api.sumsub.com", "https://*.sumsub.com", "wss://cardxc.online", "wss://www.cardxc.online", "ws://localhost:5000", "ws://localhost:5173"],
       workerSrc: ["'self'", "blob:"],
-      frameSrc: ["https://js.stripe.com", "https://hooks.stripe.com"],
+      frameSrc: ["https://js.stripe.com", "https://hooks.stripe.com", "https://*.sumsub.com"],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: isProduction ? [] : null,
     },
@@ -158,11 +160,24 @@ app.use(cors({
   credentials: true,
 }));
 
-// Body parsing: raw for payment webhook (signature verification), JSON for all other requests
+// Body parsing: raw for webhooks (signature verification), JSON for all other requests
 app.use((req, res, next) => {
   const webhookPath = req.method === 'POST' ? req.originalUrl?.split('?')[0] : '';
   const isPaymentWebhook = webhookPath === '/api/webhooks/payment';
   const isStripeWebhook = webhookPath === '/api/webhooks/stripe';
+  const isSumsubWebhook = webhookPath === '/api/webhooks/sumsub';
+
+  if (isSumsubWebhook) {
+    // Sumsub webhook signatures cover the raw wire payload; do not JSON-parse
+    // before verification. The route handler will parse after the signature check.
+    return express.raw({ type: 'application/json', limit: '100kb' })(req, res, (err: Error) => {
+      if (err) return next(err);
+      const raw = req.body as Buffer;
+      (req as express.Request & { rawBody?: Buffer }).rawBody = raw;
+      next();
+    });
+  }
+
   if (isPaymentWebhook || isStripeWebhook) {
     return express.raw({ type: 'application/json', limit: '100kb' })(req, res, (err: Error) => {
       if (err) return next(err);
@@ -176,6 +191,7 @@ app.use((req, res, next) => {
       next();
     });
   }
+
   return express.json({
     limit: '50kb',
     strict: true,
@@ -301,6 +317,7 @@ app.use((req, res, next) => {
   });
 });
 app.use('/api/auth', authRouter);
+app.use('/api/user', sumsubRouter);
 app.use('/api/user', userRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/transactions', transactionRouter);
@@ -312,11 +329,12 @@ app.use('/api/rewards', rewardsRouter);
 app.use('/api/checkout', cardCheckoutRouter);
 app.use((req, res, next) => {
   const path = req.method === 'POST' ? req.originalUrl?.split('?')[0] : '';
-  if (path === '/api/webhooks/payment' || path === '/api/webhooks/stripe') {
+  if (path === '/api/webhooks/payment' || path === '/api/webhooks/stripe' || path === '/api/webhooks/sumsub') {
     return webhookLimiter(req, res, next);
   }
   next();
 });
+app.use('/api/webhooks', sumsubWebhookRouter);
 app.use('/api/webhooks', paymentWebhookRouter);
 app.use('/api/super-admin/payments', paymentAdminRouter);
 app.use('/api/legal', legalRouter);

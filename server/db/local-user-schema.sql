@@ -14,7 +14,12 @@ CREATE TABLE IF NOT EXISTS users (
   phone VARCHAR(50),
   country VARCHAR(100),
   role VARCHAR(20) DEFAULT 'USER' CHECK (role IN ('USER', 'SUPER_ADMIN')),
-  kyc_status VARCHAR(20) DEFAULT 'pending' CHECK (kyc_status IN ('pending', 'approved', 'rejected', 'expired')),
+  kyc_status VARCHAR(20) DEFAULT 'not_started' CHECK (kyc_status IN ('not_started', 'pending', 'approved', 'rejected', 'expired')),
+  kyc_provider VARCHAR(20) DEFAULT 'manual' CHECK (kyc_provider IN ('manual', 'sumsub')),
+  sumsub_applicant_id TEXT UNIQUE,
+  sumsub_inspection_id TEXT,
+  sumsub_level_name TEXT,
+  kyc_rejection_reason TEXT,
   account_status VARCHAR(20) DEFAULT 'active' CHECK (account_status IN ('active', 'limited', 'suspended', 'closed')),
   email_verified BOOLEAN DEFAULT FALSE,
   two_factor_enabled BOOLEAN DEFAULT FALSE,
@@ -134,6 +139,21 @@ CREATE TABLE IF NOT EXISTS virtual_cards (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 9. Sumsub webhook events (idempotency and audit)
+CREATE TABLE IF NOT EXISTS sumsub_webhook_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  external_user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  applicant_id TEXT,
+  inspection_id TEXT,
+  event_type VARCHAR(50) NOT NULL,
+  dedupe_key TEXT UNIQUE NOT NULL,
+  payload JSONB NOT NULL,
+  processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_sumsub_webhook_events_dedupe_key ON sumsub_webhook_events(dedupe_key);
+CREATE INDEX IF NOT EXISTS idx_sumsub_webhook_events_user_id ON sumsub_webhook_events(external_user_id);
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);

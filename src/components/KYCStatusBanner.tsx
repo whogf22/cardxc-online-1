@@ -4,8 +4,12 @@ interface KYCStatusBannerProps {
   onUploadClick?: () => void;
 }
 
+function isFinalRejection(type: 'FINAL' | 'RETRY' | null | undefined): boolean {
+  return type === 'FINAL';
+}
+
 export function KYCStatusBanner({ onUploadClick }: KYCStatusBannerProps) {
-  const { context, loading } = useUserContext() as any;
+  const { context, loading } = useUserContext();
 
   if (loading || !context) return null;
 
@@ -14,7 +18,7 @@ export function KYCStatusBanner({ onUploadClick }: KYCStatusBannerProps) {
 
   if (context.kyc_status === 'approved') return null;
 
-  const statusConfig = {
+  const baseConfig = {
     not_started: {
       icon: 'ri-shield-check-line',
       bgColor: 'bg-gradient-to-r from-violet-500/10 to-indigo-500/10',
@@ -22,7 +26,7 @@ export function KYCStatusBanner({ onUploadClick }: KYCStatusBannerProps) {
       textColor: 'text-white',
       iconColor: 'text-violet-400',
       title: 'Verify Your Identity',
-      message: 'Financial regulations require us to confirm who you are before you can send, withdraw, or use virtual cards. Your documents are encrypted and only used for verification.',
+      message: 'Financial regulations require us to confirm who you are before you can send, withdraw, or use virtual cards. Your documents are processed securely by our verification partner.',
       buttonText: 'Start Verification',
       showButton: true,
     },
@@ -33,7 +37,7 @@ export function KYCStatusBanner({ onUploadClick }: KYCStatusBannerProps) {
       textColor: 'text-white',
       iconColor: 'text-blue-400',
       title: 'Verification In Progress',
-      message: 'Your documents are under review. We will notify you by email once verification is complete.',
+      message: 'Your verification is being reviewed. We will notify you by email once it is complete.',
       buttonText: '',
       showButton: false,
     },
@@ -44,8 +48,8 @@ export function KYCStatusBanner({ onUploadClick }: KYCStatusBannerProps) {
       textColor: 'text-white',
       iconColor: 'text-red-400',
       title: 'Verification Rejected',
-      message: 'We could not approve your documents. Please check the reason provided, then upload a clearer photo or a different document.',
-      buttonText: 'Resubmit Documents',
+      message: 'We could not approve your verification. Please review the feedback and resubmit if prompted.',
+      buttonText: 'Resubmit Verification',
       showButton: true,
     },
     expired: {
@@ -55,14 +59,21 @@ export function KYCStatusBanner({ onUploadClick }: KYCStatusBannerProps) {
       textColor: 'text-white',
       iconColor: 'text-amber-400',
       title: 'Verification Expired',
-      message: 'Your verification has expired. Please update your documents to continue using all features.',
-      buttonText: 'Update Documents',
+      message: 'Your verification has expired. Please resubmit to continue using all features.',
+      buttonText: 'Restart Verification',
       showButton: true,
     },
   };
 
-  const config = statusConfig[context.kyc_status as keyof typeof statusConfig];
+  const config = { ...baseConfig[context.kyc_status as keyof typeof baseConfig] };
   if (!config) return null;
+
+  // Final rejections from the provider cannot be retried.
+  if (context.kyc_status === 'rejected' && isFinalRejection(context.kyc_rejection_type)) {
+    config.message = 'Your verification was rejected and cannot be retried through the automated flow. Please contact support for assistance.';
+    config.buttonText = '';
+    config.showButton = false;
+  }
 
   return (
     <div className={`${config.bgColor} border ${config.borderColor} rounded-2xl p-4 mb-6 backdrop-blur-sm`}>
@@ -78,7 +89,7 @@ export function KYCStatusBanner({ onUploadClick }: KYCStatusBannerProps) {
             {config.message}
           </p>
           {config.showButton && onUploadClick && (
-            <button 
+            <button
               onClick={onUploadClick}
               className="px-4 py-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-lg text-xs font-medium transition-all duration-200 shadow-lg shadow-violet-500/20"
             >

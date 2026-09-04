@@ -200,6 +200,16 @@ export const userApi = {
     return request<{ user: any }>('/user/profile');
   },
 
+  async getKycConfig() {
+    return request<{ enabled: boolean; levelName: string | null; manualFallback: boolean }>('/user/kyc/config');
+  },
+
+  async getSumsubKycToken() {
+    return request<{ token: string; applicantId: string; levelName: string }>('/user/kyc/token', {
+      method: 'POST',
+    });
+  },
+
   async updateProfile(data: { fullName?: string; phone?: string; country?: string }) {
     return request('/user/profile', {
       method: 'PUT',

@@ -30,6 +30,7 @@ export function useUserContext() {
       phone: user.user_metadata?.phone || null,
       country: null,
       kyc_status: kycStatus,
+      kyc_rejection_type: user.kyc_rejection_type,
       account_status: accountStatus,
       is_admin: user.role === 'SUPER_ADMIN' || false,
       balances: [],

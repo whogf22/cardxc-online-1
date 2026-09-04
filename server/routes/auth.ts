@@ -328,7 +328,7 @@ router.get('/session', asyncHandler(async (req: Request, res: Response) => {
     }
     
     const user = await queryOne<any>(`
-      SELECT id, email, full_name, role, kyc_status, account_status
+      SELECT id, email, full_name, role, kyc_status, kyc_rejection_reason, account_status
       FROM users WHERE id = $1
     `, [decoded.userId]);
 
@@ -339,12 +339,19 @@ router.get('/session', asyncHandler(async (req: Request, res: Response) => {
 
     // Return only non-sensitive fields; never expose two_factor_enabled,
     // password_hash, two_factor_secret, or other internal metadata.
+    // kyc_rejection_reason may contain provider labels; expose only the
+    // high-level retry/final type to the client.
+    const kycRejectionType = typeof user.kyc_rejection_reason === 'string'
+      ? (user.kyc_rejection_reason.toUpperCase().startsWith('FINAL') ? 'FINAL' : 'RETRY')
+      : null;
+
     const safeUser = {
       id: user.id,
       email: user.email,
       full_name: user.full_name,
       role: user.role,
       kyc_status: user.kyc_status,
+      kyc_rejection_type: kycRejectionType,
       account_status: user.account_status,
     };
 

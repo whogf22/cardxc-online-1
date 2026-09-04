@@ -67,6 +67,7 @@ export interface UserContext {
   phone: string | null;
   country: string | null;
   kyc_status: KYCStatus;
+  kyc_rejection_type?: 'FINAL' | 'RETRY' | null;
   account_status: AccountState;
   is_admin: boolean;
   balances: Array<{

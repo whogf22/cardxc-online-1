@@ -40,6 +40,11 @@ export async function initializeDatabase() {
     await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS postal_code VARCHAR(20)`);
     await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP`);
     await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS login_count INTEGER DEFAULT 0`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS kyc_provider VARCHAR(20) DEFAULT 'manual' CHECK (kyc_provider IN ('manual', 'sumsub'))`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS sumsub_applicant_id TEXT UNIQUE`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS sumsub_inspection_id TEXT`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS sumsub_level_name TEXT`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS kyc_rejection_reason TEXT`);
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS sessions (
@@ -752,6 +757,22 @@ export async function initializeDatabase() {
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_kyc_documents_user_id ON kyc_documents(user_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_kyc_documents_status ON kyc_documents(status)`);
+
+    // Sumsub webhook events (idempotency and audit)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sumsub_webhook_events (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        external_user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        applicant_id TEXT,
+        inspection_id TEXT,
+        event_type VARCHAR(50) NOT NULL,
+        dedupe_key TEXT UNIQUE NOT NULL,
+        payload JSONB NOT NULL,
+        processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_sumsub_webhook_events_dedupe_key ON sumsub_webhook_events(dedupe_key)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_sumsub_webhook_events_user_id ON sumsub_webhook_events(external_user_id)`);
 
     // Alter existing users with 'pending' kyc_status to 'not_started' if they have no KYC documents
     await client.query(`

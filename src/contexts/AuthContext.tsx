@@ -12,6 +12,7 @@ export interface User {
   full_name?: string;
   role?: string;
   kyc_status?: string;
+  kyc_rejection_type?: 'FINAL' | 'RETRY' | null;
   account_status?: string;
   profile_picture?: string;
   user_metadata?: {
@@ -93,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             full_name: user.full_name,
             role: user.role,
             kyc_status: kycStatus,
+            kyc_rejection_type: user.kyc_rejection_type,
             account_status: accountStatus,
             user_metadata: { full_name: user.full_name, phone: user.phone },
           },

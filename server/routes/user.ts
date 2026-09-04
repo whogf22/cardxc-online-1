@@ -1,4 +1,4 @@
-import { Router, Response } from 'express';
+import { Router, Response, Request, NextFunction } from 'express';
 import { body, validationResult } from 'express-validator';
 import { query, queryOne, transaction } from '../db/pool';
 import { AppError, asyncHandler } from '../middleware/errorHandler';
@@ -7,6 +7,7 @@ import { apiLimiter, sensitiveOpLimiter, financialOpLimiter } from '../middlewar
 import { createAuditLog } from '../services/auditService';
 import { runFraudChecks } from '../services/fraudService';
 import { logger } from '../middleware/logger';
+import * as sumsub from '../services/sumsubService';
 import * as fluzApi from '../services/fluzApi';
 import { v4 as uuidv4 } from 'uuid';
 import multer from 'multer';
@@ -44,7 +45,13 @@ router.use(apiLimiter);
 
 router.get('/profile', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const user = await queryOne(`
-    SELECT id, email, full_name, phone, country, role, kyc_status, account_status, 
+    SELECT id, email, full_name, phone, country, role, kyc_status,
+           CASE
+             WHEN kyc_rejection_reason IS NULL THEN NULL
+             WHEN kyc_rejection_reason ILIKE 'FINAL%' THEN 'FINAL'
+             ELSE 'RETRY'
+           END AS kyc_rejection_type,
+           account_status,
            two_factor_enabled, created_at, updated_at
     FROM users WHERE id = $1
   `, [req.user!.id]);
@@ -360,9 +367,21 @@ router.post('/cards',
   })
 );
 
-// KYC Document Upload
+// KYC Document Upload (legacy manual flow)
 router.post('/kyc/upload',
   sensitiveOpLimiter,
+  (req, res, next) => {
+    if (sumsub.isEnabled()) {
+      return res.status(410).json({
+        success: false,
+        error: {
+          message: 'Manual document upload is no longer supported. Please use the identity verification flow.',
+          code: 'MANUAL_KYC_DEPRECATED',
+        },
+      });
+    }
+    next();
+  },
   kycUpload.single('document'),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     if (!req.file) {

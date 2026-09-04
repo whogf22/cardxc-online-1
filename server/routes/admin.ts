@@ -363,25 +363,52 @@ router.get('/my-activity', asyncHandler(async (req: AuthenticatedRequest, res: R
 }));
 
 router.put('/users/:userId/kyc-status',
-  body('status').isIn(['not_started', 'pending', 'approved', 'rejected']),
+  body('status').isIn(['not_started', 'pending', 'rejected', 'expired']),
+  body('reason').optional().trim(),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { userId } = req.params;
-    const { status } = req.body;
+    const { status, reason } = req.body;
 
-    const user = await queryOne<any>('SELECT email, kyc_status FROM users WHERE id = $1', [userId]);
+    const user = await queryOne<{ kyc_status: string; kyc_provider: string | null }>(
+      'SELECT kyc_status, kyc_provider FROM users WHERE id = $1',
+      [userId]
+    );
     if (!user) {
       throw new AppError('User not found', 404, 'USER_NOT_FOUND');
     }
 
-    await query('UPDATE users SET kyc_status = $1, updated_at = NOW() WHERE id = $2', [status, userId]);
+    // KYC approval must come only from the authenticated Sumsub provider
+    // via webhooks. Admin actions may reset, reject, or expire, but never
+    // approve.
+    if (status === 'approved') {
+      throw new AppError('KYC approval can only be set by the Sumsub provider', 403, 'KYC_APPROVE_FORBIDDEN');
+    }
+
+    // Manual admin overrides take over from the provider until the next
+    // provider-synchronized event. A future Sumsub webhook can still update
+    // the status because webhooks remain the authoritative source of truth.
+    await query(
+      `UPDATE users
+       SET kyc_status = $1,
+           kyc_provider = 'manual',
+           kyc_rejection_reason = $2,
+           updated_at = NOW()
+       WHERE id = $3`,
+      [status, reason || null, userId]
+    );
 
     await createAuditLog({
       userId: req.user!.id,
       action: 'KYC_STATUS_CHANGED',
       entityType: 'user',
       entityId: userId as string,
-      oldValues: { kyc_status: user.kyc_status },
-      newValues: { kyc_status: status },
+      oldValues: { kyc_status: user.kyc_status, kyc_provider: user.kyc_provider },
+      newValues: {
+        kyc_status: status,
+        kyc_provider: 'manual',
+        reason: reason || null,
+        source: 'admin_override',
+      },
     });
 
     res.json({ success: true, message: 'KYC status updated' });
