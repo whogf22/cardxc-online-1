@@ -351,6 +351,13 @@ export default function SignInPage() {
                   </button>
                 </>
               )}
+
+              <div className="mt-6 p-4 bg-white/5 rounded-xl border border-white/10 flex items-start gap-3">
+                <i className="ri-shield-check-line text-lime-400 mt-0.5"></i>
+                <p className="text-xs text-neutral-400 leading-relaxed">
+                  Your sign-in is protected by an encrypted connection and optional two-factor authentication.
+                </p>
+              </div>
             </div>
           </div>
 

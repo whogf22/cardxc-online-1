@@ -1,36 +1,54 @@
+import TrustBadge from '../../../components/TrustBadge';
+
 const badges = [
-  { icon: 'ri-shield-check-fill', title: 'Bank-Grade Encryption', description: 'TLS/SSL encryption protects your data in transit' },
-  { icon: 'ri-lock-fill', title: 'PCI DSS Processing', description: 'Payments processed by a PCI DSS Level 1 certified provider' },
-  { icon: 'ri-fingerprint-fill', title: '2FA Protection', description: 'Two-factor authentication available on all accounts' },
-  { icon: 'ri-eye-off-fill', title: '24/7 Monitoring', description: 'Ongoing fraud detection and prevention' }
+  {
+    icon: 'ri-shield-check-fill',
+    title: 'TLS 1.3 Encryption',
+    description: 'Your data is protected in transit with modern encryption.',
+  },
+  {
+    icon: 'ri-lock-fill',
+    title: 'PCI-Compliant Payments',
+    description: 'Card payments are handled by PCI DSS certified infrastructure, so your card details stay off our servers.',
+  },
+  {
+    icon: 'ri-fingerprint-fill',
+    title: '2FA Protection',
+    description: 'Add an extra layer of security to your account with two-factor authentication.',
+  },
+  {
+    icon: 'ri-eye-off-fill',
+    title: '24/7 Fraud Monitoring',
+    description: 'Automated risk detection and manual review for suspicious activity.',
+  },
 ];
 
 export default function TrustSection() {
   return (
-    <section className="py-24 bg-[#030303]">
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="text-center mb-14">
+    <section className="py-16 sm:py-24 bg-[#030303] w-full overflow-x-hidden">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 w-full">
+        <div className="text-center mb-12 sm:mb-14">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/[0.08] rounded-full border border-emerald-500/20 mb-6">
             <i className="ri-shield-check-fill text-emerald-400 text-sm"></i>
             <span className="text-emerald-400 text-xs font-semibold uppercase tracking-wider">Security</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4 tracking-tight">
+          <h2 className="text-2xl sm:text-4xl lg:text-5xl font-bold text-white mb-4 tracking-tight">
             Security You Can Rely On
           </h2>
-          <p className="text-lg text-neutral-400 max-w-xl mx-auto">
-            Enterprise-grade security for your peace of mind
+          <p className="text-base sm:text-lg text-neutral-400 max-w-xl mx-auto">
+            Transparent protections for your money and data.
           </p>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
           {badges.map((badge, index) => (
-            <div key={index} className="text-center p-6 bg-[#0d0d0d] rounded-2xl border border-white/[0.06] hover:border-emerald-500/20 transition-colors group">
-              <div className="w-14 h-14 mx-auto mb-4 bg-emerald-500/[0.08] rounded-xl flex items-center justify-center border border-emerald-500/10 group-hover:border-emerald-500/20 group-hover:shadow-[0_0_20px_rgba(16,185,129,0.15)] transition-all">
-                <i className={`${badge.icon} text-2xl text-emerald-400`}></i>
-              </div>
-              <h3 className="text-base font-semibold text-white mb-2">{badge.title}</h3>
-              <p className="text-sm text-neutral-400 leading-relaxed">{badge.description}</p>
-            </div>
+            <TrustBadge
+              key={index}
+              icon={badge.icon}
+              title={badge.title}
+              description={badge.description}
+              variant="emerald"
+            />
           ))}
         </div>
       </div>

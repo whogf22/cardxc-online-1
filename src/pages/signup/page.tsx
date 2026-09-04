@@ -239,6 +239,13 @@ export default function SignUpPage() {
             </button>
           </form>
 
+          <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-100 flex items-start gap-3">
+            <i className="ri-shield-check-line text-emerald-600 mt-0.5"></i>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Your information is encrypted in transit with TLS 1.3. CardXC never stores card details on our servers.
+            </p>
+          </div>
+
           {googleOAuthAvailable && import.meta.env.VITE_ALLOW_THIRD_PARTY_REDIRECTS === 'true' && (
             <>
               <div className="relative my-8">

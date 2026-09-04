@@ -176,8 +176,7 @@ export function KYCDocumentUpload({ onComplete, onClose }: KYCDocumentUploadProp
         </div>
         <h3 className="text-xl font-bold text-white mb-2">Documents Submitted!</h3>
         <p className="text-gray-400 mb-6">
-          Your KYC documents have been submitted for review. This usually takes 24-48 hours.
-          You will be notified once your verification is complete.
+          Your documents are now under review. We'll notify you by email once your verification is complete.
         </p>
         <button
           onClick={onClose}
@@ -195,7 +194,7 @@ export function KYCDocumentUpload({ onComplete, onClose }: KYCDocumentUploadProp
       <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-white">Identity Verification</h2>
-          <p className="text-sm text-gray-400">Upload documents to verify your identity</p>
+          <p className="text-sm text-gray-400">Upload documents to verify your identity. Files are encrypted and only used for KYC review.</p>
         </div>
         {onClose && (
           <button aria-label="Close"

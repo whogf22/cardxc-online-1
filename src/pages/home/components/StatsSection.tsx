@@ -5,7 +5,7 @@ export default function StatsSection() {
     { value: 'Encrypted', label: 'Data', icon: 'ri-shield-check-fill' },
     { value: '24/7', label: 'Support', icon: 'ri-customer-service-fill' },
     { value: 'Transparent', label: 'Fees', icon: 'ri-money-dollar-circle-fill' },
-    { value: 'Instant', label: 'Transfers', icon: 'ri-flashlight-fill' }
+    { value: '5', label: 'Currencies', icon: 'ri-global-line' }
   ];
 
   return (

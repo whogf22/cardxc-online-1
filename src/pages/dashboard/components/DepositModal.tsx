@@ -276,6 +276,12 @@ export default function DepositModal({ isOpen, onClose, onSuccess, userId: _user
 
               <div>
                 <label className="block text-sm font-bold text-slate-900 mb-3">Select Deposit Method</label>
+                <div className="p-3 mb-3 bg-emerald-50/50 border border-emerald-100 rounded-xl">
+                  <p className="text-xs text-slate-600 flex items-start gap-2">
+                    <i className="ri-shield-check-line text-emerald-600 mt-0.5"></i>
+                    <span>Your card details are entered on Stripe's secure checkout. CardXC never stores card numbers.</span>
+                  </p>
+                </div>
                 <div className="space-y-3">
                   <button
                     onClick={handleSelectCard}
@@ -287,7 +293,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess, userId: _user
                     </div>
                     <div className="flex-1 text-left">
                       <p className="font-bold text-slate-900">Card Deposit</p>
-                      <p className="text-xs text-slate-500">Credit & Debit Cards - Instant</p>
+                      <p className="text-xs text-slate-500">Credit & debit cards via Stripe</p>
                     </div>
                     {isProcessing ? (
                       <i className="ri-loader-4-line text-2xl text-emerald-600 animate-spin"></i>

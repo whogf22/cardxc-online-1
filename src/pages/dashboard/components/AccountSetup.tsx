@@ -19,15 +19,15 @@ export default function AccountSetup({ profile }: AccountSetupProps) {
       color: 'blue',
     },
     {
-      title: 'Add Payment Method',
-      description: 'Link your bank account',
+      title: 'Add Money',
+      description: 'Make your first secure deposit by card or crypto',
       completed: false,
       icon: 'ri-bank-card-line',
       color: 'purple',
     },
     {
       title: 'Enable 2FA',
-      description: 'Secure your account',
+      description: 'Add an extra verification step to protect your account',
       completed: false,
       icon: 'ri-shield-check-line',
       color: 'orange',

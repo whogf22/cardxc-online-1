@@ -7,7 +7,7 @@ const features = [
     title: "Money Transfer",
     description: "Send money internationally with competitive exchange rates",
     details:
-      "Transfer money to friends and family. Enjoy competitive exchange rates, low fees, and fast delivery. Track your transfers in real-time and get notifications when money is received.",
+      "Transfer money to friends and family. Enjoy competitive exchange rates and transparent fees. Track your transfers in real-time and get notifications when money is received.",
     gradient: "from-lime-500 to-emerald-500",
     bgTint: "bg-lime-500/[0.08]",
     borderTint: "border-lime-500/20",
@@ -19,7 +19,7 @@ const features = [
     title: "Virtual Cards",
     description: "Create virtual cards for secure online shopping",
     details:
-      "Generate instant virtual cards for any online purchase. Set spending limits, freeze cards anytime, and enjoy complete control. Perfect for subscriptions, one-time purchases, and secure transactions.",
+      "Create virtual cards for secure online purchases. Set spending limits, freeze cards anytime, and keep control of your spending.",
     gradient: "from-cyan-500 to-blue-500",
     bgTint: "bg-cyan-500/[0.08]",
     borderTint: "border-cyan-500/20",
@@ -31,7 +31,7 @@ const features = [
     title: "Gift Cards",
     description: "Buy and send gift cards from popular brands",
     details:
-      "Choose from popular brands including Amazon, Netflix, Spotify, and more. Send gift cards instantly. Perfect for birthdays, holidays, or any special occasion.",
+      "Choose from popular brands including Amazon, Netflix, Spotify, and more. Digital gift cards delivered to your wallet. Perfect for birthdays, holidays, or any special occasion.",
     gradient: "from-amber-500 to-orange-500",
     bgTint: "bg-amber-500/[0.08]",
     borderTint: "border-amber-500/20",

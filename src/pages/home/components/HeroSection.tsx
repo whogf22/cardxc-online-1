@@ -36,7 +36,7 @@ export default function HeroSection() {
           <div className="space-y-8 max-w-2xl text-center">
             <div className="inline-flex items-center gap-2 bg-lime-500/[0.1] px-4 py-2 rounded-full border border-lime-500/25 animate-fade-in-up">
               <div className="w-2 h-2 bg-lime-400 rounded-full animate-pulse"></div>
-              <span className="text-xs font-semibold text-lime-400 uppercase tracking-wider">Send & Earn</span>
+              <span className="text-xs font-semibold text-lime-400 uppercase tracking-wider">Global Payments & Gift Cards</span>
             </div>
 
             <div className="space-y-5 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
@@ -46,7 +46,7 @@ export default function HeroSection() {
                 <span className="bg-gradient-to-r from-lime-400 via-lime-300 to-emerald-400 bg-clip-text text-transparent">Worldwide.</span>
               </h1>
               <p className="text-base sm:text-lg text-neutral-400 max-w-md mx-auto leading-relaxed">
-                Send money globally, buy gift cards from top brands, and manage it all in one place. Fast, secure, and built for you.
+                Hold USD, EUR, GBP, NGN, and BDT in one wallet. Send money, buy gift cards, and manage it all securely.
               </p>
             </div>
 
@@ -55,7 +55,7 @@ export default function HeroSection() {
                 onClick={() => navigate('/signup')}
                 className="group px-6 sm:px-8 py-3.5 sm:py-4 bg-white text-black font-bold rounded-xl hover:bg-neutral-100 transition-all shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] text-[14px] sm:text-[15px]"
               >
-                Sign up for CardXC
+                Create Free Account
                 <i className="ri-arrow-right-line ml-2 group-hover:translate-x-1 transition-transform inline-block"></i>
               </button>
               <button
@@ -66,15 +66,19 @@ export default function HeroSection() {
               </button>
             </div>
 
-            <div className="flex items-center justify-center gap-8 pt-2 animate-fade-in-up" style={{ animationDelay: '0.35s' }}>
+            <p className="text-xs text-neutral-500 max-w-md mx-auto animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
+              Card details are never stored. Payments processed by Stripe.
+            </p>
+
+            <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 pt-2 animate-fade-in-up" style={{ animationDelay: '0.35s' }}>
               {[
-                { value: 'Encrypted', label: 'Secure' },
-                { value: '24/7', label: 'Support' },
-                { value: 'Instant', label: 'Transfers' }
+                { value: 'Encrypted', label: 'TLS 1.3' },
+                { value: '2FA', label: 'Protection' },
+                { value: '24/7', label: 'Support' }
               ].map((stat, i) => (
-                <div key={i} className="flex items-center gap-8">
-                  {i > 0 && <div className="w-px h-8 bg-white/[0.08] -ml-8"></div>}
-                  <div>
+                <div key={i} className="flex items-center gap-6 sm:gap-8">
+                  {i > 0 && <div className="hidden sm:block w-px h-8 bg-white/[0.08] -ml-6 sm:-ml-8"></div>}
+                  <div className="text-center sm:text-left">
                     <div className="text-xl font-bold text-white">{stat.value}</div>
                     <div className="text-xs text-neutral-500 uppercase tracking-wider">{stat.label}</div>
                   </div>
