@@ -419,8 +419,12 @@ async function startServer() {
       logger.error('Database initialization failed - Starting in OFFLINE MODE:', dbError);
     }
 
-    initBackgroundJobs();
-    logger.info('Background jobs initialized');
+    if (process.env.DISABLE_BACKGROUND_JOBS === 'true') {
+      logger.info('Background jobs disabled by configuration');
+    } else {
+      initBackgroundJobs();
+      logger.info('Background jobs initialized');
+    }
 
     // Create HTTP server and attach Socket.IO for real-time features
     const httpServer = http.createServer(app);

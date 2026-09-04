@@ -55,7 +55,7 @@ npm run db:seed      # Seed local users
 - Schema SQL: `DATABASE_SETUP.sql` (full), `server/db/local-user-schema.sql` (local)
 - API routes mounted under `/api/` prefix
 - Cloudflare Workers config: `wrangler.jsonc` (SPA mode with nodejs_compat)
-- Environment variables in `.env` (DATABASE_URL, JWT_SECRET, SESSION_SECRET)
+- Environment variables in `.env` (DATABASE_URL, JWT_SECRET, SESSION_SECRET, DISABLE_BACKGROUND_JOBS)
 
 ## Testing
 - Framework: Vitest (config: `vitest.config.ts`)
