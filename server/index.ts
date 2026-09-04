@@ -121,7 +121,7 @@ app.use(helmet({
       // current script path requires eval().
       scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.googleapis.com", "https://js.stripe.com", "https://static.sumsub.com", "https://t.whop.tw"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
-      fontSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://fonts.gstatic.com", "https://cdn.fontshare.com"],
+      fontSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://api.fontshare.com", "https://cdn.fontshare.com", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
       connectSrc: ["'self'", "https://api.cardxc.online", "wss://api.cardxc.online", "https://api.exchangerate-api.com", "https://api.stripe.com", "https://hooks.stripe.com", "https://api.sumsub.com", "https://*.sumsub.com", "https://*.supabase.co", "wss://*.supabase.co", "wss://cardxc.online", "wss://www.cardxc.online", "ws://localhost:5000", "ws://localhost:5173", "https://t.whop.tw", "https://auth.privy.io", "wss://relay.walletconnect.com", "wss://relay.walletconnect.org", "wss://www.walletlink.org", "https://*.rpc.privy.systems", "https://explorer-api.walletconnect.com"],
       workerSrc: ["'self'", "blob:"],
