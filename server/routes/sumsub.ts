@@ -110,7 +110,6 @@ router.post('/kyc/token', sensitiveOpLimiter, asyncHandler(async (req: Authentic
     success: true,
     data: {
       token: accessToken.token,
-      applicantId: applicant.id,
       levelName: process.env.SUMSUB_LEVEL_NAME,
     },
   });

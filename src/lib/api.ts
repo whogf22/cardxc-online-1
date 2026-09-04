@@ -205,7 +205,7 @@ export const userApi = {
   },
 
   async getSumsubKycToken() {
-    return request<{ token: string; applicantId: string; levelName: string }>('/user/kyc/token', {
+    return request<{ token: string; levelName: string }>('/user/kyc/token', {
       method: 'POST',
     });
   },
