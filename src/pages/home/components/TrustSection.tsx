@@ -1,8 +1,8 @@
 const badges = [
-  { icon: 'ri-shield-check-fill', title: 'Bank-Level Security', description: '256-bit SSL encryption protects all your data' },
-  { icon: 'ri-lock-fill', title: 'PCI Compliant', description: 'Level 1 PCI DSS certified payment processing' },
-  { icon: 'ri-fingerprint-fill', title: '2FA Protection', description: 'Two-factor authentication on all accounts' },
-  { icon: 'ri-eye-off-fill', title: '24/7 Monitoring', description: 'Real-time fraud detection and prevention' }
+  { icon: 'ri-shield-check-fill', title: 'Bank-Grade Encryption', description: 'TLS/SSL encryption protects your data in transit' },
+  { icon: 'ri-lock-fill', title: 'PCI DSS Processing', description: 'Payments processed by a PCI DSS Level 1 certified provider' },
+  { icon: 'ri-fingerprint-fill', title: '2FA Protection', description: 'Two-factor authentication available on all accounts' },
+  { icon: 'ri-eye-off-fill', title: '24/7 Monitoring', description: 'Ongoing fraud detection and prevention' }
 ];
 
 export default function TrustSection() {
@@ -15,7 +15,7 @@ export default function TrustSection() {
             <span className="text-emerald-400 text-xs font-semibold uppercase tracking-wider">Security</span>
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4 tracking-tight">
-            Your Money is Safe
+            Security You Can Rely On
           </h2>
           <p className="text-lg text-neutral-400 max-w-xl mx-auto">
             Enterprise-grade security for your peace of mind

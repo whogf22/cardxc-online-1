@@ -160,7 +160,7 @@ export default function CalculatorSection() {
                 <div className="space-y-4 sm:space-y-6 p-6 rounded-2xl bg-dark-card border border-dark-border opacity-60">
                   <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
                     <i className="ri-bank-line text-neutral-500"></i>
-                    Traditional Banks
+                    Typical Bank (example)
                   </h3>
                   <div className="space-y-3 sm:space-y-4">
                     <div className="flex items-center justify-between">
@@ -187,13 +187,19 @@ export default function CalculatorSection() {
                     <i className="ri-money-dollar-circle-line text-2xl sm:text-3xl text-success-400"></i>
                     <div className="text-center sm:text-left">
                       <span className="text-success-400 font-bold text-lg sm:text-xl">
-                        You save {fromCurrency === 'USD' ? '$' : '₦'}{savings.toFixed(2)}
+                        Estimated saving of {fromCurrency === 'USD' ? '$' : '₦'}{savings.toFixed(2)}
                       </span>
-                      <span className="text-success-400/80 ml-2">compared to traditional banks</span>
+                      <span className="text-success-400/80 ml-2">vs a typical bank in this example</span>
                     </div>
                   </div>
                 </div>
               )}
+              <p className="mt-4 text-xs text-neutral-500 text-center leading-relaxed">
+                Illustrative example only. The comparison assumes a representative bank fee of 4%
+                and an exchange rate approximately 5% less favorable than CardXC. Actual bank fees
+                and exchange rates vary by provider, currency, and amount. This is not a guarantee
+                of savings.
+              </p>
             </div>
           </div>
         </div>

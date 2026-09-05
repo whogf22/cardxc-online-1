@@ -26,9 +26,9 @@ export default function AboutSection() {
             <div className="w-14 h-14 bg-gradient-to-br from-success-500 to-success-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
               <i className="ri-shield-check-line text-white text-2xl"></i>
             </div>
-            <h3 className="text-xl font-bold text-white mb-3">Bank-Level Security</h3>
+            <h3 className="text-xl font-bold text-white mb-3">Bank-Grade Security</h3>
             <p className="text-neutral-400 leading-relaxed">
-              Your funds are protected with enterprise-grade encryption, multi-factor authentication, and 24/7 fraud monitoring.
+              Your account is protected with enterprise-grade encryption, multi-factor authentication, and 24/7 fraud monitoring.
             </p>
           </div>
 

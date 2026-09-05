@@ -11,7 +11,7 @@ const faqs = [
   },
   {
     q: 'Is my money secure?',
-    a: 'Yes. We use 256-bit SSL encryption, two-factor authentication, and 24/7 fraud monitoring. Your funds are protected with bank-level security.'
+    a: 'Yes. We use TLS/SSL encryption, two-factor authentication, and 24/7 fraud monitoring. Your account is protected with bank-grade security.'
   },
   {
     q: 'Which countries do you support?',
@@ -19,7 +19,7 @@ const faqs = [
   },
   {
     q: 'How do I get started?',
-    a: 'Sign up with your email, verify your account, add funds to your wallet, then send money or buy gift cards. No paperwork required to start.'
+    a: 'Sign up with your email, verify your account, add funds to your wallet, then send money or buy gift cards. Identity verification may be required to unlock full features.'
   }
 ];
 

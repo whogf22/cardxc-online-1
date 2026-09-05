@@ -1,38 +1,21 @@
-export const testimonials = [
-  {
-    name: 'David M.',
-    location: 'New York, USA',
-    review: 'CardXC has transformed how I manage my international payments. The virtual cards are perfect for online subscriptions and the rates are excellent.',
-    image: '/images/testimonials/person-1.jpg',
-  },
-  {
-    name: 'Sarah K.',
-    location: 'London, UK',
-    review: 'Fast, secure, and reliable. I use CardXC for all my business expenses abroad. The mobile app makes everything so convenient.',
-    image: '/images/testimonials/person-2.jpg',
-  },
-  {
-    name: 'Michael T.',
-    location: 'Toronto, Canada',
-    review: 'Finally a payment platform that understands what modern users need. Clean interface, instant transfers, and great customer support.',
-    image: '/images/testimonials/person-3.jpg',
-  },
-  {
-    name: 'Emma L.',
-    location: 'Sydney, Australia',
-    review: 'The virtual card feature is a game-changer for managing subscriptions. I love the spending controls and real-time notifications.',
-    image: '/images/testimonials/person-4.jpg',
-  },
-  {
-    name: 'James R.',
-    location: 'Singapore',
-    review: 'Professional service with competitive rates. CardXC makes international payments simple and stress-free. Highly recommended!',
-    image: '/images/testimonials/person-5.jpg',
-  },
-  {
-    name: 'Lisa C.',
-    location: 'Dubai, UAE',
-    review: 'Excellent platform for digital payments. The security features give me peace of mind when making online purchases.',
-    image: '/images/testimonials/person-6.jpg',
-  },
-];
+/**
+ * Customer testimonials.
+ *
+ * COMPLIANCE: Testimonials must be genuine, verifiable, and used with the
+ * customer's consent. Fabricated or unsubstantiated reviews violate the FTC Act
+ * (15 U.S.C. 45) and the FTC Rule on the Use of Consumer Reviews and Testimonials
+ * (16 CFR Part 465).
+ *
+ * This array is intentionally empty until real, consented testimonials are
+ * collected. Do NOT add invented names, photos, quotes, or ratings.
+ * [BUSINESS: supply real customer testimonials with written consent before enabling.]
+ */
+
+export interface Testimonial {
+  name: string;
+  location: string;
+  review: string;
+  image?: string;
+}
+
+export const testimonials: Testimonial[] = [];

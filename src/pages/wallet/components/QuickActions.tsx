@@ -59,7 +59,7 @@ export default function QuickActions({ onDeposit, onWithdraw }: QuickActionsProp
           </div>
           <div>
             <p className="text-sm font-semibold text-white mb-1">Secure & Protected</p>
-            <p className="text-xs text-neutral-400">Your funds are protected with bank-level security and encryption.</p>
+            <p className="text-xs text-neutral-400">Your account is protected with bank-grade security and encryption.</p>
           </div>
         </div>
       </div>

@@ -1,5 +1,7 @@
 // Web Vitals tracking - tracks Core Web Vitals for performance monitoring
 
+import { hasAnalyticsConsent, onConsentChange } from './consent';
+
 interface WebVitalsMetric {
   name: string;
   value: number;
@@ -11,6 +13,11 @@ interface WebVitalsMetric {
 function reportWebVitals(metric: WebVitalsMetric): void {
   if (!import.meta.env.PROD) {
     console.log('[Web Vitals]', metric.name, metric.value, metric.rating);
+    return;
+  }
+
+  // Web Vitals reporting is non-essential; only send it with user consent.
+  if (!hasAnalyticsConsent()) {
     return;
   }
 
@@ -32,10 +39,13 @@ function reportWebVitals(metric: WebVitalsMetric): void {
   }
 }
 
-export function initWebVitals(): void {
-  if (!import.meta.env.PROD) {
+let started = false;
+
+function startCollecting(): void {
+  if (started) {
     return;
   }
+  started = true;
 
   import('web-vitals').then((webVitals) => {
     if (webVitals.onCLS) webVitals.onCLS(reportWebVitals);
@@ -46,4 +56,22 @@ export function initWebVitals(): void {
   }).catch(() => {
     // Silently fail if web-vitals not available
   });
+}
+
+export function initWebVitals(): void {
+  if (!import.meta.env.PROD) {
+    return;
+  }
+
+  // Only begin collecting once the user has consented. If they consent later,
+  // start collecting at that point.
+  if (hasAnalyticsConsent()) {
+    startCollecting();
+  } else {
+    onConsentChange((value) => {
+      if (value === 'accepted') {
+        startCollecting();
+      }
+    });
+  }
 }

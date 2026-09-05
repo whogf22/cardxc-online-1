@@ -1,8 +1,15 @@
-// Analytics tracking - only sends data in production mode
+// Analytics tracking - only sends data in production mode AND with user consent
+
+import { hasAnalyticsConsent } from './consent';
 
 export function trackEvent(eventName: string, properties?: Record<string, any>): void {
   if (!import.meta.env.PROD) {
     console.log('[Analytics]', eventName, properties);
+    return;
+  }
+
+  // Do not send analytics unless the user has consented to non-essential tracking.
+  if (!hasAnalyticsConsent()) {
     return;
   }
 

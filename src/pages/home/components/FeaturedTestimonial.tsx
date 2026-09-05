@@ -1,5 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 
+/**
+ * Featured customer testimonial.
+ *
+ * COMPLIANCE: This component previously rendered a fabricated quote attributed to
+ * a stock-photo "customer." Invented endorsements violate the FTC Act (15 U.S.C. 45)
+ * and 16 CFR Part 465. It now renders nothing until a genuine, consented testimonial
+ * is supplied.
+ * [BUSINESS: provide a real, consented featured testimonial (quote + attribution) to enable.]
+ */
+
+// Populate only with a genuine, consented testimonial. Leave null to hide the section.
+const featured: { quote: string; name: string; role: string; image?: string } | null = null;
+
 export default function FeaturedTestimonial() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
@@ -21,6 +34,10 @@ export default function FeaturedTestimonial() {
 
     return () => observer.disconnect();
   }, []);
+
+  if (!featured) {
+    return null;
+  }
 
   return (
     <section id="testimonials" className="relative py-24 bg-dark-card border-y border-dark-border overflow-hidden" ref={sectionRef}>
@@ -44,20 +61,22 @@ export default function FeaturedTestimonial() {
               <div className="absolute -right-4 -top-4 w-24 h-24 bg-lime-400/10 rounded-2xl -z-10 transform rotate-6 border border-dark-border"></div>
 
               <p className="text-lg md:text-xl text-neutral-300 leading-relaxed mb-8">
-                I recently used CardXC to manage my international payments, and I was genuinely impressed by how efficient the entire process was. CardXC delivered exactly what it promised, and did so in a way that made the entire experience smooth and efficient. It's clear that a lot of thought has gone into building a system that respects both the user's time and expectations.
+                {featured.quote}
               </p>
 
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-full overflow-hidden ring-2 ring-lime-400/30">
-                  <img
-                    src="/images/testimonials/featured-person.jpg"
-                    alt="Sarah M."
-                    className="w-full h-full object-cover"
-                  />
-                </div>
+                {featured.image && (
+                  <div className="w-14 h-14 rounded-full overflow-hidden ring-2 ring-lime-400/30">
+                    <img
+                      src={featured.image}
+                      alt={featured.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
                 <div>
-                  <div className="text-white font-semibold text-lg">Sarah M.</div>
-                  <div className="text-neutral-400">CardXC User</div>
+                  <div className="text-white font-semibold text-lg">{featured.name}</div>
+                  <div className="text-neutral-400">{featured.role}</div>
                 </div>
               </div>
             </div>

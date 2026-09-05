@@ -2,9 +2,9 @@ import { AnimateOnScroll } from '../../../components/AnimateOnScroll';
 
 export default function StatsSection() {
   const stats = [
-    { value: '100%', label: 'Secure', icon: 'ri-shield-check-fill' },
+    { value: 'Encrypted', label: 'Data', icon: 'ri-shield-check-fill' },
     { value: '24/7', label: 'Support', icon: 'ri-customer-service-fill' },
-    { value: '0%', label: 'Hidden Fees', icon: 'ri-money-dollar-circle-fill' },
+    { value: 'Transparent', label: 'Fees', icon: 'ri-money-dollar-circle-fill' },
     { value: 'Instant', label: 'Transfers', icon: 'ri-flashlight-fill' }
   ];
 

@@ -142,11 +142,15 @@ export default function PrivacyPage() {
             <ul className="list-disc list-inside space-y-2 ml-4">
               <li><strong>Essential Cookies:</strong> Required for the platform to function properly</li>
               <li><strong>Security Cookies:</strong> Help detect and prevent fraudulent activity</li>
-              <li><strong>Analytics Cookies:</strong> Help us understand how visitors use our platform</li>
+              <li><strong>Analytics Cookies:</strong> Help us understand how visitors use our platform (non-essential, used only with your consent)</li>
               <li><strong>Preference Cookies:</strong> Remember your settings and preferences</li>
             </ul>
             <p className="leading-relaxed mt-4">
-              You can control cookies through your browser settings, but disabling certain cookies may affect platform functionality.
+              Non-essential analytics and performance cookies are used only if you consent through
+              our cookie banner, and you can change your choice at any time. You can also control
+              cookies through your browser settings, but disabling certain cookies may affect
+              platform functionality. For more detail, see our{' '}
+              <Link to="/cookie-policy" className="text-lime-400 hover:underline">Cookie Policy</Link>.
             </p>
           </section>
 
@@ -168,6 +172,66 @@ export default function PrivacyPage() {
             </ul>
             <p className="leading-relaxed mt-4">
               To exercise these rights, please contact us using the information provided below. We will respond to your request within 30 days.
+            </p>
+          </section>
+
+          <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
+            <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
+              <i className="ri-map-pin-line text-lime-400"></i>
+              8a. Your California Privacy Rights (CCPA/CPRA)
+            </h2>
+            <p className="leading-relaxed mb-4">
+              If you are a California resident, the California Consumer Privacy Act, as amended by the
+              California Privacy Rights Act (CCPA/CPRA), provides you with specific rights regarding
+              your personal information:
+            </p>
+            <ul className="list-disc list-inside space-y-2 ml-4">
+              <li><strong>Right to know:</strong> Request the categories and specific pieces of personal information we have collected, the sources, the business purpose, and the categories of third parties with whom we share it.</li>
+              <li><strong>Right to delete:</strong> Request deletion of personal information we collected from you, subject to legal exceptions (for example, records we must keep for fraud prevention or legal compliance).</li>
+              <li><strong>Right to correct:</strong> Request correction of inaccurate personal information.</li>
+              <li><strong>Right to opt out:</strong> Opt out of any "sale" or "sharing" of personal information as those terms are defined under the CCPA/CPRA.</li>
+              <li><strong>Right to limit:</strong> Limit the use and disclosure of sensitive personal information to what is necessary to provide the service.</li>
+              <li><strong>Right to non-discrimination:</strong> You will not receive discriminatory treatment for exercising any of these rights.</li>
+            </ul>
+            <p className="leading-relaxed mt-4">
+              {/* [LEGAL REVIEW REQUIRED] Confirm whether CardXC "sells" or "shares" personal
+                  information as defined by CCPA/CPRA, and finalize the disclosure and opt-out
+                  mechanism (including any Global Privacy Control handling). */}
+              We do not sell your personal information for money. To the extent any data sharing with
+              analytics or advertising partners qualifies as a "sale" or "sharing" under California
+              law, you can opt out by rejecting non-essential cookies in our cookie banner and by
+              contacting us using the details below. You may also use an authorized agent to submit
+              a request on your behalf, and we will take reasonable steps to verify your identity.
+            </p>
+          </section>
+
+          <section className="bg-dark-card border border-dark-border rounded-2xl p-8">
+            <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
+              <i className="ri-earth-line text-lime-400"></i>
+              8b. Rights in the EEA and UK (GDPR)
+            </h2>
+            <p className="leading-relaxed mb-4">
+              If you are located in the European Economic Area (EEA) or the United Kingdom, the
+              General Data Protection Regulation (GDPR) and UK GDPR give you the following rights in
+              relation to your personal data:
+            </p>
+            <ul className="list-disc list-inside space-y-2 ml-4">
+              <li>Right of access, rectification, and erasure ("right to be forgotten")</li>
+              <li>Right to restrict processing and right to object to processing</li>
+              <li>Right to data portability</li>
+              <li>Right to withdraw consent at any time, where processing is based on consent</li>
+              <li>Right to lodge a complaint with your local supervisory authority</li>
+            </ul>
+            <p className="leading-relaxed mt-4">
+              {/* [LEGAL REVIEW REQUIRED] Confirm legal bases for each processing activity,
+                  international transfer mechanism (e.g., Standard Contractual Clauses), and whether
+                  an EU/UK representative or DPO must be designated. */}
+              We process personal data on legal bases that may include performance of a contract with
+              you, compliance with legal obligations (such as identity verification and
+              anti-money-laundering requirements), our legitimate interests in operating and securing
+              the platform, and your consent. Where we transfer data internationally, we use
+              appropriate safeguards. To exercise any of these rights, contact us using the details
+              below.
             </p>
           </section>
 

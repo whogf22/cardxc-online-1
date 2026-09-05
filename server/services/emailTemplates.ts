@@ -54,7 +54,7 @@ export function welcomeEmail(name: string): { subject: string; html: string } {
       <li>✅ Create virtual cards for secure online payments</li>
       <li>✅ Send and receive money instantly</li>
       <li>✅ Track your spending with insights</li>
-      <li>✅ Earn rewards on every transaction</li>
+      <li>✅ Earn rewards on eligible transactions</li>
     </ul>
     <div style="text-align: center;">
       <a href="${APP_URL}/dashboard" class="btn">Go to Dashboard</a>

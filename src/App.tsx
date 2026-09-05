@@ -14,6 +14,7 @@ import { LocaleProvider } from './components/LocaleProvider';
 import { AuthProvider } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { AIAssistant } from './components/AIAssistant';
+import { CookieConsentBanner } from './components/CookieConsentBanner';
 
 function App() {
   return (
@@ -41,6 +42,7 @@ function App() {
                         <AppRoutes />
                       </Suspense>
                       <AIAssistant />
+                      <CookieConsentBanner />
                     </AdminDomainGuard>
                   </SessionGuard>
                 </MaintenanceGate>
