@@ -48,7 +48,10 @@ attached_assets/
 .vscode/*
 !.vscode/extensions.json
 .idea
-.cursor
+.cursor/*
+!.cursor/environment.json
+!.cursor/skills/
+!.cursor/skills/**
 *.suo
 *.ntvs*
 *.njsproj
