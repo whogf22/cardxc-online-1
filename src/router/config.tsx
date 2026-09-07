@@ -4,6 +4,7 @@ import ProtectedRoute from '../components/ProtectedRoute';
 import AdminRoute from '../components/AdminRoute';
 
 const Home = lazy(() => import('../pages/home/page'));
+const About = lazy(() => import('../pages/about/page'));
 const HowItWorks = lazy(() => import('../pages/how-it-works/page'));
 const SignIn = lazy(() => import('../pages/signin/page'));
 const SignUp = lazy(() => import('../pages/signup/page'));
@@ -55,9 +56,10 @@ const CheckoutSimulatePage = lazy(() => import('../pages/checkout/CheckoutSimula
 
 const routes: RouteObject[] = [
   { path: '/', element: <Home /> },
+  { path: '/about', element: <About /> },
+  { path: '/support', element: <Support /> },
   { path: '/how-it-works', element: <HowItWorks /> },
   { path: '/rates', element: <Navigate to="/calculator" replace /> },
-  { path: '/about', element: <Navigate to="/#about" replace /> },
   { path: '/features', element: <Navigate to="/#features" replace /> },
   { path: '/features/:featureId', element: <FeatureDetail /> },
   { path: '/calculator', element: <Calculator /> },
@@ -137,10 +139,6 @@ const routes: RouteObject[] = [
   {
     path: '/notifications',
     element: <ProtectedRoute><Notifications /></ProtectedRoute>,
-  },
-  {
-    path: '/support',
-    element: <ProtectedRoute><Support /></ProtectedRoute>,
   },
   {
     path: '/payments',
