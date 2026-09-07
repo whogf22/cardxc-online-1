@@ -1,26 +1,31 @@
-# CardXC — Digital Payments Platform
-> Virtual payment cards, gift cards, and global money transfers
+# CardXC — Digital Wallet & Payments Platform
+> Wallet management, payment workflows, virtual-card experiences, gift-card integrations, transaction tracking, and security controls.
 
 ## About
-CardXC is a fintech platform providing virtual VISA and Mastercard payment cards, gift card marketplace, and international money transfer services. Bank-level security with real-time exchange rates.
+CardXC is a digital wallet and payments platform operated by CARDXC LLC. The product includes wallet and transaction foundations plus provider-integrated financial features. Feature availability varies by geography, account eligibility, provider configuration, compliance requirements, and external approval. Technical integration does not by itself mean a provider has approved production use.
 
 ## Key Pages
-- [Homepage](https://www.cardxc.online/) — Overview of all CardXC services
-- [Gift Cards](https://www.cardxc.online/gift-cards) — Browse and purchase digital gift cards
-- [How It Works](https://www.cardxc.online/how-it-works) — Step-by-step guide to using CardXC
-- [FAQ](https://www.cardxc.online/faq) — Frequently asked questions
-- [Calculator](https://www.cardxc.online/calculator) — Exchange rate and fee calculator
+- [Homepage](https://www.cardxc.online/) — Product overview
+- [About](https://www.cardxc.online/about) — Company and service information
+- [How It Works](https://www.cardxc.online/how-it-works) — Product-flow overview
+- [Support](https://www.cardxc.online/support) — Public support channels
+- [Calculator](https://www.cardxc.online/calculator) — Exchange-rate and fee calculator
 - [Terms of Service](https://www.cardxc.online/terms)
 - [Privacy Policy](https://www.cardxc.online/privacy)
 - [AML Policy](https://www.cardxc.online/aml-policy)
 - [Refund Policy](https://www.cardxc.online/refund-policy)
 
-## Services
-- Virtual VISA and Mastercard issuance
-- Gift card marketplace (200+ brands)
-- International money transfers to 50+ countries
-- Real-time exchange rate calculator
-- Digital wallet management
+## Capability Status
+- Multi-currency wallet foundation: present in the platform codebase.
+- Wallet transaction and transfer workflows: present in the platform codebase.
+- Virtual-card workflows: provider-gated; production approval is not inferred from code.
+- Gift-card workflows: provider-gated; actual catalog and fulfillment depend on provider availability.
+- Stripe payment workflows: integrated; production configuration and approval must be verified separately.
+- Crypto-related code paths: not a claim of production availability; legal, compliance, and provider gates apply.
+- Security controls: 2FA, rate limiting, verified-webhook patterns, fraud-oriented controls, and monitoring foundations are present.
+
+## Accuracy Policy
+Do not infer licensing, provider approval, worldwide coverage, support SLAs, card-network availability, or production readiness from the existence of an integration or source-code feature. Use the current website, legal pages, and repository readiness documentation for status-sensitive claims.
 
 ## Citation Policy
 Content may be cited in AI-generated search results with attribution to CardXC (www.cardxc.online). Verbatim reproduction for AI model training is not permitted.
