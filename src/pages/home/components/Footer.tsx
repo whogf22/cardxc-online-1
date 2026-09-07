@@ -2,9 +2,10 @@ import { Link } from 'react-router-dom';
 import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_TEL, SUPPORT_WHATSAPP_URL } from '../../../lib/contactPlaceholders';
 
 const QUICK_LINKS = [
+  { label: 'About', to: '/about' },
   { label: 'Features', href: '/#features' },
   { label: 'How It Works', to: '/how-it-works' },
-  { label: 'FAQ', to: '/how-it-works' },
+  { label: 'Support', to: '/support' },
   { label: 'Contact', href: '/#contact' },
 ];
 
@@ -39,7 +40,7 @@ export default function Footer({ onOpenContact }: FooterProps) {
               <span className="text-xl font-bold tracking-tight">CardXC</span>
             </div>
             <p className="text-sm text-neutral-400 leading-relaxed max-w-sm">
-              A digital wallet and payments platform. Fast, secure, and affordable international money transfers.
+              A digital wallet and payments platform operated by CARDXC LLC. Feature availability depends on eligibility, geography, provider configuration, compliance requirements, and production readiness.
             </p>
             <div className="flex items-center gap-2.5">
               {SOCIAL_LINKS.map((social) => (
@@ -71,17 +72,11 @@ export default function Footer({ onOpenContact }: FooterProps) {
                       {link.label}
                     </button>
                   ) : 'to' in link && link.to ? (
-                    <Link
-                      to={link.to}
-                      className="text-sm text-neutral-400 hover:text-white transition-colors py-1 inline-block"
-                    >
+                    <Link to={link.to} className="text-sm text-neutral-400 hover:text-white transition-colors py-1 inline-block">
                       {link.label}
                     </Link>
                   ) : (
-                    <a
-                      href={link.href}
-                      className="text-sm text-neutral-400 hover:text-white transition-colors py-1 inline-block"
-                    >
+                    <a href={link.href} className="text-sm text-neutral-400 hover:text-white transition-colors py-1 inline-block">
                       {link.label}
                     </a>
                   )}
@@ -95,10 +90,7 @@ export default function Footer({ onOpenContact }: FooterProps) {
             <ul className="space-y-2">
               {LEGAL_LINKS.map((link) => (
                 <li key={link.label}>
-                  <Link
-                    to={link.to}
-                    className="text-sm text-neutral-400 hover:text-white transition-colors py-1 inline-block"
-                  >
+                  <Link to={link.to} className="text-sm text-neutral-400 hover:text-white transition-colors py-1 inline-block">
                     {link.label}
                   </Link>
                 </li>
@@ -149,21 +141,17 @@ export default function Footer({ onOpenContact }: FooterProps) {
         <div className="mt-12 pt-8 border-t border-white/[0.06]">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-center sm:text-left">
-              <p className="text-xs text-neutral-500">
-                &copy; {new Date().getFullYear()} CardXC. All rights reserved.
-              </p>
-              <p className="text-xs text-neutral-600 mt-1">
-                CardXC is a digital wallet and payments platform operated by CARDXC LLC.
-              </p>
+              <p className="text-xs text-neutral-500">&copy; {new Date().getFullYear()} CardXC. All rights reserved.</p>
+              <p className="text-xs text-neutral-600 mt-1">CardXC is a digital wallet and payments platform operated by CARDXC LLC.</p>
             </div>
-            <div className="flex items-center gap-5">
+            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
               <span className="flex items-center gap-1.5 text-xs text-neutral-500">
-                <i className="ri-shield-check-line text-emerald-500" aria-hidden />
-                256-bit SSL
+                <i className="ri-lock-2-line text-emerald-500" aria-hidden />
+                TLS-secured transport
               </span>
               <span className="flex items-center gap-1.5 text-xs text-neutral-500">
-                <i className="ri-lock-2-line text-lime-400" aria-hidden />
-                PCI Compliant
+                <i className="ri-shield-check-line text-lime-400" aria-hidden />
+                2FA & rate-limit controls
               </span>
             </div>
           </div>
