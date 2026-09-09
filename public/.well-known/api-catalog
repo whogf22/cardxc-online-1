@@ -1,0 +1,25 @@
+{
+  "linkset": [
+    {
+      "anchor": "https://api.cardxc.online/api",
+      "service-desc": [
+        {
+          "href": "https://www.cardxc.online/openapi-public.json",
+          "type": "application/json"
+        }
+      ],
+      "service-doc": [
+        {
+          "href": "https://www.cardxc.online/llms.txt",
+          "type": "text/plain"
+        }
+      ],
+      "status": [
+        {
+          "href": "https://api.cardxc.online/api/health",
+          "type": "application/json"
+        }
+      ]
+    }
+  ]
+}

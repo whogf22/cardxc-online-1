@@ -1,0 +1,40 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "CardXC Public Status API",
+    "version": "1.0.0",
+    "description": "Read-only public API surface intentionally limited to service health. Financial and account APIs are not advertised here."
+  },
+  "servers": [
+    {
+      "url": "https://api.cardxc.online",
+      "description": "CardXC API origin"
+    }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "summary": "Service health",
+        "operationId": "getPublicHealth",
+        "responses": {
+          "200": {
+            "description": "Service is responding",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string" },
+                    "timestamp": { "type": "string", "format": "date-time" },
+                    "uptime": { "type": "integer" }
+                  },
+                  "required": ["status", "timestamp", "uptime"]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

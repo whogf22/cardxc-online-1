@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "cardxc-public-info",
+      "type": "skill-md",
+      "description": "Read CardXC public information, policies, and discovery resources without performing financial actions.",
+      "url": "/.well-known/agent-skills/cardxc-public-info/SKILL.md",
+      "digest": "sha256:9df22dd02d6b3792d12392888b9a782b79d2cf7c3af3af31bac164768f6867d1"
+    }
+  ]
+}

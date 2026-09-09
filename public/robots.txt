@@ -57,4 +57,7 @@ Disallow: /
 User-agent: Bytespider
 Disallow: /
 
+# Agentic Resource Discovery
+Agentmap: https://www.cardxc.online/.well-known/ard.json
+
 Sitemap: https://www.cardxc.online/sitemap.xml
