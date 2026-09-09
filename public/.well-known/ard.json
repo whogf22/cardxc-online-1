@@ -1,0 +1,34 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "CardXC",
+    "documentationUrl": "https://www.cardxc.online/llms.txt"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:cardxc.online:skill:cardxc-public-info",
+      "displayName": "CardXC Public Info",
+      "type": "application/ai-skill+md",
+      "url": "https://www.cardxc.online/.well-known/agent-skills/cardxc-public-info/SKILL.md",
+      "description": "Read-only guidance for understanding CardXC public information and policies.",
+      "capabilities": ["PublicInfo", "Policies", "ReadOnly"],
+      "representativeQueries": [
+        "What does CardXC publicly say about how it works?",
+        "Show me CardXC's published privacy, refund, or AML information.",
+        "What public AI discovery resources does CardXC provide?"
+      ]
+    },
+    {
+      "identifier": "urn:air:cardxc.online:api:public-status",
+      "displayName": "CardXC Public Status API",
+      "type": "application/linkset+json",
+      "url": "https://www.cardxc.online/.well-known/api-catalog",
+      "description": "Discovery entry for CardXC's intentionally limited public status API surface.",
+      "capabilities": ["ServiceHealth", "ReadOnly"],
+      "representativeQueries": [
+        "Is the CardXC API service responding?",
+        "Where is CardXC's public API description?"
+      ]
+    }
+  ]
+}
